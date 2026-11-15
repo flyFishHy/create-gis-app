@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import LegendEditor from '../src/components/LegendEditor.vue'
 import type { LegendEditValue } from '../src/components/legend-editor-types.js'
 
@@ -18,12 +19,37 @@ it('edits enum drafts with native color controls and preserves full style; reset
     await wrapper.get('form').trigger('submit')
     const value = wrapper.emitted('submit')![0]![0] as LegendEditValue
     expect(value.style).toEqual({ ...style, fillColor: '#00ff00' })
-    expect(value.legend?.items?.[0]).toMatchObject({ label: 'Renamed', value: 'a' })
+    expect(value.legend?.items?.[0]).toMatchObject({ label: 'Renamed', values: ['a'] })
     expect(legend.items[0]!.label).toBe('One')
     expect(style.fillColor).toBe('#0000ff')
     await wrapper.get('button[aria-label="Close"]').trigger('click')
     expect(wrapper.emitted('cancel')).toHaveLength(1)
-    expect(wrapper.get('button[title="More settings coming soon"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('input[name="legendTitle"]').exists()).toBe(false)
+    expect(wrapper.find('select[name="legendType"]').exists()).toBe(false)
+  } finally { wrapper.unmount() }
+})
+
+it('edits grouped values through a multi-select, keeps titles/type fixed and protects other groups', async () => {
+  const original = { type: 'category' as const, title: 'Legend label', field: 'kind', items: [
+    { id: 'a', label: 'Cities', values: ['urban', 'suburban'], color: '#00ff00' },
+    { id: 'b', label: 'Regions', values: ['regional'], color: '#ff0000' },
+  ] }
+  const wrapper = mount(LegendEditor, { props: { title: 'Sampling sites', legend: original, fields: [{ name: 'kind', type: 'string' }], getFieldValues: () => ['urban', 'suburban', 'regional', 'new'] }, attachTo: document.body })
+  try {
+    expect(wrapper.get('h3').text()).toBe('Sampling sites')
+    expect(wrapper.find('input[name="legendTitle"]').exists()).toBe(false)
+    expect(wrapper.find('[name="legendType"]').exists()).toBe(false)
+    await wrapper.get('[aria-label="Matching values 1"]').trigger('click')
+    expect(document.querySelector('[role="option"][aria-label="regional"]')?.getAttribute('aria-disabled')).toBe('true')
+    document.querySelector<HTMLElement>('[role="option"][aria-label="new"]')!.click(); await nextTick()
+    document.querySelector<HTMLInputElement>('.gis-ui-multi-search input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await nextTick()
+    await wrapper.get('form').trigger('submit')
+    const value = wrapper.emitted('submit')![0]![0] as LegendEditValue
+    expect(value.legend?.items?.[0]?.values).toEqual(['urban', 'suburban', 'new'])
+    expect(value.legend?.title).toBe('Legend label')
+    expect(original.items[0]?.values).toEqual(['urban', 'suburban'])
+    await wrapper.get('button[aria-label="Reset"]').trigger('click')
+    expect(wrapper.get('[aria-label="Matching values 1"]').attributes('title')).toBe('urban, suburban')
   } finally { wrapper.unmount() }
 })
 

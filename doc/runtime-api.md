@@ -273,8 +273,12 @@ await app.layers.update('population', {
 })
 ```
 
-Category rules use legend.field and items[].value (string, finite number or boolean,
-strict typed equality). Duplicate matching values are invalid. Interval rules use
+Category rules use legend.field and non-empty items[].values arrays (string, finite
+number or boolean, strict typed equality). One item groups one or more matching
+values under the same label/color. Duplicates within or across groups are invalid;
+1 and "1" remain distinct. Legacy value input normalizes to [value]; supplying both
+forms is invalid. Parsed config and runtime legends expose canonical values arrays.
+Interval rules use
 ranges[] with stable id/min/max/color and optional label/includeMax. They are
 left-closed/right-open by default; includeMax explicitly closes an upper boundary.
 Ranges must have finite min < max, unique IDs and no overlap, including closed shared
@@ -285,6 +289,12 @@ the base style. Time filtering composes with classification.
 
 LayerInstance.getFields() reads current scalar GeoJSON properties through the
 optional handle.getFields hook, returning name/type descriptors, not raw features.
+LayerInstance.getFieldValues(field) delegates to an optional handle capability and
+returns frozen, deduplicated scalar values from the currently loaded GeoJSON source,
+including values outside the view or time filter and hidden layers. Data updates
+refresh candidates on the next read. Unsupported/empty/disposed layers return [].
+Candidate arrays are not cached in AppState. The OL adapter builds an enum lookup
+when rules change rather than scanning every group for each rendered feature.
 Fieldless legacy legends remain presentation definitions; single useLayerStyle
 category entries derive their color from the base style. Continuous/image legends
 retain their presentation behavior. Classification is implemented for category and

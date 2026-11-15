@@ -4,7 +4,7 @@ import type { LayerInstance, LayerLegend, LayerStyle } from '@joinmap/gis-core'
 import { useAppState } from '../use-app-state.js'
 import { useGISUI } from '../use-gis-ui.js'
 import Legend from '../components/Legend.vue'
-import SvgIcon from '../components/SvgIcon.vue'
+import LegendAction from '../components/LegendAction.vue'
 import LayerEditor from './LayerEditor.vue'
 import { useGISApp } from '../use-gis-app.js'
 const snapshot = useAppState()
@@ -40,12 +40,12 @@ async function reset(layer: LayerInstance) {
       <LayerEditor v-if="editing?.id === state.id" :layer="editing" @close="editing = undefined" />
       <Legend v-else class="gis-ui-legend-card" :definitions="state.legend ? [state.legend] : []"
         :titles="{ [state.id]: state.title ?? state.id }" :styles="instance.style ? { [state.id]: instance.style } : {}"
-        :symbols="{ [state.id]: symbol(instance) }" :type-labels="types" :default-text="ui.locale.t('editor.default')">
+        :symbols="{ [state.id]: symbol(instance) }" :type-labels="types" :default-text="ui.locale.t('editor.default')" :field-label="ui.locale.t('editor.field')" :uniform-text="ui.locale.t('editor.uniform')">
         <template #group-actions>
           <div class="gis-ui-legend-card-actions">
-            <button type="button" class="gis-ui-icon-button gis-ui-legend-edit" :aria-label="ui.locale.t('layer.editStyle') + ' ' + state.title" :title="ui.locale.t('layer.editStyle')" @click="editing = instance"><SvgIcon name="edit" :size="14" /></button>
-            <button type="button" :aria-label="ui.locale.t('editor.reset') + ' ' + state.title" :title="ui.locale.t('editor.reset')" @click="reset(instance)">↺</button>
-            <button type="button" :aria-label="ui.locale.t('editor.close') + ' ' + state.title" :title="ui.locale.t('editor.close')" @click="closed.add(instance)">×</button>
+            <LegendAction class="gis-ui-legend-edit" icon="edit" :label="ui.locale.t('layer.editStyle') + ' ' + state.title" @click="editing = instance" />
+            <LegendAction icon="reset" :label="ui.locale.t('editor.reset') + ' ' + state.title" @click="reset(instance)" />
+            <LegendAction icon="close" :label="ui.locale.t('editor.close') + ' ' + state.title" @click="closed.add(instance)" />
           </div>
         </template>
       </Legend>

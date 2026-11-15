@@ -251,34 +251,48 @@ has no heading. This remains outside custom feature renderers.
 
 Each Legend group opens the connected LayerEditor within the legend panel.
 LayerManager has no legend/style editor entry. LayerEditor wraps the independent
-LegendEditor. Uniform map fill/stroke/
-width/radius, legend title, labels, standalone swatches, existing-item order and
-legend presence can be edited. Opt-in single-category useLayerStyle derives its
-swatch from the map style; the editor disables that derived color field. Other
-legend swatches/stops are presentation-only, not classified render rules or filters.
-Image legends only offer title/presence edits. Applying sends the complete style
-plus legend in one version-checked update; cancelling changes no Runtime state.
+LegendEditor, submitting complete base style and legend together in one
+version-checked update. Cancelling changes no Runtime state. Titles and legend
+type are fixed in this editor. Category/interval colors drive map classification;
+fieldless single-category swatches edit the uniform base color. Detailed symbol
+sizes and remote/image-style editing are not exposed by this compact form.
 External updates require reload, deletion or ID replacement blocks submission,
 and failures preserve the draft. The separate properties panel still shows features.
-Runtime edits do not automatically save appConfig.json. Classification/filtering
-and remote-style editing remain separate future capabilities.
+Runtime edits do not automatically save appConfig.json. Feature filtering and
+remote-style editing remain separate capabilities.
 
 ## Inline legend cards
 
-LegendPanel renders one card per visible layer legend. Each card displays its title,
-localized category/interval badge, geometry-appropriate swatches (line, fill, point)
-and the default color. Edit switches that card in place; other cards remain visible.
-The form edits title, type, field and category values/labels or interval boundaries.
+LegendPanel renders one card per visible layer legend. The header uses the layer
+title in both modes, fixed type SVG with localized Tooltip, and SVG actions.
+A compact Metric row below displays legend.field as text; editing replaces only
+that value with a field selector. Fieldless legends display Uniform style.
+Geometry-appropriate swatches (line, fill, point) and default colors remain.
+Edit switches that card in place; other cards remain visible.
+The form edits metric, grouped category values/labels or explicit interval boundaries.
 Colors use native color pickers; rows can be added/deleted. Save validates and submits
 top-level style and legend together; reset restores the current edit baseline; close
 cancels. In viewing mode reset restores the card's first loaded definition and close
 hides it locally; Show closed legends restores these cards without changing layers.
 
-LegendEditor accepts optional fields/symbol props. Bound categories expose typed
+LegendEditor accepts optional fields/symbol/getFieldValues props. The latter is a
+lazy synchronous callback, provided by LayerEditor from the public layer capability;
+standalone users can supply their own candidates. Bound categories expose typed
 matching values; intervals sort ascending on save and reject invalid/overlapping
 ranges. Default color edits the base layer style. A fieldless single category edits
-the uniform style; multiple categories require a field. More is a disabled placeholder
-for future polygon borders / line settings. No advanced dialog is implemented.
+the uniform style; multiple categories require a field. No unused More control or
+advanced symbol dialog is displayed.
 External updates require reload; deletion or same-ID replacement cannot receive an
-old draft. Independent Legend adds styles/symbols/typeLabels/defaultText props;
+old draft. Independent Legend adds styles/symbols/typeLabels/defaultText/fieldLabel/
+uniformText props;
 it renders ranges directly using their actual boundary notation.
+
+`GisMultiSelect` is independently usable with typed scalar `modelValue[]`,
+`options: { value, label, disabled?, hint? }[]` and `update:modelValue`. It supports
+search, continuous selection, clear, Escape/arrow/Enter navigation and missing
+selected values. The first selected label plus +N keeps trigger width stable.
+Only the first 100 search matches are rendered, with a visible count; search still
+covers all supplied candidates. LegendEditor disables values assigned to other
+groups. Menus escape scroll clipping, inherit theme variables, open upward when
+needed, and remove global listeners on close/unmount. GisSelect's opt-in floating
+mode is used by the metric selector; existing single-select behavior remains.

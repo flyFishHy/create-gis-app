@@ -94,12 +94,18 @@ await app.layers.update(layerId, {
 ## 枚举/区间图例卡片实施修订（取代以上旧阶段计划）
 
 style 已从 options 提升到图层顶层，与 legend 同级；旧 options.style 拒绝并给出迁移提示。
-category 绑定 field 和严格类型的 items[].value；interval 绑定 field 与 ranges[]。
+category 绑定 field 和严格类型的 items[].values 数组，一组包含一个或多个值并共用颜色、
+名称。跨组和组内禁止重复；旧 value 归一化为 [value]，同时填写两者报错。
+interval 绑定 field 与 ranges[]。
 区间默认 [min,max)，includeMax 可显式闭合末端；拒绝重叠与无效上下限，允许空缺。
 地图与图例共用规则色，默认颜色来自基础 style，线覆盖描边、点面覆盖填充。
 独立 Legend 渲染真实区间与默认色，LegendPanel 每层原位编辑。
 编辑态颜色选择器、枚举/区间行、删除、新增、保存/重置/关闭已接入；
-更多按钮禁用预留，详细符号弹窗暂不实现。取消/重置不提交，保存通过
+不显示更多占位按钮，详细符号弹窗暂不实现。取消/重置不提交，保存通过
 expectedVersion 检测外部更新和实例替换；查看态重置回初始卡片值，关闭只隐藏卡片。
 字段描述通过公开 LayerInstance.getFields 获取，不在 UI 导入 OL。
+候选值通过 LayerInstance.getFieldValues(field) 按需读取，不写入快照。编辑器使用
+通用 GisMultiSelect，保留值类型并提示当前数据未出现的已选值，禁止选择其他组占用值。
+主标题使用图层 title 且不可修改，指标行查看只读、编辑可选；类型仅 SVG 标识。
+规则使用响应式 Grid，区间包含明确开闭边界，操作统一 SVG 和 Tooltip。
 本修订替代上文“分类未实现”、完整 options.style 提交及整面板编辑视图的旧说明。

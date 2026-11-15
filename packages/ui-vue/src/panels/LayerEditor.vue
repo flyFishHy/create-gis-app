@@ -24,7 +24,7 @@ function read() {
 const base = shallowRef(read())
 const alive = computed(() => { void snapshot.value; return app.layers.get(props.layer.id) === props.layer && props.layer.status !== 'disposed' })
 const conflict = computed(() => { void snapshot.value; return alive.value && JSON.stringify(read()) !== JSON.stringify(base.value) })
-const keys = ['title', 'item', 'color', 'category', 'interval', 'continuous', 'image', 'field', 'value', 'default', 'add', 'remove', 'reset', 'save', 'cancel', 'more', 'pending', 'invalid', 'min', 'max', 'valueType']
+const keys = ['title', 'item', 'color', 'category', 'interval', 'continuous', 'image', 'field', 'value', 'default', 'add', 'remove', 'reset', 'save', 'cancel', 'invalid', 'min', 'max', 'uniform', 'search', 'clear', 'empty', 'missing', 'used', 'inclusive']
 const labels = computed(() => ({ ...Object.fromEntries(keys.map(key => [key, ui.locale.t(`editor.${key}`)])), cancel: ui.locale.t('editor.close') }))
 function reload() { base.value = read(); editorKey.value++; error.value = '' }
 async function submit(value: LegendEditValue) {
@@ -45,7 +45,7 @@ async function submit(value: LegendEditValue) {
     <template v-else>
       <div v-if="conflict && !saving" class="gis-ui-editor-conflict" role="alert">{{ ui.locale.t('editor.conflict') }}<button type="button" @click="reload">{{ ui.locale.t('editor.reload') }}</button></div>
       <LegendEditor :key="editorKey" :legend="base.legend" :layer-style="base.style" :title="layer.title || layer.id"
-        :fields="layer.getFields()" :symbol="/LineString$/.test(String(layer.getMetadata().geometryType)) ? 'line' : /Point$/.test(String(layer.getMetadata().geometryType)) ? 'circle' : 'fill'"
+        :fields="layer.getFields()" :get-field-values="field => layer.getFieldValues(field)" :symbol="/LineString$/.test(String(layer.getMetadata().geometryType)) ? 'line' : /Point$/.test(String(layer.getMetadata().geometryType)) ? 'circle' : 'fill'"
         :labels="labels" :saving="saving" :blocked="conflict" :error="error" @submit="submit" @cancel="emit('close')" />
     </template>
   </div>

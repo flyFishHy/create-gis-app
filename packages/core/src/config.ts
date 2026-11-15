@@ -10,9 +10,8 @@ export function normalizeConfig(config: unknown): Readonly<GISAppConfig> {
 
   const seen = new WeakSet<object>()
   validateJsonValue(config, '$', seen)
-  validateGISShape(config)
-
   const clone = JSON.parse(JSON.stringify(config)) as GISAppConfig
+  validateGISShape(clone)
   return deepFreeze(clone)
 }
 
@@ -57,7 +56,11 @@ function validateGISShape(config: Record<string, unknown>): void {
       if (ids.has(item.id)) throw configError(`Layer id "${item.id}" is duplicated.`, `${path}.id`)
       ids.add(item.id)
       if (typeof item.type !== 'string' || !item.type.trim()) throw configError('Layer type must be a non-empty string.', `${path}.type`)
-      if (item.legend !== undefined) normalizeLayerLegend(item.legend as LayerLegend, item.id, `${path}.legend`)
+      if (item.legend !== undefined) {
+        const original = item.legend as LayerLegend
+        const { id, layerId: _layerId, ...legend } = normalizeLayerLegend(original, item.id, `${path}.legend`)
+        item.legend = { ...legend, ...(original.id === undefined ? {} : { id }) }
+      }
       if (item.style !== undefined) normalizeLayerStyle(item.style as LayerStyle, `${path}.style`)
       if (isPlainObject(item.options) && item.options.style !== undefined) throw configError('Move options.style to layer.style.', `${path}.options.style`)
       if (item.children !== undefined) {
@@ -108,6 +111,9 @@ export function normalizeLayerLegend(value: LayerLegend, layerId: string, path =
     if (item.symbol !== undefined && !['fill', 'line', 'circle', 'square'].includes(String(item.symbol))) throw configError('Invalid legend symbol.', itemPath)
     if (item.visible !== undefined && typeof item.visible !== 'boolean') throw configError('visible must be boolean.', itemPath)
     if (item.value !== undefined && !['string', 'number', 'boolean'].includes(typeof item.value)) throw configError('Category value must be scalar.', itemPath)
+    if (item.value !== undefined && item.values !== undefined) throw configError('Use values or legacy value, not both.', itemPath)
+    if (item.values !== undefined && (!Array.isArray(item.values) || !item.values.length || item.values.some(value => !['string', 'number', 'boolean'].includes(typeof value)))) throw configError('Category values must be a non-empty scalar array.', itemPath)
+    if (Array.isArray(item.values) && new Set(item.values.map(value => JSON.stringify(value))).size !== item.values.length) throw configError('Duplicate category value.', itemPath)
   }
   if (value.items !== undefined) {
     if (!Array.isArray(value.items)) throw configError('items must be an array.', path)
@@ -118,10 +124,13 @@ export function normalizeLayerLegend(value: LayerLegend, layerId: string, path =
   if (value.field && value.type === 'category') {
     const seen = new Set<string>()
     for (const item of value.items ?? []) {
-      if (item.value === undefined) throw configError('Bound categories require matching values.', `${path}.items`)
-      const key = JSON.stringify(item.value)
-      if (seen.has(key)) throw configError('Duplicate category value.', `${path}.items`)
-      seen.add(key)
+      const values = item.values ?? (item.value === undefined ? [] : [item.value])
+      if (!values.length) throw configError('Bound categories require non-empty matching values.', `${path}.items`)
+      for (const value of values) {
+        const key = JSON.stringify(value)
+        if (seen.has(key)) throw configError('Duplicate category value.', `${path}.items`)
+        seen.add(key)
+      }
     }
   }
   if (value.ranges !== undefined) {
@@ -138,7 +147,11 @@ export function normalizeLayerLegend(value: LayerLegend, layerId: string, path =
     if (sorted.some((range, index) => index > 0 && (range.min < sorted[index - 1]!.max || (range.min === sorted[index - 1]!.max && sorted[index - 1]!.includeMax)))) throw configError('Legend ranges must not overlap.', `${path}.ranges`)
   }
   if (value.stops !== undefined && (!Array.isArray(value.stops) || value.stops.some(stop => !isPlainObject(stop) || typeof stop.value !== 'number' || !Number.isFinite(stop.value) || typeof stop.color !== 'string' || (stop.label !== undefined && typeof stop.label !== 'string')))) throw configError('Invalid legend stops.', `${path}.stops`)
-  return deepFreeze(JSON.parse(JSON.stringify({ ...value, id: value.id ?? layerId, layerId })) as LegendDefinition)
+  const normalizeItem = ({ value: legacy, ...item }: import('./types.js').LegendItem) => legacy === undefined ? item : { ...item, values: [legacy] }
+  return deepFreeze(JSON.parse(JSON.stringify({ ...value, id: value.id ?? layerId, layerId,
+    ...(value.items ? { items: value.items.map(normalizeItem) } : {}),
+    ...(value.noData ? { noData: normalizeItem(value.noData) } : {}),
+  })) as LegendDefinition)
 }
 
 export function normalizeLayerStyle(value: LayerStyle, path = 'style'): LayerStyle {

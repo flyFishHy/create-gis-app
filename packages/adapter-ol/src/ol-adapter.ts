@@ -250,6 +250,10 @@ class OLMapAdapter implements MapAdapter {
         }
         return [...fields].map(([name, type]) => ({ name, type }))
       }
+      handle.getFieldValues = field => [...new Set(vectorSource.getFeatures().flatMap(feature => {
+        const value: unknown = feature.get(field)
+        return typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value)) ? [value] : []
+      }))]
       handle.getTimeFilter = () => timeFilter && { ...timeFilter }
       handle.setTimeFilter = filter => {
         if (filter) {
@@ -335,6 +339,7 @@ class OLMapAdapter implements MapAdapter {
     let featureFilter: ((feature: Feature) => boolean) | undefined
     let vectorStyle: Style
     const colors = new Map<string, Style>()
+    const enumColors = new Map<import('@joinmap/gis-core').LegendValue, string | undefined>()
     const makeStyle = (options: typeof defaults) => {
       const fill = new Fill({ color: options.fillColor })
       const stroke = new Stroke({ color: options.strokeColor, width: options.strokeWidth })
@@ -356,7 +361,7 @@ class OLMapAdapter implements MapAdapter {
       const value: unknown = feature.get(legend.field)
       let color: string | undefined
       if (value === null || value === undefined) color = legend.noData?.color
-      else if (legend.type === 'category') color = legend.items?.find(item => item.value === value)?.color
+      else if (legend.type === 'category') color = enumColors.get(value as import('@joinmap/gis-core').LegendValue)
       else if (legend.type === 'interval' && typeof value === 'number' && Number.isFinite(value)) {
         color = legend.ranges?.find(range => value >= range.min && (value < range.max || (range.includeMax && value === range.max)))?.color
       }
@@ -371,6 +376,8 @@ class OLMapAdapter implements MapAdapter {
       if (!(layer instanceof VectorLayer)) return
       vectorStyle = makeStyle(styleOptions)
       colors.clear()
+      enumColors.clear()
+      if (legend?.type === 'category') for (const item of legend.items ?? []) for (const value of item.values ?? []) enumColors.set(value, item.color)
       layer.setStyle(legend?.field || featureFilter
         ? feature => feature instanceof Feature ? featureStyle(feature) : undefined
         : vectorStyle)

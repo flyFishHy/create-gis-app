@@ -52,6 +52,11 @@ class LayerInstanceImpl implements LayerInstance {
   get title(): string | undefined { return this.currentTitle }
   get style(): LayerStyle | undefined { return this.handle.getStyle?.() ?? this.currentStyle }
   getFields() { return this.handle.getFields?.() ?? [] }
+  getFieldValues(field: string) {
+    if (this.currentStatus === 'disposed') return []
+    return Object.freeze([...new Set((this.handle.getFieldValues?.(field) ?? []).filter(value =>
+      typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))))])
+  }
   get version(): number { return this.currentVersion }
   get status(): LayerInstance['status'] { return this.currentStatus }
   get visible(): boolean { return this.currentVisible }
@@ -220,7 +225,7 @@ export class LayerServiceImpl implements LayerService {
   }
 
   private async createLayer(config: LayerConfig): Promise<LayerInstance> {
-    if (config.legend !== undefined) normalizeLayerLegend(config.legend, config.id)
+    if (config.legend !== undefined) config = { ...config, legend: normalizeLayerLegend(config.legend, config.id) }
     if (config.style !== undefined) normalizeLayerStyle(config.style)
     if (config.options?.style !== undefined) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Move options.style to layer.style.', stage: 'layer-create' })
     if (config.type === 'GROUP') return this.addGroup(config)

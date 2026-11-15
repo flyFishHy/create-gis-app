@@ -155,7 +155,8 @@
 .gis-ui-select-option + .gis-ui-select-option { margin-top: 2px; }
 .gis-ui-select-option.is-selected { background: color-mix(in srgb, var(--gis-ui-primary) 12%, var(--gis-ui-surface-elevated)); color: var(--gis-ui-primary); font-weight: 600; }
 .gis-ui-select-option.is-active { border-color: color-mix(in srgb, var(--gis-ui-primary) 35%, var(--gis-ui-border)); background: var(--gis-ui-hover); }
-.gis-ui-select-check { flex: 0 0 14px; color: var(--gis-ui-primary); text-align: center; }
+.gis-ui-select-check { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; color: var(--gis-ui-primary); text-align: center; }
+.gis-ui-select-menu { font-size: 12px; }
 
 // Search.
 .gis-ui-search {

@@ -32,9 +32,11 @@ it('renders typed categories and half-open intervals from the same legend rules 
     }
     expect(features.map((_, index) => color(index))).toEqual(['#ff0000', '#00ff00', '#888888', '#888888', '#888888'])
     await app.layers.update('rules', { legend: { type: 'category', field: 'value', items: [
-      { id: 'number', value: 100, label: 'Number', color: '#0000ff' }, { id: 'string', value: '100', label: 'String', color: '#ffff00' },
+      { id: 'number', values: [100, 200], label: 'Number', color: '#0000ff' }, { id: 'string', value: '100', label: 'String', color: '#ffff00' },
     ] } })
-    expect(color(1)).toBe('#0000ff'); expect(color(4)).toBe('#ffff00')
+    expect(color(1)).toBe('#0000ff'); expect(color(2)).toBe('#0000ff'); expect(color(4)).toBe('#ffff00')
+    expect(app.layers.get('rules')!.getFieldValues('value')).toEqual([0, 100, 200, '100'])
+    expect(Object.isFrozen(app.layers.get('rules')!.getFieldValues('value'))).toBe(true)
     await app.layers.update('rules', { style: { strokeColor: '#111111', strokeWidth: 5 } })
     expect(color(0)).toBe('#111111'); expect(color(1)).toBe('#0000ff')
     const before = app.layers.get('rules')!.version
@@ -46,6 +48,29 @@ it('renders typed categories and half-open intervals from the same legend rules 
     await expect(app.layers.add({ id: 'tiles', type: 'xyz', source: { url: '/tiles/{z}/{x}/{y}.png' },
       legend: { type: 'category', field: 'value', items: [] },
     })).rejects.toThrow()
+  } finally { await app.dispose() }
+})
+
+it('reads live typed field values independently of visibility and preserves grouped matches after data updates', async () => {
+  const app = createGISApp()
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const data = (values: (string | number | boolean | null)[]) => ({ type: 'FeatureCollection', features: values.map(value => ({ type: 'Feature', properties: { kind: value }, geometry: { type: 'Point', coordinates: [0, 0] } })) })
+  await app.init({ layers: [{ id: 'values', type: 'geojson', source: { type: 'inline', data: data(['urban', 'suburban', 'urban', false, 0, '0', null]) },
+    legend: { type: 'category', field: 'kind', items: [{ id: 'cities', label: 'Cities', values: ['urban', 'suburban'], color: '#123456' }] },
+  }] })
+  try {
+    const layer = app.layers.get('values')!
+    expect(layer.getFieldValues('kind')).toEqual(['urban', 'suburban', false, 0, '0'])
+    app.layers.setVisibility('values', false)
+    expect(layer.getFieldValues('kind')).toContain('suburban')
+    app.data.get('layer:values')!.update(data(['new', 'suburban']))
+    expect(layer.getFieldValues('kind')).toEqual(['new', 'suburban'])
+    expect(app.context.state.snapshot().layers[0]?.legend?.items?.[0]?.values).toEqual(['urban', 'suburban'])
+    expect(app.context.state.snapshot().layers[0]?.metadata).not.toHaveProperty('fieldValues')
+    const vector = useOLMap(app).getLayers().item(0) as VectorLayer<VectorSource>
+    const styles = vector.getStyleFunction()!(vector.getSource()!.getFeatures()[1]!, 1)
+    const style = Array.isArray(styles) ? styles[0]! : styles as import('ol/style/Style.js').default
+    expect(style.getFill()!.getColor()).toBe('#123456')
   } finally { await app.dispose() }
 })
 

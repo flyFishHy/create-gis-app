@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import type { CSSProperties } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import ScrollArea from './ScrollArea.vue'
 
@@ -9,6 +10,7 @@ const props = defineProps<{
   label: string
   placeholder?: string
   disabled?: boolean
+  floating?: boolean
 }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -16,6 +18,7 @@ const emit = defineEmits<{
 }>()
 const root = ref<HTMLElement>()
 const trigger = ref<HTMLButtonElement>()
+const optionsList = ref<HTMLElement>(), target = ref<HTMLElement>(), position = ref<CSSProperties>({})
 const open = ref(false)
 const active = ref(-1)
 const listId = `gis-select-${useId()}`
@@ -28,6 +31,16 @@ function close() { open.value = false; typed = '' }
 function show(fromEnd = false) {
   if (props.disabled || !props.options.length) return
   active.value = selectedIndex.value >= 0 ? selectedIndex.value : fromEnd ? props.options.length - 1 : 0
+  if (props.floating && trigger.value) {
+    target.value = root.value?.closest<HTMLElement>('.gis-ui-root') ?? document.body
+    const anchor = trigger.value.getBoundingClientRect(), width = Math.min(Math.max(anchor.width, 200), window.innerWidth - 16)
+    const below = window.innerHeight - anchor.bottom - 14, above = anchor.top - 14, upward = below < 180 && above > below
+    const css = getComputedStyle(trigger.value)
+    position.value = { ...Object.fromEntries(Array.from(css).filter(key => key.startsWith('--gis-ui-')).map(key => [key, css.getPropertyValue(key)])),
+      position: 'fixed', zIndex: 1000, width: `${width}px`, left: `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`,
+      maxHeight: `${Math.max(64, Math.min(240, upward ? above : below))}px`, top: upward ? 'auto' : `${anchor.bottom + 6}px`,
+      bottom: upward ? `${window.innerHeight - anchor.top + 6}px` : 'auto' }
+  }
   open.value = true
   emit('open')
 }
@@ -39,7 +52,10 @@ function choose(index: number) {
   trigger.value?.focus()
 }
 function outside(event: PointerEvent) {
-  if (event.target instanceof Node && !root.value?.contains(event.target)) close()
+  if (event.target instanceof Node && !root.value?.contains(event.target) && !optionsList.value?.closest('.gis-ui-select-menu')?.contains(event.target)) close()
+}
+function scrolling(event: Event) {
+  if (props.floating && (!(event.target instanceof Node) || !optionsList.value?.closest('.gis-ui-select-menu')?.contains(event.target))) close()
 }
 function blur(event: FocusEvent) {
   if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget)) close()
@@ -74,15 +90,17 @@ function keydown(event: KeyboardEvent) {
 }
 watch(open, value => {
   document.removeEventListener('pointerdown', outside)
-  if (value) document.addEventListener('pointerdown', outside)
+  window.removeEventListener('resize', close)
+  window.removeEventListener('scroll', scrolling, true)
+  if (value) { document.addEventListener('pointerdown', outside); window.addEventListener('resize', close); window.addEventListener('scroll', scrolling, true) }
 }, { flush: 'sync' })
 watch(() => props.options, () => { if (open.value) close() })
 watch(() => props.disabled, value => { if (value) close() })
 watch(active, async () => {
   await nextTick()
-  root.value?.querySelector(`#${listId}-option-${active.value}`)?.scrollIntoView?.({ block: 'nearest' })
+  optionsList.value?.querySelector(`#${listId}-option-${active.value}`)?.scrollIntoView?.({ block: 'nearest' })
 })
-onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
+onBeforeUnmount(() => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', close); window.removeEventListener('scroll', scrolling, true) })
 </script>
 
 <template>
@@ -95,15 +113,17 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
       <span class="gis-ui-select-value">{{ selectedLabel }}</span>
       <SvgIcon name="chevron-down" :size="14" />
     </button>
-    <ScrollArea v-if="open" class="gis-ui-select-menu">
-    <ul :id="listId" class="gis-ui-select-options" role="listbox" :aria-label="label">
+    <Teleport :to="target ?? 'body'" :disabled="!floating">
+    <ScrollArea v-if="open" class="gis-ui-select-menu" :style="floating ? position : undefined">
+    <ul ref="optionsList" :id="listId" class="gis-ui-select-options" role="listbox" :aria-label="label">
       <li v-for="(option, index) in options" :id="`${listId}-option-${index}`" :key="option.value"
         class="gis-ui-select-option" :class="{ 'is-selected': option.value === modelValue, 'is-active': index === active }"
         role="option" :aria-selected="option.value === modelValue" :title="option.label"
         @pointermove="active = index" @mousedown.prevent @click="choose(index)">
-        <span>{{ option.label }}</span><span class="gis-ui-select-check" aria-hidden="true">{{ option.value === modelValue ? '✓' : '' }}</span>
+        <span>{{ option.label }}</span><span class="gis-ui-select-check" aria-hidden="true"><SvgIcon v-if="option.value === modelValue" name="check" :size="13" /></span>
       </li>
     </ul>
     </ScrollArea>
+    </Teleport>
   </div>
 </template>

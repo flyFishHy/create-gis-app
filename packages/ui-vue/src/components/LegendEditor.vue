@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
-import { parseGISAppConfig, type LayerField, type LayerLegend, type LegendItem, type LegendRange } from '@joinmap/gis-core'
+import { parseGISAppConfig, type LayerField, type LayerLegend, type LegendItem, type LegendRange, type LegendValue } from '@joinmap/gis-core'
 import type { LegendEditValue, UniformLayerStyle } from './legend-editor-types.js'
+import { selectValueKey } from './select-values.js'
 import LegendColor from './LegendColor.vue'
+import LegendKind from './LegendKind.vue'
+import LegendAction from './LegendAction.vue'
+import GisSelect from './GisSelect.vue'
+import GisMultiSelect from './GisMultiSelect.vue'
+import SvgIcon from './SvgIcon.vue'
 
 const props = defineProps<{
   legend?: LayerLegend
   layerStyle?: UniformLayerStyle
   fields?: readonly LayerField[]
+  getFieldValues?: (field: string) => readonly LegendValue[]
   symbol?: string
   title?: string
   saving?: boolean
@@ -17,39 +24,49 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ submit: [value: LegendEditValue]; cancel: [] }>()
 const defaults: Record<string, string> = {
-  title: 'Legend title', color: 'Color', category: 'Category', interval: 'Interval', field: 'Field', value: 'Value', item: 'Label',
-  default: 'Other values', add: 'Add', remove: 'Delete', reset: 'Reset', save: 'Save', cancel: 'Close', more: 'More', pending: 'More settings coming soon',
-  invalid: 'Check matching values, non-overlapping intervals and valid colors.', min: 'Minimum', max: 'Maximum', valueType: 'Value type',
+  title: 'Legend', color: 'Color', category: 'Category', interval: 'Interval', continuous: 'Continuous', image: 'Image', field: 'Metric', value: 'Matching values', item: 'Label',
+  default: 'Other values', add: 'Add rule', remove: 'Delete', reset: 'Reset', save: 'Save', cancel: 'Close',
+  invalid: 'Check matching values, non-overlapping intervals and valid colors.', min: 'Minimum', max: 'Maximum',
+  uniform: 'Uniform style', search: 'Search values', clear: 'Clear selection', empty: 'No matching values', missing: 'Not in current data', used: 'Used by', inclusive: 'Include upper boundary',
 }
 const text = (key: string) => props.labels?.[key] ?? defaults[key] ?? key
 const uid = useId()
 let sequence = 0
-const copyLegend = () => JSON.parse(JSON.stringify(props.legend ?? { type: 'category', title: props.title ?? '', items: [] })) as LayerLegend
+function copyLegend(): LayerLegend {
+  const copy = JSON.parse(JSON.stringify(props.legend ?? { type: 'category', items: [] })) as LayerLegend
+  return { ...copy, ...(copy.items ? { items: copy.items.map(({ value, ...item }) => value === undefined ? item : { ...item, values: [value] }) } : {}) }
+}
 const draft = ref(copyLegend())
 const initialStyle = () => ({ fillColor: '#ffffff66', strokeColor: '#3399cc', strokeWidth: 1.25, pointRadius: 5, ...props.layerStyle })
 const style = ref<UniformLayerStyle>(initialStyle())
-const validation = ref('')
+const validation = ref(''), candidates = ref<readonly LegendValue[]>([])
 const items = computed(() => draft.value.items ?? [])
 const ranges = computed(() => draft.value.ranges ?? [])
 const defaultColor = computed({ get: () => props.symbol === 'line' ? style.value.strokeColor : style.value.fillColor,
   set: color => { if (props.symbol === 'line') style.value.strokeColor = color; else style.value.fillColor = color } })
 const fields = computed(() => (props.fields ?? []).filter(field => draft.value.type !== 'interval' || field.type === 'number'))
-const id = () => `${uid}-${++sequence}`
-function reset() { draft.value = copyLegend(); style.value = initialStyle(); validation.value = '' }
-function setType(event: Event) {
-  const type = (event.target as HTMLSelectElement).value as 'category' | 'interval'
-  draft.value = { title: draft.value.title, type, ...(type === 'category' ? { items: [] } : { ranges: [] }) }
+const fieldOptions = computed(() => {
+  const options = fields.value.map(field => ({ value: field.name, label: field.name }))
+  if (draft.value.field && !options.some(field => field.value === draft.value.field)) options.unshift({ value: draft.value.field, label: draft.value.field })
+  if (draft.value.type === 'category') options.unshift({ value: '', label: text('uniform') })
+  return options
+})
+function refreshValues() {
+  try { candidates.value = draft.value.field ? props.getFieldValues?.(draft.value.field) ?? [] : [] }
+  catch { candidates.value = []; validation.value = text('invalid') }
 }
-function setField(event: Event) {
-  const field = (event.target as HTMLInputElement).value || undefined
-  const type = props.fields?.find(item => item.name === field)?.type
-  draft.value = { ...draft.value, field, useLayerStyle: false, items: items.value.map(item => ({ ...item, value: item.value ?? (type === 'number' ? 0 : type === 'boolean' ? false : '') })) }
+function options(index: number) {
+  const used = new Map(items.value.flatMap((item, i) => i === index ? [] : (item.values ?? []).map(value => [selectValueKey(value), item.label || item.id] as const)))
+  return candidates.value.map(value => ({ value, label: String(value) || '""', disabled: used.has(selectValueKey(value)), hint: used.has(selectValueKey(value)) ? `${text('used')}: ${used.get(selectValueKey(value))}` : undefined }))
 }
+function reset() { draft.value = copyLegend(); style.value = initialStyle(); validation.value = ''; refreshValues() }
+function setField(field: string) { draft.value = { ...draft.value, field: field || undefined, useLayerStyle: false }; validation.value = ''; refreshValues() }
 function add() {
+  const id = `${uid}-${++sequence}`
   if (draft.value.type === 'interval') {
     const min = ranges.value.length ? Math.max(...ranges.value.map(range => range.max)) : 0
-    draft.value = { ...draft.value, ranges: [...ranges.value, { id: id(), min, max: min + 100, color: defaultColor.value }] }
-  } else draft.value = { ...draft.value, items: [...items.value, { id: id(), value: '', label: '', color: defaultColor.value }], useLayerStyle: false }
+    draft.value = { ...draft.value, ranges: [...ranges.value, { id, min, max: min + 100, color: defaultColor.value }] }
+  } else draft.value = { ...draft.value, items: [...items.value, { id, values: [], label: '', color: defaultColor.value }], useLayerStyle: false }
 }
 function remove(index: number) {
   draft.value = draft.value.type === 'interval' ? { ...draft.value, ranges: ranges.value.filter((_, i) => i !== index) }
@@ -61,9 +78,6 @@ function changeItem(index: number, patch: Partial<LegendItem>) {
   draft.value = { ...draft.value, useLayerStyle: uniform, items: items.value.map((item, i) => i === index ? { ...item, ...patch } : item) }
 }
 function changeRange(index: number, patch: Partial<LegendRange>) { draft.value = { ...draft.value, ranges: ranges.value.map((range, i) => i === index ? { ...range, ...patch } : range) } }
-function setValue(index: number, input: string, type: string = typeof items.value[index]?.value) {
-  changeItem(index, { value: type === 'number' ? Number(input) : type === 'boolean' ? input === 'true' : input })
-}
 function validColor(value: string) { const node = document.createElement('span'); node.style.color = value; return !!node.style.color }
 function submit() {
   if (props.saving || props.blocked) return
@@ -77,65 +91,51 @@ function submit() {
     }
     if (!validColor(style.value.fillColor) || !validColor(style.value.strokeColor)
       || items.value.some(item => item.color && !validColor(item.color)) || ranges.value.some(range => !validColor(range.color))) throw new Error()
-    parseGISAppConfig({ layers: [{ id: 'draft', type: 'geojson', style: style.value, legend }] })
-    emit('submit', { legend, ...(props.layerStyle ? { style: { ...style.value } } : {}) })
+    const normalized = parseGISAppConfig({ layers: [{ id: 'draft', type: 'geojson', style: style.value, legend }] }).layers![0]!.legend!
+    emit('submit', { legend: normalized, ...(props.layerStyle ? { style: { ...style.value } } : {}) })
   } catch { validation.value = text('invalid') }
 }
+refreshValues()
 </script>
 
 <template>
   <form class="gis-ui-legend-editor gis-ui-legend-card" @submit.prevent="submit">
     <header class="gis-ui-legend-card-header">
-      <input class="gis-ui-legend-title-input" name="legendTitle" :aria-label="text('title')" :value="draft.title ?? title" :disabled="saving" @input="draft = { ...draft, title: ($event.target as HTMLInputElement).value }">
-      <span class="gis-ui-legend-kind">{{ text(draft.type) }}</span>
+      <h3 :title="title ?? draft.title">{{ title ?? draft.title ?? text('title') }}</h3>
+      <LegendKind :type="draft.type" :label="text(draft.type)" />
       <div class="gis-ui-legend-card-actions">
-        <button type="submit" class="is-primary" :disabled="saving || blocked" :aria-label="text('save')" :title="text('save')">✓</button>
-        <button type="button" :disabled="saving" :aria-label="text('reset')" :title="text('reset')" @click="reset">↺</button>
-        <button type="button" :disabled="saving" :aria-label="text('cancel')" :title="text('cancel')" @click="emit('cancel')">×</button>
+        <LegendAction icon="save" type="submit" primary :disabled="saving || blocked" :label="text('save')" />
+        <LegendAction icon="reset" :disabled="saving" :label="text('reset')" @click="reset" />
+        <LegendAction icon="close" :disabled="saving" :label="text('cancel')" @click="emit('cancel')" />
       </div>
     </header>
     <p v-if="error || validation" class="gis-ui-error" role="alert">{{ error || validation }}</p>
     <fieldset :disabled="saving || blocked" class="gis-ui-legend-rule-settings">
-      <select v-if="draft.type === 'category' || draft.type === 'interval'" name="legendType" :aria-label="text('category') + '/' + text('interval')" :value="draft.type" @change="setType">
-        <option value="category">{{ text('category') }}</option><option value="interval">{{ text('interval') }}</option>
-      </select>
-      <label v-if="draft.type === 'category' || draft.type === 'interval'" class="gis-ui-legend-field">{{ text('field') }}
-        <input name="legendField" :list="`${uid}-fields`" :value="draft.field ?? ''" :aria-label="text('field')" @input="setField">
-        <datalist :id="`${uid}-fields`"><option v-for="field in fields" :key="field.name" :value="field.name" /></datalist>
-      </label>
-      <template v-if="draft.type === 'interval'">
+      <div class="gis-ui-legend-metric"><span>{{ text('field') }}</span>
+        <GisSelect v-if="draft.type === 'category' || draft.type === 'interval'" :model-value="draft.field ?? ''" :options="fieldOptions" :label="text('field')" :disabled="saving || blocked" :placeholder="text('uniform')" floating @update:model-value="setField" />
+        <span v-else class="gis-ui-legend-metric-value">{{ draft.field || text('uniform') }}</span>
+      </div>
+      <div v-if="draft.type === 'interval'" class="gis-ui-legend-rule-list">
         <div v-for="(range, index) in ranges" :key="range.id" class="gis-ui-legend-rule-row">
           <LegendColor :model-value="range.color" :symbol="symbol" :label="`${text('color')} ${index + 1}`" @update:model-value="changeRange(index, { color: $event })" />
-          <input :name="`rangeMin-${index}`" type="number" step="any" required :aria-label="`${text('min')} ${index + 1}`" :value="range.min" @input="changeRange(index, { min: Number(($event.target as HTMLInputElement).value) })">
-          <span>–</span>
-          <input :name="`rangeMax-${index}`" type="number" step="any" required :aria-label="`${text('max')} ${index + 1}`" :value="range.max" @input="changeRange(index, { max: Number(($event.target as HTMLInputElement).value) })">
-          <button type="button" :aria-label="`${text('remove')} ${index + 1}`" @click="remove(index)">×</button>
+          <div class="gis-ui-legend-boundary"><span>[</span><input :name="`rangeMin-${index}`" type="number" step="any" required :aria-label="`${text('min')} ${index + 1}`" :value="range.min" @input="changeRange(index, { min: Number(($event.target as HTMLInputElement).value) })"><span>,</span><input :name="`rangeMax-${index}`" type="number" step="any" required :aria-label="`${text('max')} ${index + 1}`" :value="range.max" @input="changeRange(index, { max: Number(($event.target as HTMLInputElement).value) })"><button type="button" class="gis-ui-legend-endpoint" :aria-label="`${text('inclusive')} ${index + 1}`" :aria-pressed="!!range.includeMax" :title="text('inclusive')" @click="changeRange(index, { includeMax: !range.includeMax })">{{ range.includeMax ? ']' : ')' }}</button></div>
+          <LegendAction icon="close" :disabled="saving || blocked" :label="`${text('remove')} ${index + 1}`" @click="remove(index)" />
         </div>
-      </template>
-      <template v-else-if="draft.type === 'category'">
-        <div v-for="(item, index) in items" :key="item.id" class="gis-ui-legend-category-row">
+      </div>
+      <div v-else-if="draft.type === 'category'" class="gis-ui-legend-rule-list">
+        <div v-for="(item, index) in items" :key="item.id" class="gis-ui-legend-category-row" :class="{ 'is-uniform': !draft.field }">
           <LegendColor :model-value="item.color ?? defaultColor" :symbol="symbol" :label="`${text('color')} ${index + 1}`" @update:model-value="changeItem(index, { color: $event })" />
-          <template v-if="draft.field">
-            <select :aria-label="`${text('valueType')} ${index + 1}`" :value="typeof item.value" @change="setValue(index, String(item.value ?? ''), ($event.target as HTMLSelectElement).value)"><option value="string">ABC</option><option value="number">123</option><option value="boolean">T/F</option></select>
-            <select v-if="typeof item.value === 'boolean'" :aria-label="`${text('value')} ${index + 1}`" :value="String(item.value)" @change="setValue(index, ($event.target as HTMLSelectElement).value)"><option value="true">true</option><option value="false">false</option></select>
-            <input v-else :name="`itemValue-${index}`" :type="typeof item.value === 'number' ? 'number' : 'text'" :required="typeof item.value === 'number'" step="any" :aria-label="`${text('value')} ${index + 1}`" :placeholder="text('value')" :value="item.value" @input="setValue(index, ($event.target as HTMLInputElement).value)">
-          </template>
+          <GisMultiSelect v-if="draft.field" :model-value="item.values ?? []" :options="options(index)" :label="`${text('value')} ${index + 1}`" :disabled="saving || blocked" :placeholder="text('value')" :search-text="text('search')" :clear-text="text('clear')" :empty-text="text('empty')" :missing-text="text('missing')" @open="refreshValues" @update:model-value="changeItem(index, { values: $event })" />
           <input :name="`itemLabel-${index}`" :aria-label="`${text('item')} ${index + 1}`" :placeholder="text('item')" :value="item.label" @input="changeItem(index, { label: ($event.target as HTMLInputElement).value })">
-          <button type="button" :aria-label="`${text('remove')} ${index + 1}`" @click="remove(index)">×</button>
+          <LegendAction icon="close" :disabled="saving || blocked" :label="`${text('remove')} ${index + 1}`" @click="remove(index)" />
         </div>
-      </template>
+      </div>
       <template v-else-if="draft.type === 'continuous'">
-        <div v-for="(stop, index) in draft.stops" :key="index" class="gis-ui-legend-rule-row">
-          <LegendColor :model-value="stop.color" :label="`${text('color')} ${index + 1}`" @update:model-value="draft = { ...draft, stops: draft.stops?.map((value, i) => i === index ? { ...value, color: $event } : value) }" />
-          <span>{{ stop.label ?? stop.value }}</span>
-        </div>
+        <div v-for="(stop, index) in draft.stops" :key="index" class="gis-ui-legend-stop-editor"><LegendColor :model-value="stop.color" :label="`${text('color')} ${index + 1}`" @update:model-value="draft = { ...draft, stops: draft.stops?.map((value, i) => i === index ? { ...value, color: $event } : value) }" /><span>{{ stop.label ?? stop.value }}</span></div>
       </template>
       <img v-else-if="draft.imageUrl" class="gis-ui-legend-image" :src="draft.imageUrl" :alt="draft.title">
-      <div class="gis-ui-legend-default"><LegendColor v-model="defaultColor" :symbol="symbol" :label="text('default')" /><span>{{ text('default') }}</span></div>
-      <div class="gis-ui-legend-editor-footer">
-        <button v-if="draft.type === 'category' || draft.type === 'interval'" type="button" class="gis-ui-legend-add" @click="add">+ {{ text('add') }}</button>
-        <button type="button" disabled :title="text('pending')">{{ text('more') }}</button>
-      </div>
+      <div v-if="layerStyle && (draft.field || !items.length) && draft.type !== 'image'" class="gis-ui-legend-default"><LegendColor v-model="defaultColor" :symbol="symbol" :label="text('default')" /><span>{{ text('default') }}</span></div>
+      <div v-if="draft.type === 'interval' || (draft.type === 'category' && draft.field)" class="gis-ui-legend-editor-footer"><button type="button" class="gis-ui-legend-add" @click="add"><SvgIcon name="plus" :size="13" />{{ text('add') }}</button></div>
     </fieldset>
   </form>
 </template>

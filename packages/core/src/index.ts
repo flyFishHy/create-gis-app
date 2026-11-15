@@ -49,6 +49,7 @@ export type {
   LayerUpdate,
   LegendDefinition,
   LegendItem,
+  LegendValue,
   LegendStop,
   InteractionService,
   MapAdapter,

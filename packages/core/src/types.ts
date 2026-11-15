@@ -18,7 +18,11 @@ export interface LegendDefinition {
   readonly imageUrl?: string
 }
 
+export type LegendValue = string | number | boolean
+
 export interface LegendItem {
+  readonly values?: readonly LegendValue[]
+  /** Legacy input only; normalization converts it to values. */
   readonly value?: string | number | boolean
   readonly id: string
   readonly label: string
@@ -71,6 +75,7 @@ export interface LayerConfig {
 export interface MapLayerHandle {
   getStyle?(): LayerStyle | undefined
   getFields?(): readonly LayerField[]
+  getFieldValues?(field: string): readonly LegendValue[]
   /** Current finite data coverage, preferably in the current map projection. */
   getDataLocation?(): MapLocation | undefined
   resolveLegend?(legend: LegendDefinition): LegendDefinition
@@ -111,6 +116,7 @@ export interface LayerTimeFilter {
 export interface LayerInstance {
   readonly style: LayerStyle | undefined
   getFields(): readonly LayerField[]
+  getFieldValues(field: string): readonly LegendValue[]
   readonly version: number
   readonly legend: LegendDefinition | undefined
   readonly id: string

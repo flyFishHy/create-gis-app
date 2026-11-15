@@ -83,14 +83,17 @@ it('applies map styles and legend text together, cancels drafts and detects conf
     await click(manager, '.gis-ui-legend-edit')
     const color = manager.querySelector<HTMLInputElement>('input[type="color"]')!
     color.value = '#ff0000'; color.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
-    await fill(manager, 'legendTitle', 'Edited legend'); await fill(manager, 'itemLabel-0', 'Edited item')
+    expect(manager.querySelector('input[name="legendTitle"]')).toBeNull()
+    expect(manager.querySelector('.gis-ui-legend-card-header h3')?.textContent).toBe('Layer A')
+    await fill(manager, 'itemLabel-0', 'Edited item')
     await apply(manager)
     expect(manager.querySelector('.gis-ui-layer-editor')).toBeNull()
     expect(app.layers.get('a')!.style).toEqual({ fillColor: '#ff0000', strokeColor: '#3399cc', strokeWidth: 2, pointRadius: 6 })
     const olLayer = useOLMap(app).getLayers().getArray().find(layer => layer.get('gisLayerId') === 'a') as VectorLayer
     expect((olLayer.getStyle() as Style).getFill()!.getColor()).toBe('#ff0000')
     expect((olLayer.getStyle() as Style).getStroke()!.getWidth()).toBe(2)
-    expect(app.layers.get('a')!.legend).toMatchObject({ title: 'Edited legend', items: [{ label: 'Edited item', color: '#ff0000' }] })
+    expect(app.layers.get('a')!.legend).toMatchObject({ items: [{ label: 'Edited item', color: '#ff0000' }] })
+    expect(app.layers.get('a')!.legend?.title).toBeUndefined()
     const legendPanel = target.querySelector('.gis-ui-panel-host--legend')!
     expect(legendPanel.textContent).toContain('Edited item')
     await click(legendPanel, '.gis-ui-legend-edit')

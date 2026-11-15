@@ -417,9 +417,27 @@
             "number",
             "boolean"
           ]
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "value",
+          "values"
+        ]
+      }
     },
     "legend": {
       "type": "object",
@@ -505,6 +523,38 @@
             "properties": {
               "type": {
                 "const": "interval"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "field"
+            ],
+            "properties": {
+              "type": {
+                "const": "category"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "values"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "value"
+                      ]
+                    }
+                  ]
+                }
               }
             }
           }

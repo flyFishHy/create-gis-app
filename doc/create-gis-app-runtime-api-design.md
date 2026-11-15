@@ -1708,9 +1708,14 @@ MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时�
 LayerConfig/LayerUpdate.style 与 legend 同级，options 仅保留透明度等选项，
 旧 options.style 明确报迁移错误。style 为完整替换；LayerInstance.style 和
 snapshot.layers[].style 提供有效基础样式，Adapter 通过 getStyle 返回解析结果。
-category 使用 field + items[].value 精确匹配标量值；interval 使用 field +
+category 使用 field + items[].values 数组精确匹配标量值，一组可包含一个或多个值，
+共用名称及颜色。值保留 string/number/boolean 类型，组内和跨组禁止重复，
+旧 value 仅在输入入口兼容为 [value]，两种形式不能同时填写。interval 使用 field +
 ranges[]（id/min/max/color/label/includeMax），默认左闭右开，有限边界、
 唯一 ID、禁止重叠、允许空缺。规则色覆盖点面填充或线颜色，其余属性继承基础
 style；未匹配值回退基础 style，无数据可用 noData.color。分类与时间过滤组合。
 LayerInstance.getFields 通过 Adapter 可选能力读取当前字段描述，不传递引擎对象。
+LayerInstance.getFieldValues(field) 通过可选 handle 能力按需读取当前源的唯一标量值，
+返回冻结副本；不随地图视野、图层显隐或渲染过滤减少，不写入 AppState。数据更新后
+下次读取使用新数据。OL 在规则变化时建立多值查找表，绘制时按严格类型匹配。
 上述契约取代历史 options.style 与“分类渲染未实现”的描述。
