@@ -157,7 +157,7 @@
       }
     }
   }
-  .gis-ui-time-placeholder { min-height: 44px; border-radius: var(--gis-ui-panel-radius); box-shadow: var(--gis-ui-panel-shadow); }
+  .gis-ui-time-placeholder, .gis-ui-layer-time { min-height: 44px; border-radius: var(--gis-ui-panel-radius); box-shadow: var(--gis-ui-panel-shadow); }
   .gis-ui-toolbar { min-height: 44px; padding: 3px 6px; border: 1px solid var(--gis-ui-border); border-radius: var(--gis-ui-panel-radius); background: var(--gis-ui-surface); box-shadow: var(--gis-ui-panel-shadow); }
 }
 
@@ -181,7 +181,7 @@
   display: none;
 }
 
-// Query controls: Search followed by the disabled time placeholder.
+// Query controls: Search followed by the layer-backed time controller.
 .gis-ui-query-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0; }
 .gis-ui-query-controls > .gis-ui-panel-region--top { flex: 1 1 220px; min-width: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
 .gis-ui-query-controls .gis-ui-panel-host--search { flex: 1 1 300px; max-width: 420px; }
@@ -190,6 +190,15 @@
 .gis-ui-panel-host--toolbar { max-height: 100%; }
 .gis-ui-time-placeholder { display: inline-flex; align-items: center; justify-content: flex-start; gap: 8px; min-height: 36px; max-width: 100%; padding: 0 12px; border: 1px solid var(--gis-ui-border); border-radius: 8px; background: var(--gis-ui-surface); color: var(--gis-ui-text-muted); font: inherit; font-size: 12px; cursor: not-allowed; }
 .gis-ui-time-placeholder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gis-ui-layer-time { display: flex; align-items: center; gap: 7px; min-width: 330px; max-width: min(520px, 100%); min-height: 36px; padding: 4px 8px; border: 1px solid var(--gis-ui-border); border-radius: 8px; background: var(--gis-ui-surface); color: var(--gis-ui-text-muted); font-size: 12px; }
+.gis-ui-layer-time-icon { flex: 0 0 auto; color: var(--gis-ui-primary); }
+.gis-ui-time-dimension { width: 150px; flex: 0 1 150px; }
+.gis-ui-time-dimension .gis-ui-select-trigger { min-height: 28px; }
+.gis-ui-time-dimension-label { max-width: 126px; overflow: hidden; flex: 0 1 126px; text-overflow: ellipsis; white-space: nowrap; }
+.gis-ui-layer-time > .gis-ui-time-controller { min-width: 190px; flex: 1 1 260px; }
+.gis-ui-time-clear { display: inline-flex; width: 26px; height: 26px; flex: 0 0 26px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--gis-ui-text-muted); cursor: pointer; }
+.gis-ui-time-clear:hover:not(:disabled) { background: var(--gis-ui-hover); color: var(--gis-ui-primary); }
+.gis-ui-time-clear.is-active { color: var(--gis-ui-primary); opacity: .65; }
 
 // Results and the status bar occupy separate rows.
 .gis-ui-bottom-content { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; min-width: 0; }
@@ -316,7 +325,7 @@
   .gis-ui-map-region { position: absolute; inset: 0; border: 0; border-radius: 0; container: gis-overlay / inline-size; }
   .gis-ui-panel-shell, .gis-ui-toolbar, .gis-ui-status-content { @include glass.glass-surface; border-color: var(--gis-ui-glass-border); box-shadow: var(--gis-ui-overlay-shadow); }
   .gis-ui-panel-header { background: color-mix(in srgb, var(--gis-ui-panel-header-bg) 48%, transparent); }
-  .gis-ui-search-form, .gis-ui-time-placeholder { min-height: 42px; @include glass.glass-surface; }
+  .gis-ui-search-form, .gis-ui-time-placeholder, .gis-ui-layer-time { min-height: 42px; @include glass.glass-surface; }
   .gis-ui-toolbar-root { max-height: 100%; overflow: auto; }
   .gis-ui-toolbar { flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; width: 50px; padding: 6px; border: 1px solid var(--gis-ui-glass-border); border-radius: var(--gis-ui-panel-radius); }
   .gis-ui-toolbar-group { flex-direction: column; }
@@ -353,7 +362,7 @@
   }
   > * { min-width: 0; min-height: 0; }
   .gis-ui-panel-region { pointer-events: none; min-height: 0; }
-  .gis-ui-panel-host, .gis-ui-toolbar-root, .gis-ui-status-content, .gis-ui-time-placeholder { pointer-events: auto; }
+  .gis-ui-panel-host, .gis-ui-toolbar-root, .gis-ui-status-content, .gis-ui-time-placeholder, .gis-ui-layer-time { pointer-events: auto; }
   .gis-ui-panel-host, .gis-ui-panel-shell { max-height: 100%; min-height: 0; }
   .gis-ui-panel-body { overflow: auto; min-height: 0; }
 }

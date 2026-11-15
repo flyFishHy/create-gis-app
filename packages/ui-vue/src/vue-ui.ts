@@ -14,7 +14,7 @@ import LegendPanel from './panels/LegendPanel.vue'
 import LayerManagerPanel from './panels/LayerManagerPanel.vue'
 import Toolbar from './panels/Toolbar.vue'
 import FeaturePopup from './panels/FeaturePopup.vue'
-import TimePlaceholder from './components/TimePlaceholder.vue'
+import LayerTimePanel from './panels/LayerTimePanel.vue'
 import MapStatusPanel from './panels/MapStatusPanel.vue'
 import PropertiesPanel from './panels/PropertiesPanel.vue'
 import { registerBuiltinToolbar } from './builtin-toolbar.js'
@@ -132,7 +132,7 @@ class VueUIAdapter implements UIAdapter {
   }
   private registerDefaultPanels(): void {
     this.panels.register({ id: 'search', title: 'panel.search', component: SearchPanel, position: 'top', defaultVisible: true, collapsible: false, closable: false, unframed: true, props: { dropdown: true } })
-    this.panels.register({ id: 'time', component: TimePlaceholder, position: 'top', unframed: true })
+    this.panels.register({ id: 'time', component: LayerTimePanel, position: 'top', unframed: true })
     this.panels.register({ id: 'layer-manager', title: 'panel.layers', component: LayerManagerPanel, position: 'left', defaultVisible: true, collapsible: false, closable: false })
     this.panels.register({ id: 'legend', title: 'panel.legend', component: LegendPanel, position: 'left', defaultVisible: true, collapsible: false, closable: false })
     this.panels.register({ id: 'toolbar', component: this.options.toolbarComponent ?? Toolbar, position: 'top', unframed: true, props: { tooltipPlacement: this.layout === 'overlay-dashboard' ? 'left' : 'bottom' } })

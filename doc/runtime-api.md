@@ -114,7 +114,63 @@ hook lets adapters resolve a uniform style without UI knowing engine metadata.
 OL applies useLayerStyle only for an explicitly opted-in, single category item.
 
 Groups track child identity, not just reused IDs. Order updates synchronize list
-and adapter order. Domain observer failures report app:error without undoing commits.
+and adapter order. `setOrder(ids)` accepts all registered IDs in back-to-front order
+and normalizes leaf zIndex to 0..N-1, overriding earlier per-layer zIndex values.
+Private adapter tool layers are not included. The default UI displays front-to-back,
+moves sibling layers or entire group blocks, and never reparents a child.
+Domain observer failures report app:error without undoing commits.
+For GROUP, an explicit initial/update zIndex places its current leaf descendants
+in a contiguous interval [zIndex, zIndex+1), preserving their relative order.
+Without an explicit group zIndex, child zIndex values are retained. Group metadata
+reports the highest current leaf zIndex. Root drag ordering normalizes all leaves
+through setOrder; Core does not store a second UI tree or drag state.
+
+`layers.getDataLocation(id)` reads current coverage through the optional
+`MapLayerHandle.getDataLocation`, returning a cloned MapLocation or undefined for
+unsupported/empty/non-finite coverage. A degenerate point extent becomes a coordinate.
+GeoJSON handles transform current source bounds to the current view projection;
+Core merges live GROUP members only when their declared projections agree. Custom
+handles in a mixed-projection group must normalize first; Core does not transform.
+Hidden layers remain locatable. No bounds are cached in AppState; OL only exposes
+the derived hasDataLocation boolean so empty/nonempty changes refresh controls.
+
+```ts
+const location = app.layers.getDataLocation('states')
+if (location) app.map.locate(location)
+const layer = app.layers.get('states')!
+const expectedVersion = layer.version
+await app.layers.update(layer.id, { expectedVersion, legend: nextLegend })
+```
+
+LayerInstance.version and snapshot.layers[].version increment on committed updates
+and layer operations such as visibility/time filtering. Optional LayerUpdate.expectedVersion is checked inside
+the serialized queue before engine changes; stale edits reject APP_INVALID_STATE.
+Omission preserves normal unconditional updates. The precondition is not forwarded
+to the adapter. A style/legend editor submits both in one update and retains its
+draft on failure. Applications explicitly persist/export edits; init config is not
+mutated or written to disk.
+
+### Layer date/time capability
+
+Date/time is an optional layer capability rather than a global Core clock. Adapters
+can expose UTC-normalized discrete values through `MapLayerHandle.getTimeDimensions`
+and apply an inclusive range through `setTimeFilter`. Applications consume the
+engine-independent facade on `LayerInstance`:
+
+```ts
+const layer = app.layers.get('events')!
+const dimension = layer.getTimeDimensions().find(item => item.field === 'observed_at')!
+const current = dimension.values.at(-1)!
+layer.setTimeFilter({ field: dimension.field, start: current, end: current })
+layer.setTimeFilter(undefined) // clear
+```
+
+`LayerTimeDimension.values` and `LayerTimeFilter.start/end` are epoch milliseconds.
+The OL GeoJSON adapter derives dimensions from ISO date/date-time strings and from
+year/Unix timestamp values in date/time-named properties. Its filter affects map
+rendering, hit detection and the built-in local search provider. Layer metadata
+contains only dimension summaries and the active filter; raw values remain owned by
+the layer capability so large timelines do not inflate AppState.
 
 ## Context and state
 

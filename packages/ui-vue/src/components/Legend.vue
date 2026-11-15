@@ -31,7 +31,7 @@ function gradient(legend: LegendDefinition) {
   <div class="gis-ui-legend">
     <p v-if="groups.length === 0" class="gis-ui-empty">{{ emptyText }}</p>
     <section v-for="group in groups" :key="group.id" class="gis-ui-legend-group">
-      <h3>{{ group.title }}</h3>
+      <div class="gis-ui-legend-heading"><h3>{{ group.title }}</h3><slot name="group-actions" :layer-id="group.id" /></div>
       <div v-for="legend in group.definitions" :key="legend.id" class="gis-ui-legend-definition">
         <h4 v-if="legend.title && legend.title !== group.title">{{ legend.title }}</h4>
         <img v-if="legend.type === 'image' && legend.imageUrl" class="gis-ui-legend-image" :src="legend.imageUrl" :alt="legend.title ?? group.title">

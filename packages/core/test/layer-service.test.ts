@@ -40,6 +40,23 @@ describe('LayerService', () => {
     await app.dispose()
   })
 
+  it('exposes adapter-owned time dimensions and validates time filters', async () => {
+    const setTimeFilter = vi.fn()
+    const app = createGISApp()
+    app.use(createFakeMapPlugin(new FakeMapAdapter(), { temporal: createFakeLayerDefinition(() => ({
+      setVisible() {}, setZIndex() {}, dispose() {}, setTimeFilter,
+      getTimeDimensions: () => [{ field: 'observed_at', values: [1_700_000_000_000, 1_800_000_000_000] }],
+      getTimeFilter: () => setTimeFilter.mock.lastCall?.[0],
+    })) }))
+    await app.init({ layers: [{ id: 'events', type: 'temporal' }] })
+    const layer = app.layers.get('events')!
+    expect(layer.getTimeDimensions()[0]).toMatchObject({ field: 'observed_at' })
+    layer.setTimeFilter({ field: 'observed_at', start: 1_700_000_000_000, end: 1_800_000_000_000 })
+    expect(setTimeFilter).toHaveBeenLastCalledWith({ field: 'observed_at', start: 1_700_000_000_000, end: 1_800_000_000_000 })
+    expect(() => layer.setTimeFilter({ field: 'observed_at', start: 2, end: 1 })).toThrow('invalid time filter')
+    await app.dispose()
+  })
+
   it('manages groups recursively and applies visibility to child layers', async () => {
     const handles = new Map<string, MapLayerHandle>()
     const app = createGISApp()

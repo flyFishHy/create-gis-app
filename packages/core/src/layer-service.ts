@@ -1,12 +1,14 @@
 import { GISRuntimeError } from './types.js'
 import { normalizeLayerLegend } from './config.js'
-import type { LayerLegend, LegendDefinition } from './types.js'
+import type { LayerLegend, LegendDefinition, MapLocation } from './types.js'
 import type { ServiceDependencies } from './context/service-dependencies.js'
 import type {
   AppContext,
   LayerConfig,
   LayerInstance,
   LayerService,
+  LayerTimeDimension,
+  LayerTimeFilter,
   LayerTypeDefinition,
   LayerUpdate,
   MapLayerHandle,
@@ -24,6 +26,7 @@ class LayerInstanceImpl implements LayerInstance {
   private disposal?: Promise<void>
   private updates: Promise<void> = Promise.resolve()
   private currentLegend?: LegendDefinition
+  private currentVersion = 0
 
   constructor(
     readonly id: string,
@@ -43,6 +46,7 @@ class LayerInstanceImpl implements LayerInstance {
   }
 
   get title(): string | undefined { return this.currentTitle }
+  get version(): number { return this.currentVersion }
   get status(): LayerInstance['status'] { return this.currentStatus }
   get visible(): boolean { return this.currentVisible }
   get legend(): LegendDefinition | undefined {
@@ -56,6 +60,40 @@ class LayerInstanceImpl implements LayerInstance {
     this.transact(() => {
       this.handle.setVisible(visible)
       this.currentVisible = visible
+      this.currentVersion++
+      this.changed()
+    })
+  }
+
+  getTimeDimensions(): readonly LayerTimeDimension[] {
+    if (this.currentStatus === 'disposed') return []
+    return this.handle.getTimeDimensions?.() ?? []
+  }
+
+  getTimeFilter(): LayerTimeFilter | undefined {
+    if (this.currentStatus === 'disposed') return undefined
+    return this.handle.getTimeFilter?.()
+  }
+
+  setTimeFilter(filter: LayerTimeFilter | undefined): void {
+    this.assertActive()
+    if (!this.handle.setTimeFilter) {
+      throw new GISRuntimeError({
+        code: 'CONFIG_INVALID',
+        message: `Layer "${this.id}" does not support time filtering.`,
+        stage: 'layer-operation',
+      })
+    }
+    if (filter && (!filter.field.trim() || !Number.isFinite(filter.start) || !Number.isFinite(filter.end) || filter.start > filter.end)) {
+      throw new GISRuntimeError({
+        code: 'CONFIG_INVALID',
+        message: `Layer "${this.id}" received an invalid time filter.`,
+        stage: 'layer-operation',
+      })
+    }
+    this.transact(() => {
+      this.handle.setTimeFilter!(filter)
+      this.currentVersion++
       this.changed()
     })
   }
@@ -68,11 +106,14 @@ class LayerInstanceImpl implements LayerInstance {
 
   private async applyUpdate(patch: LayerUpdate): Promise<void> {
     this.assertActive()
+    if (patch.expectedVersion !== undefined && patch.expectedVersion !== this.currentVersion) {
+      throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Layer changed since editing began. Reload before applying.', stage: 'layer-update' })
+    }
     const nextLegend = patch.legend === undefined ? this.currentLegend : patch.legend === null ? undefined : normalizeLayerLegend(patch.legend, this.id)
     if (patch.options !== undefined && !this.handle.update) {
       throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: `Layer "${this.id}" does not support options updates.`, stage: 'layer-update' })
     }
-    const { legend: _legend, ...enginePatch } = patch
+    const { legend: _legend, expectedVersion: _expectedVersion, ...enginePatch } = patch
     if (Object.keys(enginePatch).length) await this.handle.update?.(enginePatch)
     this.assertActive()
     this.transact(() => {
@@ -80,6 +121,7 @@ class LayerInstanceImpl implements LayerInstance {
       if (patch.title !== undefined) this.currentTitle = patch.title
       if (patch.zIndex !== undefined) this.handle.setZIndex(patch.zIndex)
       this.currentLegend = nextLegend
+      this.currentVersion++
       this.changed()
     })
   }
@@ -240,6 +282,23 @@ export class LayerServiceImpl implements LayerService {
   has(id: string): boolean { return this.instances.has(id) }
   list(): LayerInstance[] { return [...this.instances.values()] }
 
+  getDataLocation(id: string): MapLocation | undefined {
+    const instance = this.instances.get(id)
+    if (!instance) throw this.layerNotFound(id)
+    if (instance.status === 'disposed') return undefined
+    const location = instance.getInternalHandle().getDataLocation?.()
+    if (!location) return undefined
+    if (location.extent) {
+      const [minX, minY, maxX, maxY] = location.extent
+      if (location.extent.length !== 4 || !location.extent.every(Number.isFinite) || minX > maxX || minY > maxY) return undefined
+      return minX === maxX && minY === maxY
+        ? { coordinate: [minX, minY], projection: location.projection }
+        : { extent: [minX, minY, maxX, maxY], projection: location.projection }
+    }
+    return location.coordinate?.length === 2 && location.coordinate.every(Number.isFinite)
+      ? { coordinate: [location.coordinate[0], location.coordinate[1]], projection: location.projection } : undefined
+  }
+
   setVisibility(id: string, visible: boolean): void {
     const instance = this.instances.get(id)
     if (!instance) throw this.layerNotFound(id)
@@ -248,6 +307,7 @@ export class LayerServiceImpl implements LayerService {
   }
 
   setOrder(ids: string[]): void {
+    this.assertCanMutate('order layers')
     const currentIds = [...this.instances.keys()]
     if (ids.length !== currentIds.length || new Set(ids).size !== currentIds.length || ids.some((id) => !this.instances.has(id))) {
       throw new GISRuntimeError({
@@ -263,6 +323,8 @@ export class LayerServiceImpl implements LayerService {
       .filter((instance) => instance.type !== 'GROUP')
       .map((instance) => this.getHandle(instance))
     adapter.setLayerOrder(layerHandles)
+    // An explicit order takes precedence over earlier per-layer zIndex values.
+    layerHandles.forEach((handle, index) => handle.setZIndex(index))
     const ordered = ids.map(id => this.instances.get(id)!)
     this.instances.clear()
     for (const instance of ordered) this.instances.set(instance.id, instance)
@@ -323,12 +385,35 @@ export class LayerServiceImpl implements LayerService {
     }
 
     let visible = config.visible ?? true
+    const groupLeaves = (): LayerInstanceImpl[] => {
+      const collect = (items: LayerInstance[]): LayerInstanceImpl[] => items.flatMap(child => {
+        if (this.get(child.id) !== child) return []
+        if (child.type !== 'GROUP') return [child as LayerInstanceImpl]
+        const ids = child.getMetadata().childIds
+        return collect(Array.isArray(ids) ? ids.flatMap(id => { const current = this.get(String(id)); return current ? [current] : [] }) : [])
+      })
+      return collect(children)
+    }
     const handle: MapLayerHandle = {
+      getDataLocation: () => {
+        const locations = children.filter(child => this.get(child.id) === child)
+          .flatMap(child => { const location = this.getDataLocation(child.id); return location ? [location] : [] })
+        if (!locations.length) return undefined
+        const projection = locations[0]!.projection ?? this.context.state.snapshot().map.projection ?? undefined
+        if (locations.some(location => (location.projection ?? this.context.state.snapshot().map.projection ?? undefined) !== projection)) {
+          throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Group data locations must use the same projection.', stage: 'layer-location' })
+        }
+        const bounds = locations.map(location => location.extent ?? [location.coordinate![0], location.coordinate![1], location.coordinate![0], location.coordinate![1]])
+        return { extent: [Math.min(...bounds.map(b => b[0]!)), Math.min(...bounds.map(b => b[1]!)), Math.max(...bounds.map(b => b[2]!)), Math.max(...bounds.map(b => b[3]!))], projection }
+      },
       setVisible: (next) => {
         visible = next
         for (const child of children) if (this.get(child.id) === child) this.setVisibility(child.id, next)
       },
-      setZIndex: () => undefined,
+      setZIndex: value => {
+        const leaves = groupLeaves().sort((a, b) => Number(a.getMetadata().zIndex ?? 0) - Number(b.getMetadata().zIndex ?? 0))
+        leaves.forEach((leaf, index) => leaf.getInternalHandle().setZIndex(value + index / leaves.length))
+      },
       dispose: async () => {
         const errors: unknown[] = []
         for (const child of [...children].reverse()) {
@@ -341,7 +426,10 @@ export class LayerServiceImpl implements LayerService {
           cleanupErrors: errors,
         })
       },
-      getMetadata: () => ({ childIds: children.filter(child => this.get(child.id) === child).map((child) => child.id) }),
+      getMetadata: () => {
+        const leaves = groupLeaves()
+        return { childIds: children.filter(child => this.get(child.id) === child).map(child => child.id), zIndex: leaves.length ? Math.max(...leaves.map(leaf => Number(leaf.getMetadata().zIndex ?? 0))) : config.zIndex ?? 0 }
+      },
     }
     const group = new LayerInstanceImpl(
       config.id,
@@ -361,6 +449,7 @@ export class LayerServiceImpl implements LayerService {
       config.legend,
     )
     if (!visible) handle.setVisible(false)
+    if (config.zIndex !== undefined) handle.setZIndex(config.zIndex)
     this.instances.set(config.id, group)
     this.emit({ type: 'add', id: config.id })
     return group

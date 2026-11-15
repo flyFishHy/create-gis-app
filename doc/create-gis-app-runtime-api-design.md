@@ -1588,7 +1588,9 @@ Runtime 设计成过度抽象的通用框架。
 
 ### 地图控件补充约定
 
-状态栏排版与时间占位组件属于 Vue UI，不增加 Core 时间字段或时间写入服务。
+状态栏排版与时间控制组件属于 Vue UI。Core 不增加全局时间字段或业务时间服务；只在
+MapLayerHandle/LayerInstance 上提供可选的通用时间维度与范围过滤能力，时间值统一为 epoch
+毫秒，具体字段识别与地图过滤由 Adapter 实现。
 级别/投影从 app.context.state 读取；鼠标位置保留为 UI 局部高频状态，比例尺
 计算由 OL 包装层完成。Docked 单行；Overlay 每项上标题、下数据，五项横向排列，结果面板与状态信息分层。
 Overlay 的图层/图例在左侧、工具栏右侧纵向、属性按需抽屉及窄屏底部布局属于 Vue UI。
@@ -1653,6 +1655,20 @@ LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 catego
 
 ### 默认 GIS 能力收敛
 
+GROUP 显式 zIndex 将当前叶子按原有相对顺序布置到 [zIndex,zIndex+1)；未配置则保持
+子层自身 zIndex。UI 仅对最外层做整块拖拽，调用原有 setOrder 更新实际绘制顺序和 zIndex，
+Core 不增加拖拽状态或面板业务。children 继续使用现有 GROUP 配置，不引入类型名称别名。
+UI 将子层作为父层设置区内的显隐列表，子项不暴露透明度/定位/拖拽入口；父层仍复用
+LayerService.update 向叶子层批量提交透明度。本次呈现调整不改变 Runtime 子层能力或 API。
+
+图层定位已实现 LayerService.getDataLocation / MapLayerHandle.getDataLocation：适配器返回当前
+有限范围，GeoJSON 转换到当前视图投影，Core 仅合并投影一致的现有分组成员，空数据返回
+undefined，单点转 coordinate。数据范围不复制到 AppState，仅派生 hasDataLocation 可用性。
+显式 setOrder 接收后到前的全部 ID，同时归一化叶子 zIndex，避免旧 zIndex 覆盖排序。
+LayerInstance.version / 快照 version 与 LayerUpdate.expectedVersion 提供可选编辑前置条件；
+在串行队列内、适配器修改前比较版本，过期更新报错，不增加编辑 Manager 或 EventBus。
+UI 对统一样式和图例使用一次 update 提交；init 配置保持声明式输入，保存/导出由应用负责。
+
 搜索范围复用现有 SearchService：SearchQuery.layerId 指定图层，SearchProvider.layerIds
 声明支持的图层 ID，SearchResult.layerId 标记结果归属。注册时复制冻结范围，聚合时只调用
 匹配的 Provider 并过滤明确属于其他图层的结果；不传范围仍聚合所有 Provider。通用 Provider
@@ -1661,7 +1677,7 @@ OL Adapter 为每个 GeoJSON 图层注册局部属性搜索 Provider，随图层
 DataSet 更新后搜索使用新要素。结果带正确投影和定位信息，最多返回 50 项；瓦片/远程搜索
 由业务 Provider 提供。不新增 Manager、Registry 或全局结果状态。
 
-图层面板的不透明度复用已有 LayerService.update(options.opacity) 和图层元数据通知；不增加第二份 Runtime 不透明度状态。分组滑块由 UI 统一提交各叶子层，Core 生命周期及更新队列保持不变。图层数据范围定位目前仅完成设计，未新增导出 API，见 layer-location-design.md。
+图层面板的不透明度复用已有 LayerService.update(options.opacity) 和图层元数据通知；不增加第二份 Runtime 不透明度状态。分组滑块由 UI 统一提交各叶子层，Core 生命周期及更新队列保持不变。GeoJSON 和现有分组数据范围定位已实现，详见 layer-location-design.md。
 
 createOLAdapter 内部安装绘制、测量及结果操作，不再公开 createOLTools 工厂；tools:false 表示不安装工具能力。普通应用只需 createOLAdapter + createVueUI。
 UI 内置缩放和已知工具 ID 的按钮映射，以 hasTool/canActivateTool 查询可用性，UIConfig.tools 可选择显示的内置按钮。一次性删除/清空使用现有 ToolDefinition 的 mode=action，不占用激活工具状态；undoActiveTool 复用活动工具的 undo 回调，不新建 CommandBus/ToolService。

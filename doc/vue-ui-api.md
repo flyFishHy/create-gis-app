@@ -50,7 +50,7 @@ statusComponent, toolbarItems and extensions remain implementation integration A
 Custom layouts are registered as `layouts: { custom: CustomLayout }` and selected
 by name through UIConfig.layout; Vue components never enter JSON.
 
-Built-in panels are registered automatically. Search, time placeholder, Layers,
+Built-in panels are registered automatically. Search, layer time controller, Layers,
 Legend, toolbar and status are visible by default; popup starts hidden. Properties
 is initially visible in Docked and hidden in Overlay. Properties opens on selection;
 deselection keeps the Docked panel visible with its empty state and hides Overlay.
@@ -58,7 +58,7 @@ Closing preserves selection. Docked close/open fades and slides the panel while
 the sidebar grid resizes, respecting reduced-motion preferences.
 Explicit properties.visible=false disables automatic opening, while visible=true
 displays it initially. A subsequent selection can reopen a manually closed panel. Use
-`ui.panels: [{ id: 'time', visible: false }]` to disable the placeholder.
+`ui.panels: [{ id: 'time', visible: false }]` to disable the time controller.
 The toolbar definition renders in a dedicated layout slot, while its visibility
 uses the same PanelRegistry state. Toolbar/time support top; popup supports floating; status supports bottom.
 Unsupported positions for those controls warn and fall back; unknown panel IDs
@@ -95,6 +95,13 @@ through props/slots/events. `Legend` is a pure presentation component:
 It needs no Runtime or UI injection. LegendPanel is the Runtime-connected wrapper:
 it reads visible layer legends from useAppState; it owns no business legend array.
 Category, continuous, interval, image and no-data display remain supported.
+`Legend` also exposes a `group-actions` slot receiving layerId. The built-in wrapper
+uses it for its edit button; standalone consumers own their own actions.
+`LegendEditor` is an independent draft form, with initial `legend`, optional
+`layerStyle` (UniformLayerStyle), title/labels/saving/error props and submit/cancel
+events. submit carries LegendEditValue `{ legend: LayerLegend | null, style? }`.
+It copies initial values, validates colors/sizes, and does not access Runtime or
+mutate props. Remount/key the form to reload initial values. Null removes the legend.
 FeatureDetails/PropertiesPanel use the UI context and its feature renderers; they
 are connected components, not standalone data-only primitives.
 
@@ -163,7 +170,12 @@ accessible names/tooltips. Both layouts display icons and text. All columns have
 overflow so pointer movement cannot resize the bar. Toolbar and panels share the
 same Overlay glass mixin; later background shorthands must not override it.
 The header offers Light/Dark only; theme.mode=system remains supported in config.
-TimePlaceholder remains disabled and has no time/filter business state.
+The built-in LayerTimePanel reads optional date/time dimensions from public layer
+capabilities. It selects the latest value initially, lets users choose among
+layer/field dimensions, move along discrete values, and applies an exact-time layer
+filter or restore all times. With no capable layer it shows a disabled empty state. The independent
+TimeController remains usable with numeric min/max props or a discrete `values`
+array; it has no OpenLayers dependency.
 
 Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It uses
 InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
@@ -179,12 +191,40 @@ Tooltip has no header; hover delay is 180ms, focus opens immediately. right/left
 bottom placement flips at viewport edges, and Escape/click/blur/resize/scroll closes
 it. Timers/listeners are cleaned up at unmount.
 
-LayerManager renders expandable cards with visibility and a reserved send-icon
-location button. Status and removal are not shown. Settings contain only an
-opacity-icon range slider, without ID/type. 0–100% maps to LayerService.update
+LayerManager renders expandable cards with visibility and a send-icon location
+button. Status, removal and ID/type are not shown. Settings contain an opacity
+slider only; style/legend editing belongs to LegendPanel. 0–100% maps to LayerService.update
 options.opacity 0–1 (100% is opaque).
 Rapid input coalesces pending slider values; committed values are read from layer
 metadata. A group slider applies a uniform value to leaf children and shows Mixed
 when children differ; unsupported layers disable the slider. Existing groups keep
-their children listed; no new composite-layer settings are introduced. The location button is currently disabled;
-see [location design](layer-location-design.md) for the proposed data flow.
+children inside their parent's gis-ui-layer-settings when expanded. Child rows
+show only visibility and name, with no settings/opacity/location/drag controls.
+Nested groups follow the same visibility-only presentation. The parent's opacity
+control remains a batch update for all leaf descendants. Its icon, range and
+percentage sit on one horizontal line; the visible text label is omitted while
+the accessible input label is retained. Location
+uses layers.getDataLocation then map.locate, with empty/unsupported controls disabled.
+GeoJSON and existing group coverage are supported. A point preserves zoom; OL fits
+areas with padding and a zoom cap. See [location contract](layer-location-design.md).
+
+The list shows front-to-back order, honoring current zIndex before collection order.
+Only outermost rows have grip-vertical drag handles. Dropping above/below another
+root reorders whole subtrees, without reparenting children. Up/Down on a focused
+handle provides keyboard ordering. Group zIndex positions its leaf block while
+preserving relative child order; larger zIndex values appear higher in the list.
+An explicit move uses the existing Runtime setOrder and normalizes leaf zIndex.
+
+Each Legend group opens the connected LayerEditor within the legend panel.
+LayerManager has no legend/style editor entry. LayerEditor wraps the independent
+LegendEditor. Uniform map fill/stroke/
+width/radius, legend title, labels, standalone swatches, existing-item order and
+legend presence can be edited. Opt-in single-category useLayerStyle derives its
+swatch from the map style; the editor disables that derived color field. Other
+legend swatches/stops are presentation-only, not classified render rules or filters.
+Image legends only offer title/presence edits. Applying sends the complete style
+plus legend in one version-checked update; cancelling changes no Runtime state.
+External updates require reload, deletion or ID replacement blocks submission,
+and failures preserve the draft. The separate properties panel still shows features.
+Runtime edits do not automatically save appConfig.json. Classification/filtering
+and remote-style editing remain separate future capabilities.

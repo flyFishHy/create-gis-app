@@ -40,6 +40,8 @@ export type {
   LayerConfig,
   LayerInstance,
   LayerService,
+  LayerTimeDimension,
+  LayerTimeFilter,
   LayerTypeDefinition,
   LayerUpdate,
   LegendDefinition,

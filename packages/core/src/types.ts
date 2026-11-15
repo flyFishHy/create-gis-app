@@ -24,6 +24,7 @@ export interface MapStateSnapshot {
   readonly rotation: number | null
 }
 export interface LayerStateSnapshot {
+  readonly version: number
   readonly id: string
   readonly type: string
   readonly title: string | null
@@ -158,7 +159,12 @@ export interface MapViewService {
 }
 
 export interface MapLayerHandle {
+  /** Current finite data coverage, preferably in the current map projection. */
+  getDataLocation?(): MapLocation | undefined
   resolveLegend?(legend: LegendDefinition): LegendDefinition
+  getTimeDimensions?(): readonly LayerTimeDimension[]
+  getTimeFilter?(): LayerTimeFilter | undefined
+  setTimeFilter?(filter: LayerTimeFilter | undefined): void
   setVisible(visible: boolean): void
   setZIndex(zIndex: number): void
   update?(patch: LayerUpdate): void | Promise<void>
@@ -196,6 +202,8 @@ export interface MapService {
 }
 
 export interface LayerUpdate {
+  /** Checked inside the layer's update queue before applying any engine changes. */
+  readonly expectedVersion?: number
   readonly legend?: LayerLegend | null
   readonly title?: string
   readonly visible?: boolean
@@ -203,7 +211,21 @@ export interface LayerUpdate {
   readonly options?: Readonly<Record<string, JsonValue>>
 }
 
+/** A discrete, UTC-normalized date/time field exposed by a layer adapter. */
+export interface LayerTimeDimension {
+  readonly field: string
+  readonly values: readonly number[]
+}
+
+/** Inclusive epoch-millisecond range applied to one layer date/time field. */
+export interface LayerTimeFilter {
+  readonly field: string
+  readonly start: number
+  readonly end: number
+}
+
 export interface LayerInstance {
+  readonly version: number
   readonly legend: LegendDefinition | undefined
   readonly id: string
   readonly type: string
@@ -211,6 +233,9 @@ export interface LayerInstance {
   readonly status: 'created' | 'loading' | 'ready' | 'error' | 'disposed'
   readonly visible: boolean
   setVisibility(visible: boolean): void
+  getTimeDimensions(): readonly LayerTimeDimension[]
+  getTimeFilter(): LayerTimeFilter | undefined
+  setTimeFilter(filter: LayerTimeFilter | undefined): void
   update(patch: LayerUpdate): Promise<void>
   dispose(): Promise<void>
   getMetadata(): Readonly<Record<string, unknown>>
@@ -221,6 +246,7 @@ export interface LayerTypeDefinition {
 }
 
 export interface LayerService {
+  getDataLocation(id: string): MapLocation | undefined
   add(config: LayerConfig): Promise<LayerInstance>
   remove(id: string): Promise<void>
   update(id: string, patch: LayerUpdate): Promise<void>

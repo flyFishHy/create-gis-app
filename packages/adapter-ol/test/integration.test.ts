@@ -12,6 +12,33 @@ beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve(
 afterEach(() => vi.unstubAllGlobals())
 const collection = { type: 'FeatureCollection', features: [] }
 
+it('locates current GeoJSON data, merges groups, handles points and preserves correct projection after view replacement', async () => {
+  const app = createGISApp()
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const point = (coordinate: [number, number]) => ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: coordinate } }] })
+  try {
+    await app.init({ map: { center: [0, 0], zoom: 4 }, layers: [{ id: 'group', type: 'GROUP', children: [
+      { id: 'a', type: 'geojson', zIndex: 100, source: { type: 'inline', data: point([10, 20]) } },
+      { id: 'b', type: 'geojson', zIndex: -10, source: { type: 'inline', data: point([30, 40]) } },
+    ] }] })
+    const first = app.layers.getDataLocation('a')!
+    expect(first.coordinate?.[0]).toBeCloseTo(1113194.9079, 2)
+    app.map.locate(first)
+    expect(app.map.getView().getZoom()).toBe(4)
+    expect(app.layers.getDataLocation('group')?.extent?.[2]).toBeCloseTo(3339584.7238, 2)
+    app.data.get('layer:a')!.update(point([-10, -20]))
+    expect(app.layers.getDataLocation('a')?.coordinate?.[0]).toBeCloseTo(-1113194.9079, 2)
+    useOLMap(app).setView(new View({ projection: 'EPSG:4326', center: [0, 0], zoom: 2 }))
+    expect(app.layers.getDataLocation('a')).toMatchObject({ projection: 'EPSG:4326' })
+    expect(app.layers.getDataLocation('a')?.coordinate?.[0]).toBeCloseTo(-10, 5)
+    app.layers.setOrder(['a', 'b', 'group'])
+    expect(app.layers.get('b')!.getMetadata().zIndex).toBe(1)
+    expect(app.layers.get('a')!.getMetadata().zIndex).toBe(0)
+    app.data.get('layer:a')!.update(collection); app.data.get('layer:b')!.update(collection)
+    expect(app.layers.getDataLocation('group')).toBeUndefined()
+  } finally { await app.dispose() }
+})
+
 it('searches GeoJSON attributes per layer, refreshes results with data and releases owned providers', async () => {
   const app = createGISApp()
   app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
@@ -36,6 +63,32 @@ it('searches GeoJSON attributes per layer, refreshes results with data and relea
     expect(await app.search.search({ keyword: 'Updated', layerId: 'a' })).toEqual([])
   } finally { await app.dispose() }
   expect(app.search.listProviders()).toEqual([])
+})
+
+it('derives date/time dimensions from GeoJSON properties and filters rendered and searched features', async () => {
+  const app = createGISApp()
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const data = { type: 'FeatureCollection', features: [
+    { type: 'Feature', id: 'old', properties: { name: 'Old event', observed_at: '2024-01-01T10:30:00Z' }, geometry: { type: 'Point', coordinates: [0, 0] } },
+    { type: 'Feature', id: 'new', properties: { name: 'New event', observed_at: '2024-02-01T10:30:00Z' }, geometry: { type: 'Point', coordinates: [1, 1] } },
+  ] }
+  await app.init({ layers: [{ id: 'events', title: 'Events', type: 'geojson', source: { type: 'inline', data } }] })
+  try {
+    const instance = app.layers.get('events')!
+    const values = instance.getTimeDimensions().find(item => item.field === 'observed_at')?.values
+    expect(values).toEqual([Date.parse('2024-01-01T10:30:00Z'), Date.parse('2024-02-01T10:30:00Z')])
+    const current = values![1]!
+    instance.setTimeFilter({ field: 'observed_at', start: current, end: current })
+    const layer = useOLMap(app).getLayers().item(0) as VectorLayer<VectorSource>
+    const style = layer.getStyleFunction()!
+    const [oldFeature, newFeature] = layer.getSource()!.getFeatures()
+    expect(style(oldFeature!, 1)).toBeUndefined()
+    expect(style(newFeature!, 1)).toBeDefined()
+    expect(await app.search.search({ keyword: 'event', layerId: 'events' })).toMatchObject([{ id: 'events:new' }])
+    expect(instance.getMetadata().time).toMatchObject({ filter: { field: 'observed_at', start: current, end: current } })
+    instance.setTimeFilter(undefined)
+    expect(await app.search.search({ keyword: 'event', layerId: 'events' })).toHaveLength(2)
+  } finally { await app.dispose() }
 })
 
 it('resolves layer legend styles without Vue and transforms search coordinates to the current projection', async () => {

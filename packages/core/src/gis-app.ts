@@ -92,7 +92,7 @@ class GISAppImpl implements GISApp {
     const events = this.events
     this.#state.connect(() => ({
       map: map.snapshot(),
-      layers: layers.list().map(layer => ({ id: layer.id, type: layer.type, title: layer.title ?? null,
+      layers: layers.list().map(layer => ({ id: layer.id, version: layer.version, type: layer.type, title: layer.title ?? null,
         visible: layer.visible, status: layer.status, legend: layer.legend ?? null, metadata: stateValue(layer.getMetadata()) as Record<string, JsonValue> })),
       data: data.snapshot(),
     }))

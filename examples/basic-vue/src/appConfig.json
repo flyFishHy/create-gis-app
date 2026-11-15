@@ -2,10 +2,28 @@
   "map": { "projection": "EPSG:3857", "center": [-10700000, 4700000], "zoom": 3 },
   "title": { "content": "空间态势工作台", "icon": "⌖" },
   "layers": [{
-    "id": "states", "type": "geojson", "title": "美国州界", "visible": true,
+    "id": "states", "type": "geojson", "title": "美国州界", "visible": true, "zIndex": 0,
     "legend": { "type": "category", "title": "州界", "useLayerStyle": true, "items": [{ "id": "state", "label": "美国州界", "color": "#38bdf8", "symbol": "fill" }] },
     "source": { "type": "url", "url": "https://openlayers.org/data/vector/us-states.json" },
     "options": { "style": { "fillColor": "#0ea5e940", "strokeColor": "#38bdf8", "strokeWidth": 1.6, "pointRadius": 6 } }
+  }, {
+    "id": "routes", "type": "geojson", "title": "示例航线", "zIndex": 10,
+    "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "跨州航线" }, "geometry": { "type": "LineString", "coordinates": [[-122.42, 37.77], [-104.99, 39.74], [-74.01, 40.71]] } }] } },
+    "options": { "style": { "strokeColor": "#fbbf24", "strokeWidth": 3 } },
+    "legend": { "type": "category", "useLayerStyle": true, "items": [{ "id": "route", "label": "示例航线", "symbol": "line" }] }
+  }, {
+    "id": "survey", "type": "GROUP", "title": "监测业务图层", "zIndex": 20,
+    "children": [{
+      "id": "survey-area", "type": "geojson", "title": "监测区域", "zIndex": 1,
+      "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "中部监测区域" }, "geometry": { "type": "Polygon", "coordinates": [[[-110, 33], [-95, 33], [-95, 45], [-110, 45], [-110, 33]]] } }] } },
+      "options": { "opacity": 0.65, "style": { "fillColor": "#a78bfa66", "strokeColor": "#a78bfa", "strokeWidth": 2 } },
+      "legend": { "type": "category", "useLayerStyle": true, "items": [{ "id": "area", "label": "监测区域", "symbol": "fill" }] }
+    }, {
+      "id": "survey-sites", "type": "geojson", "title": "采样点", "zIndex": 2,
+      "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "旧金山站" }, "geometry": { "type": "Point", "coordinates": [-122.42, 37.77] } }, { "type": "Feature", "properties": { "name": "丹佛站" }, "geometry": { "type": "Point", "coordinates": [-104.99, 39.74] } }, { "type": "Feature", "properties": { "name": "纽约站" }, "geometry": { "type": "Point", "coordinates": [-74.01, 40.71] } }] } },
+      "options": { "style": { "fillColor": "#34d399", "strokeColor": "#ffffff", "strokeWidth": 2, "pointRadius": 7 } },
+      "legend": { "type": "category", "useLayerStyle": true, "items": [{ "id": "site", "label": "采样点", "symbol": "circle" }] }
+    }]
   }],
   "ui": {
     "layout": "overlay-dashboard", "theme": "dark",

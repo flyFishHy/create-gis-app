@@ -1,13 +1,19 @@
 # 图层管理与图例编辑：当前实现及建议
 
-本文是待实施方案。当前只修改状态栏，未增加图层管理操作或图例编辑器。
+本文保留原实施建议，以下进度为当前代码基线：
+
+- 已完成 GeoJSON 定位、现有 GROUP 范围合并、空数据禁用和数据更新联动。
+- 已完成兄弟层及整组上移/下移，界面前到后、Runtime 后到前，显式排序归一化 zIndex。
+- 已完成统一矢量样式与图例编辑，入口统一在图例面板，由 LayerEditor 连接 Runtime；独立 LegendEditor 可通过 props/submit/cancel 使用。
+- 已完成应用/取消、颜色尺寸校验、完整样式提交、expectedVersion 队列前置条件、外部修改重新加载和删除/同 ID 替换保护。
+- 分类/分段地图渲染、图例要素过滤、远程样式编辑和自动持久化仍待后续需求。下文表格中的“建议”用于说明原分阶段方向；实际契约以 runtime-api.md、vue-ui-api.md 为准。
 
 ## 当前边界
 
 - Core 的 LayerService 管理图层生命周期、显隐、排序、更新及图例数据；LayerInstance.legend 经 handle.resolveLegend 返回当前展示定义。
 - OL Adapter 支持 XYZ、GeoJSON 和统一矢量样式（fillColor、strokeColor、strokeWidth、pointRadius），不支持属性分类/分段渲染。
-- LayerManagerPanel 已接入显隐与不透明度；send 定位仍是禁用占位。现有 GROUP 支持子层和批量不透明度，不扩展组合图层。
-- LegendPanel 读取可见图层快照；Legend 是可独立使用的纯展示组件。两者目前都没有编辑入口。
+- LayerManagerPanel 已接入显隐、不透明度、数据定位、排序和样式/图例编辑。现有 GROUP 支持子层和批量不透明度，不扩展组合图层。
+- LegendPanel 读取可见图层快照并提供编辑入口；Legend 保持纯展示，LegendEditor 为可独立使用的草稿表单。
 - LegendDefinition 是展示模型，items 没有分类值绑定，interval 的 stops 没有完整区间边界和开闭规则；visible 只影响展示样式，不过滤地图要素。
 
 ## 图层管理还应管理什么
@@ -15,16 +21,16 @@
 | 能力 | 当前情况 | 建议优先级与入口 |
 | --- | --- | --- |
 | 显隐、不透明度 | 已完成 | 保持行内眼睛和展开滑块 |
-| 定位到数据 | 仅占位 | 第一优先；落实 layer-location-design.md，先 GeoJSON |
-| 绘制顺序 | Core 已有 setOrder，UI 无入口 | 下一步；先上移/下移，后拖拽，明确界面从上到下与地图绘制顺序的对应关系 |
-| 矢量样式 | Adapter 已支持统一样式，UI 无入口 | 与图例符号编辑共用同一个编辑表单；颜色、线宽、点大小 |
+| 定位到数据 | 已完成 GeoJSON / GROUP | 空数据禁用；其他来源按需补充，详见 layer-location-design.md |
+| 绘制顺序 | Core / UI 已完成 | 兄弟层、整组上移/下移；拖拽后续按需增加 |
+| 矢量样式 | 已完成统一样式编辑 | 与图例共用表单；颜色、线宽、点大小 |
 | 比例尺/级别范围 | 未支持 | 业务需要时补配置、运行时更新与“不在显示范围”提示；与用户显隐分开 |
 | 要素查询/筛选、属性表 | 搜索及点击选择已支持，完整属性表/筛选未支持 | 通过独立查询面板处理，图层行只放入口 |
 | 刷新、错误重试 | DataSet 可更新，通用图层刷新契约缺失 | 有远程数据更新需求时再补，按数据源实现；不把普通 ready 显示为常驻状态 |
 | 底图切换 | XYZ 可用，无底图角色和互斥组 | 后续按需提供独立底图入口，不能让所有业务图层互斥 |
 | 分组、组合层 | 已有基础 GROUP | 本轮不扩展；后续明确组显隐、子层排序与批量操作语义 |
 
-默认图层行继续保持“展开、眼睛、名称、定位”。展开区目前只保留不透明度，后续样式可用一个“样式设置”入口打开编辑器，避免在窄卡片里堆很多控件。
+默认图层行保持“手柄（最外层）、展开、眼睛、名称、定位”。展开区的透明度为图标、滑块、百分比单行横排；children 嵌在父层设置区，仅保留显隐与名称，不提供拖拽、透明度或定位。父层透明度统一控制叶子层。图例编辑使用图例面板入口；最外层可拖拽排序，整组移动不改变子层归属。
 新增/删除图层与数据权限交给应用配置或专门的图层目录，不恢复默认删除按钮。
 数据加载异常应在失败时给出明确反馈及可用的重试入口，而不是一直显示 ready。
 
@@ -43,7 +49,7 @@ await app.layers.update(layerId, { legend: nextLegend })
 ```
 
 这不应暗示地图样式发生变化。独立 Legend 的调用方自行提交数据，LegendPanel 才通过 Runtime 保存。
-独立的纯展示 Legend 保持现有 props API；未来 LegendEditor 可采用 modelValue/update:modelValue 与 submit/cancel，由宿主持有草稿。
+独立的纯展示 Legend 保持现有 props API；已实现 LegendEditor 采用初始 legend/layerStyle props 与 submit/cancel，内部草稿不直接改 Runtime，重挂载可重新载入。
 
 ### 地图符号与分类规则编辑
 

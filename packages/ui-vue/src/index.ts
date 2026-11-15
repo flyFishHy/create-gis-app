@@ -20,6 +20,8 @@ export { default as OverlayDashboardLayout } from './layouts/OverlayDashboardLay
 export { default as LayerManagerPanel } from './panels/LayerManagerPanel.vue'
 export { default as LegendPanel } from './panels/LegendPanel.vue'
 export { default as Legend } from './components/Legend.vue'
+export { default as LegendEditor } from './components/LegendEditor.vue'
+export type { UniformLayerStyle, LegendEditValue } from './components/legend-editor-types.js'
 export { default as SearchPanel } from './panels/SearchPanel.vue'
 export { default as Toolbar } from './panels/Toolbar.vue'
 export { default as FeaturePopup } from './panels/FeaturePopup.vue'
@@ -27,6 +29,7 @@ export { default as FeatureDetails } from './components/FeatureDetails.vue'
 export { default as PropertiesPanel } from './panels/PropertiesPanel.vue'
 export { default as KpiPanel } from './panels/KpiPanel.vue'
 export { default as TimeController } from './panels/TimeController.vue'
+export { default as LayerTimePanel } from './panels/LayerTimePanel.vue'
 export type {
   UIConfig,
   FeatureRendererDefinition,

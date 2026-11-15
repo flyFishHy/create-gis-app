@@ -8,6 +8,25 @@ function deferred() {
   return { promise, resolve }
 }
 
+it('checks edit versions inside the serialized queue and rejects stale edits before engine mutation', async () => {
+  const gate = deferred(), started = deferred(), apply = vi.fn(async () => { started.resolve(); await gate.promise })
+  const app = createGISApp()
+  app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition(() => ({ setVisible() {}, setZIndex() {}, dispose() {}, update: apply })) }))
+  try {
+    await app.init({ layers: [{ id: 'one', type: 'test', title: 'Before' }] })
+    const layer = app.layers.get('one')!, version = layer.version
+    const first = app.layers.update('one', { title: 'External' })
+    await started.promise
+    const stale = app.layers.update('one', { title: 'Stale edit', expectedVersion: version })
+    const rejected = expect(stale).rejects.toMatchObject({ code: 'APP_INVALID_STATE', stage: 'layer-update' })
+    gate.resolve(); await first; await rejected
+    expect(apply).toHaveBeenCalledOnce()
+    expect(layer.title).toBe('External')
+    expect(layer.version).toBe(version + 1)
+    expect(app.context.state.snapshot().layers[0]?.version).toBe(layer.version)
+  } finally { gate.resolve(); await app.dispose() }
+})
+
 it.each(['remove', 'dispose'] as const)('waits for an active update before %s and rejects its stale commit', async action => {
   const gate = deferred(), started = deferred()
   const release = vi.fn(), visible = vi.fn()

@@ -17,6 +17,7 @@ import Fill from 'ol/style/Fill.js'
 import CircleStyle from 'ol/style/Circle.js'
 import { unByKey } from 'ol/Observable.js'
 import { getUid } from 'ol/util.js'
+import { asArray as parseColor } from 'ol/color.js'
 import type { SearchResult } from '@joinmap/gis-core'
 import type { MapStateSnapshot, Unsubscribe } from '@joinmap/gis-core'
 import { defaults as defaultControls } from 'ol/control/defaults.js'
@@ -25,6 +26,8 @@ import type {
   GISPlugin,
   AppContext,
   LayerConfig,
+  LayerTimeDimension,
+  LayerTimeFilter,
   MapAdapter,
   MapConfig,
   MapLayerHandle,
@@ -65,13 +68,14 @@ class OLMapAdapter implements MapAdapter {
   locate(location: MapLocation): void {
     const view = this.map!.getView(), projection = view.getProjection()
     const from = location.projection ?? projection
-    if (location.extent) view.fit(transformExtent([...location.extent], from, projection))
+    if (location.extent) view.fit(transformExtent([...location.extent], from, projection), { padding: [24, 24, 24, 24], maxZoom: Math.max(view.getZoom() ?? 0, 16) })
     else if (location.coordinate) view.setCenter(transform([...location.coordinate], from, projection))
   }
   readonly name = 'openlayers'
   private unsubscribeLayers?: () => void
   private map?: OlMap
   private readonly layerByHandle = new WeakMap<MapLayerHandle, BaseLayer>()
+  private readonly featureFilterByHandle = new WeakMap<MapLayerHandle, (filter: ((feature: Feature) => boolean) | undefined) => void>()
   private readonly handles = new Set<MapLayerHandle>()
 
   constructor(private readonly options: OLAdapterOptions, private readonly app: GISApp) {}
@@ -229,13 +233,50 @@ class OLMapAdapter implements MapAdapter {
       const format = new GeoJSON({ featureProjection: projection })
       const features = format.readFeatures(dataSet.data as Record<string, unknown>)
       const vectorSource = new VectorSource({ features })
-      handle = this.createHandle(new VectorLayer({ source: vectorSource }), config)
+      const vectorLayer = new VectorLayer({ source: vectorSource })
+      handle = this.createHandle(vectorLayer, config)
+      let timeFilter: LayerTimeFilter | undefined
+      const timeDimensions = (): readonly LayerTimeDimension[] => detectTimeDimensions(vectorSource.getFeatures())
+      const matchesTimeFilter = (feature: Feature): boolean => {
+        if (!timeFilter) return true
+        const value = timestampValue(feature.get(timeFilter.field), timeFilter.field)
+        return value !== undefined && value >= timeFilter.start && value <= timeFilter.end
+      }
+      handle.getTimeDimensions = timeDimensions
+      handle.getTimeFilter = () => timeFilter && { ...timeFilter }
+      handle.setTimeFilter = filter => {
+        if (filter) {
+          const dimension = timeDimensions().find(item => item.field === filter.field)
+          if (!dimension) throw new Error(`Layer "${config.id}" has no date/time field "${filter.field}".`)
+          timeFilter = Object.freeze({ ...filter })
+        } else timeFilter = undefined
+        this.featureFilterByHandle.get(handle!)?.(timeFilter ? matchesTimeFilter : undefined)
+      }
+      const baseMetadata = handle.getMetadata
+      handle.getMetadata = () => ({
+        ...baseMetadata?.(),
+        hasDataLocation: !!vectorSource.getExtent()?.every(Number.isFinite),
+        time: {
+          dimensions: timeDimensions().map(({ field, values }) => ({ field, count: values.length, min: values[0], max: values.at(-1) })),
+          filter: timeFilter ? { ...timeFilter } : null,
+        },
+      })
+      handle.getDataLocation = () => {
+        const extent = vectorSource.getExtent()
+        if (!extent?.every(Number.isFinite)) return undefined
+        const target = this.requireMap().getView().getProjection()
+        const bounds = transformExtent(extent, projection, target)
+        return { extent: [bounds[0]!, bounds[1]!, bounds[2]!, bounds[3]!], projection: target.getCode() }
+      }
       const unvalidate = dataSet.validate(data => { format.readFeatures(data as Record<string, unknown>) })
       cleanup.push(unvalidate)
       const unsubscribe = dataSet.subscribe(data => {
         const next = format.readFeatures(data as Record<string, unknown>)
         vectorSource.clear(); vectorSource.addFeatures(next)
         if (context.interactions.getSelection()?.layerId === config.id) context.interactions.clearSelection()
+        // Re-apply the optional filter and publish a layer revision after the
+        // source changes so time dimensions and data-derived extents update UI.
+        context.layers.get(config.id)?.setTimeFilter(timeFilter)
       })
       cleanup.push(unsubscribe)
       cleanup.push(context.search.registerProvider({
@@ -247,6 +288,7 @@ class OLMapAdapter implements MapAdapter {
           const results: SearchResult[] = []
           for (const feature of vectorSource.getFeatures()) {
             signal?.throwIfAborted()
+            if (!matchesTimeFilter(feature)) continue
             const properties = { ...feature.getProperties() }
             delete properties[feature.getGeometryName()]
             const values = Object.values(properties).filter(value => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
@@ -281,6 +323,14 @@ class OLMapAdapter implements MapAdapter {
 
   private createHandle(layer: BaseLayer, config: LayerConfig): MapLayerHandle {
     let styleOptions: Record<string, string | number> | undefined
+    let vectorStyle: Style | undefined
+    let featureFilter: ((feature: Feature) => boolean) | undefined
+    const applyVectorStyle = () => {
+      if (!(layer instanceof VectorLayer)) return
+      layer.setStyle(featureFilter
+        ? feature => feature instanceof Feature && featureFilter!(feature) ? vectorStyle : undefined
+        : vectorStyle)
+    }
     const applyOptions = (options: Readonly<Record<string, import('@joinmap/gis-core').JsonValue>>) => {
       for (const key of Object.keys(options)) if (key !== 'opacity' && key !== 'style') throw new Error(`Unsupported OL layer option "${key}".`)
       let style: Style | undefined
@@ -291,6 +341,7 @@ class OLMapAdapter implements MapAdapter {
         for (const [key, value] of Object.entries(options.style)) {
           if (key === 'fillColor' || key === 'strokeColor') {
             if (typeof value !== 'string' || !value.trim()) throw new Error(`${key} must be a color string.`)
+            parseColor(value)
           } else if (key === 'strokeWidth' || key === 'pointRadius') {
             if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) throw new Error(`${key} must be positive.`)
           } else throw new Error(`Unsupported style option "${key}".`)
@@ -304,8 +355,9 @@ class OLMapAdapter implements MapAdapter {
         if (typeof options.opacity !== 'number' || !Number.isFinite(options.opacity) || options.opacity < 0 || options.opacity > 1) throw new Error('opacity must be a number between 0 and 1.')
         layer.setOpacity(options.opacity)
       }
-      if (style && layer instanceof VectorLayer) { layer.setStyle(style); styleOptions = prepared }
+      if (style && layer instanceof VectorLayer) { vectorStyle = style; styleOptions = prepared; applyVectorStyle() }
     }
+    if (layer instanceof VectorLayer) applyOptions({ style: {} })
     if (config.options) applyOptions(config.options)
     layer.set('gisLayerId', config.id)
     let handle: MapLayerHandle
@@ -322,12 +374,15 @@ class OLMapAdapter implements MapAdapter {
         this.handles.delete(handle)
         if (layer instanceof VectorLayer) layer.getSource()?.clear(true)
       },
-      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), style: styleOptions ? { ...styleOptions } : undefined }),
+      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), zIndex: layer.getZIndex() ?? 0, style: styleOptions ? { ...styleOptions } : undefined }),
       resolveLegend: legend => styleOptions && legend.useLayerStyle && legend.type === 'category' && legend.items?.length === 1 ? {
         ...legend, items: legend.items.map(item => ({ ...item, color: (item.symbol === 'line' ? styleOptions!.strokeColor : styleOptions!.fillColor) as string ?? item.color })),
       } : legend,
     }
     this.layerByHandle.set(handle, layer)
+    if (layer instanceof VectorLayer) {
+      this.featureFilterByHandle.set(handle, filter => { featureFilter = filter; applyVectorStyle(); layer.changed() })
+    }
     this.handles.add(handle)
     return handle
   }
@@ -356,4 +411,40 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined
+}
+
+const DATE_FIELD = /(^|[_-])(date|time|datetime|timestamp|year)([_-]|$)/i
+const ISO_DATE = /^\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/i
+
+function timestampValue(value: unknown, field: string): number | undefined {
+  if (typeof value === 'string') {
+    const input = value.trim()
+    if (!ISO_DATE.test(input)) return undefined
+    const normalized = input.replaceAll('/', '-').replace(' ', 'T')
+    const timestamp = Date.parse(/T/.test(normalized) && !/(Z|[+-]\d{2}:?\d{2})$/i.test(normalized) ? `${normalized}Z` : normalized)
+    return Number.isFinite(timestamp) ? timestamp : undefined
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value) || !DATE_FIELD.test(field)) return undefined
+  if (Number.isInteger(value) && value >= 1000 && value <= 9999) return Date.UTC(value, 0, 1)
+  if (Math.abs(value) >= 1e11) return value
+  if (Math.abs(value) >= 1e9) return value * 1000
+  return undefined
+}
+
+function detectTimeDimensions(features: readonly Feature[]): readonly LayerTimeDimension[] {
+  const fields = new Map<string, Set<number>>()
+  for (const feature of features) {
+    const properties = feature.getProperties()
+    for (const [field, value] of Object.entries(properties)) {
+      if (field === feature.getGeometryName()) continue
+      const timestamp = timestampValue(value, field)
+      if (timestamp === undefined) continue
+      let values = fields.get(field)
+      if (!values) { values = new Set(); fields.set(field, values) }
+      values.add(timestamp)
+    }
+  }
+  return [...fields]
+    .map(([field, values]) => Object.freeze({ field, values: Object.freeze([...values].sort((a, b) => a - b)) }))
+    .sort((a, b) => Number(DATE_FIELD.test(b.field)) - Number(DATE_FIELD.test(a.field)) || a.field.localeCompare(b.field))
 }

@@ -194,7 +194,7 @@ panelDefinitions 注册 Vue 组件；layouts 将名字绑定到 Vue 组件，由
 
 ### 4.2 内置控件与独立引用
 
-插件注册 Search、TimePlaceholder、LayerManager、Legend、Toolbar 和 Popup。默认启用
+插件注册 Search、LayerTimePanel、LayerManager、Legend、Toolbar 和 Popup。默认启用
 前五项，Popup 默认隐藏；ui.panels 显式覆盖预设。Toolbar 保留专用槽位，但可见性统一由
 PanelRegistry 控制。Toolbar/Time 支持 top，Popup 支持 floating；不兼容位置输出诊断并回退。
 
@@ -307,7 +307,7 @@ Overlay 模式中，地图作为完整工作画布，搜索、图层、图例、
 ┌──────────────────────────────────────────────────────────┐
 │ Title                                                    │
 ├──────────────────────────────────────────────────────────┤
-│ Search + Time placeholder                               │
+│ Search + Layer time controller                          │
 │ ┌──────────┐                         ┌──┐ ┌──────────┐  │
 │ │ Layers   │                         │工│ │Properties│  │
 │ └──────────┘           Map           │具│ │按需抽屉  │  │
@@ -325,8 +325,9 @@ Overlay 模式中，地图作为完整工作画布，搜索、图层、图例、
 - 图层、图例和属性默认同宽 260px，通过 --gis-ui-overlay-panel-width 统一覆盖。
   - 状态栏位于底部中央，Overlay 每项上方为标题、下方为数据，经纬度合并后四项固定列宽排列；Docked 使用紧凑单行。
   地图级别由 AppState 提供，在状态栏显示，不再占据工具栏。
-- 搜索右侧使用 TimePlaceholder 占位组件，禁用按钮显示日历图标及待配置文案。
-  默认随 search 启用，可通过 defaults.time 覆盖；不接入业务时间或 State。
+- 搜索右侧使用 LayerTimePanel。它通过公开 LayerInstance 时间能力读取 GeoJSON 图层的离散
+  日期时间值，选择图层/字段、沿时间轴步进、设置单点时间过滤或恢复全部时间；无时间维度时显示禁用空状态。
+  默认启用，可通过 `ui.panels[id=time].visible` 覆盖。
 - 浮层使用统一 Grid，根据地图容器宽度避让：1100px 以下状态栏独占底部行，
   800px 以下属性抽屉移到底部、状态栏上方。工具栏及面板内部滚动，空白网格不拦截地图事件。
 - MapStatusPanel 属于 ui-vue，依赖只读快照及可选 coordinate/scale props；
@@ -730,9 +731,9 @@ Overlay。
 这两个面板偏业务能力，建议作为官方可选示例/扩展，不作为 Runtime
 必需模块。
 
-KPI 数据通过业务 Service 或数据集提供；TimeController
-通过业务时间服务或明确的 TimeController Contract
-控制时间。不要将某个项目的指标字段、时间序列数据格式固化在 Core。
+KPI 数据通过业务 Service 或数据集提供。TimeController 可独立接收数值范围或离散时间值；
+内置 LayerTimePanel 通过通用 LayerInstance 时间能力控制图层过滤。Core 不持有全局业务时钟，
+也不固化某个项目的指标字段或时间序列数据格式。
 
 ------------------------------------------------------------------------
 
@@ -1459,7 +1460,7 @@ InteractionService 切换工具；FeaturePopup 订阅 FeatureReference。当前 
 注册面板、Search Provider、Toolbar Item、Theme 和 Feature Renderer；返回的清理函数
 按逆序在 UI dispose 或安装回滚时执行。主题支持 light/dark/system 与 CSS Token 覆盖；
 appConfig 的 layout/theme 覆盖代码默认值。提供通用 `KpiPanel` 和 `TimeController`
-展示组件，但具体 KPI 字段和时间业务仍由应用通过 props 及事件定义。
+展示组件；内置 `LayerTimePanel` 消费图层公开时间维度，具体 KPI 与跨图层业务时间仍由应用定义。
 
 ### UI Phase 5：工程质量
 
@@ -1678,8 +1679,23 @@ LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 catego
 
 ### 默认 GIS 能力收敛
 
+图层管理职责修订：移除样式/图例入口，图例编辑统一放在 LegendPanel。GROUP 的 children
+随父节点展开并嵌入父层 gis-ui-layer-settings，子项只显示名称和显隐开关，不提供展开、
+拖拽、透明度或定位；支持嵌套，父层透明度统一作用于叶子层。按实际 zIndex 从高到低展示，
+最外层才有 grip-vertical 手柄，支持拖到目标行上/下方，整组移动不改变父子归属；手柄也支持
+上下方向键。透明度行仅图标、滑块、百分比横排，不显示文字，保留无障碍标签；滑块采用主题渐变进度、光晕滑块和百分比徽标。
+
+图层/图例完善已实施：send 定位接入 Runtime，空/不支持数据禁用；展开区保留不透明度，
+增加兄弟层上移/下移和样式与图例入口。列表按前到后显示，组作为整体移动，子层只在组内
+排序；Runtime 仍接收后到前顺序。图例组使用纯 Legend 的 group-actions 插槽提供编辑入口。
+图例入口使用连接组件 LayerEditor 与纯表单 LegendEditor。表单通过初始 legend/layerStyle/
+labels 和 submit/cancel 使用，独立使用不需要 Runtime；草稿不改地图，应用时提交完整样式
+和图例，单项 useLayerStyle 图例颜色派生自地图。图例标题、标签、独立色块和既有项顺序
+属于展示编辑，不隐含分类渲染。expectedVersion 防止队列内旧草稿覆盖，外部修改需重载，
+删除/同 ID 替换禁止提交，失败保留草稿；不占用要素属性面板，不自动写回 appConfig.json。
+
 Docked 属性面板默认显示、允许关闭，关闭/打开通过淡出平移及 Grid 侧栏尺寸过渡完成，遵循 reduced-motion；清空选择保留 Docked 面板，Overlay 仍按需隐藏。搜索、时间和工具栏为地图上方三个独立面板表面，搜索与时间靠左，工具栏靠右，宽度不足换行。
-图层行采用可展开卡片：每层显示显隐和预留 send 定位按钮，不显示状态或删除；展开配置仅包含 opacity 图标及百分比滑块，不显示 ID/类型。滑块调用 LayerService.update，不直接操作 OL；已有分组统一应用到叶子图层，混合值单独标注，不扩展组合图层功能。定位只做禁用占位，方案见 layer-location-design.md。
+图层行采用可展开卡片：每层显示显隐和 send 定位按钮，不显示状态或删除；展开配置只包含 opacity 图标及百分比滑块，不显示 ID/类型或图例入口。排序使用最外层 grip 手柄。滑块调用 LayerService.update，不直接操作 OL；已有分组统一应用到叶子图层，混合值单独标注。定位已接入当前数据范围，空数据禁用，详见 layer-location-design.md。
 
 搜索将主题化 GisSelect 与 input 放在同一表面，名称来自 Runtime 图层 title（初始为 appConfig.layers.title），
 按 Provider.layerIds 排除不支持搜索的图层及 GROUP。选择通过 SearchQuery.layerId 传给 Runtime；
