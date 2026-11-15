@@ -1,0 +1,9 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+
+engineStrict: true
+strictPeerDependencies: true
+pmOnFail: error
+allowBuilds:
+  '@parcel/watcher': true

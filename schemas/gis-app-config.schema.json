@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:joinmap:gis-app-config:v1",
+  "title": "Joinmap GIS Application Configuration",
+  "description": "JSON-serializable configuration consumed by @joinmap/gis-core and UI adapters.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "title": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "map": {
+      "type": "object",
+      "properties": {
+        "projection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "center": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "zoom": {
+          "type": "number"
+        },
+        "minZoom": {
+          "type": "number"
+        },
+        "maxZoom": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": true
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/layer"
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/dataSource"
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "layout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "theme": {
+          "oneOf": [
+            {
+              "enum": [
+                "light",
+                "dark",
+                "system"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "light",
+                    "dark",
+                    "system"
+                  ]
+                },
+                "tokens": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "className": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "panels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/panel"
+          },
+          "uniqueItems": true
+        },
+        "locale": {
+          "enum": [
+            "zh",
+            "en"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "zIndex": {
+          "type": "number"
+        },
+        "source": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/layer"
+          }
+        },
+        "legend": {
+          "$ref": "#/$defs/legend"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "GROUP"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "required": [
+              "children"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "GROUP"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "children"
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "dataSource": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "url",
+            "inline"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "format": {
+          "enum": [
+            "json",
+            "text"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "url"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "url"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "inline"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "data"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "panel": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "collapsed": {
+          "type": "boolean"
+        },
+        "position": {
+          "enum": [
+            "left",
+            "right",
+            "top",
+            "bottom",
+            "floating"
+          ]
+        },
+        "order": {
+          "type": "number"
+        },
+        "width": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "height": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "legendItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "symbol": {
+          "enum": [
+            "fill",
+            "line",
+            "circle",
+            "square"
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "legend": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "category",
+            "continuous",
+            "interval",
+            "image"
+          ]
+        },
+        "useLayerStyle": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/legendItem"
+          }
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "color"
+            ],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "noData": {
+          "$ref": "#/$defs/legendItem"
+        },
+        "imageUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

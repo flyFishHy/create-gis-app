@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/adapter-ol" },
+    { "path": "./packages/ol-vue" },
+    { "path": "./packages/ui-vue/tsconfig.app.json" },
+    { "path": "./packages/ui-vue/tsconfig.node.json" }
+  ]
+}

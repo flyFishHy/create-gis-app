@@ -1,0 +1,49 @@
+// Motion and high-contrast preferences.
+
+@media (prefers-reduced-motion: no-preference) {
+  .gis-ui-layout--overlay {
+    > .gis-ui-title,
+    .gis-ui-overlay--top,
+    .gis-ui-overlay--left,
+    .gis-ui-overlay--right,
+    .gis-ui-overlay--bottom {
+      animation: gis-ui-fade-up .32s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .gis-ui-overlay--left { animation-delay: .04s; }
+    .gis-ui-overlay--right { animation-delay: .08s; }
+    .gis-ui-overlay--bottom { animation-delay: .12s; }
+  }
+}
+
+@keyframes gis-ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gis-ui-root {
+    &,
+    & *,
+    & *::before,
+    & *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@media (prefers-contrast: more) {
+  .gis-ui-layout {
+    --gis-ui-border: var(--gis-ui-text-muted);
+  }
+}

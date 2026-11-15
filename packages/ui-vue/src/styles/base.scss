@@ -1,0 +1,106 @@
+// Root sizing, box model, typography and shared primitives.
+
+.gis-ui-root,
+.gis-ui-layout {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gis-ui-layout {
+  display: grid;
+  overflow: hidden;
+  color: var(--gis-ui-text);
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--gis-ui-primary) 12%, transparent), transparent 32rem),
+    radial-gradient(circle at 92% 100%, color-mix(in srgb, var(--gis-ui-accent-secondary) 9%, transparent), transparent 28rem),
+    var(--gis-ui-background);
+  font-family: var(--gis-ui-font-family);
+  font-size: var(--gis-ui-font-size);
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+
+  &,
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
+}
+
+// Scrollbars follow the theme instead of using the browser default.
+.gis-ui-root {
+  scrollbar-color: var(--gis-ui-text-muted) transparent;
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gis-ui-text-muted) 45%, transparent);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--gis-ui-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--gis-ui-focus-ring);
+  }
+}
+
+.gis-ui-empty {
+  margin: 2px 0;
+  color: var(--gis-ui-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gis-ui-error {
+  margin: 7px 0 0;
+  color: var(--gis-ui-danger);
+  font-size: 12px;
+}
+
+.gis-ui-svg-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// Tooltips are teleported to <body>, so they live outside .gis-ui-layout.
+.gis-ui-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.gis-ui-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(240px, calc(100vw - 16px));
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid #ffffff1a;
+  border-radius: 6px;
+  background: #182230;
+  box-shadow: 0 4px 12px #10182826;
+  color: #f9fafb;
+  font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}

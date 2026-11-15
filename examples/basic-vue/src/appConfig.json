@@ -1,0 +1,19 @@
+{
+  "map": { "projection": "EPSG:3857", "center": [-10700000, 4700000], "zoom": 3 },
+  "title": { "content": "空间态势工作台", "icon": "⌖" },
+  "layers": [{
+    "id": "states", "type": "geojson", "title": "美国州界", "visible": true,
+    "legend": { "type": "category", "title": "州界", "useLayerStyle": true, "items": [{ "id": "state", "label": "美国州界", "color": "#38bdf8", "symbol": "fill" }] },
+    "source": { "type": "url", "url": "https://openlayers.org/data/vector/us-states.json" },
+    "options": { "style": { "fillColor": "#0ea5e940", "strokeColor": "#38bdf8", "strokeWidth": 1.6, "pointRadius": 6 } }
+  }],
+  "ui": {
+    "layout": "overlay-dashboard", "theme": "dark",
+    "panels": [
+      { "id": "search", "visible": true, "position": "top", "order": 0 },
+      { "id": "layer-manager", "visible": true },
+      { "id": "legend", "visible": true, "position": "left" },
+      { "id": "properties", "position": "right", "order": 2 }
+    ]
+  }
+}

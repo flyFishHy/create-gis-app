@@ -1,0 +1,427 @@
+// Panel framework, search, form controls and floating popup.
+@use 'glass' as glass;
+
+.gis-ui-panel-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gis-ui-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.gis-ui-panel-host {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.gis-ui-panel-host > .gis-ui-panel-shell { flex: 1 1 auto; min-height: 0; width: 100%; }
+
+.gis-ui-panel-content {
+  min-width: 0;
+}
+
+.gis-ui-panel-shell {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gis-ui-border) 84%, transparent);
+  border-radius: var(--gis-ui-panel-radius);
+  background: var(--gis-ui-surface);
+  box-shadow: var(--gis-ui-panel-shadow);
+
+  &.is-collapsed {
+    flex: 0 0 auto;
+  }
+}
+
+.gis-ui-panel-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--gis-ui-border);
+  background: color-mix(in srgb, var(--gis-ui-panel-header-bg) 78%, var(--gis-ui-surface));
+}
+
+.gis-ui-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 680;
+  letter-spacing: .015em;
+
+  &::before {
+    width: 3px;
+    height: 15px;
+    flex: 0 0 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--gis-ui-primary), var(--gis-ui-accent-secondary));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--gis-ui-primary) 48%, transparent);
+    content: '';
+  }
+}
+
+.gis-ui-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  button {
+    min-height: 26px;
+    padding: 3px 7px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--gis-ui-text-muted);
+    font-size: 11px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--gis-ui-hover);
+      color: var(--gis-ui-text);
+    }
+
+    &.gis-ui-panel-close {
+      width: 26px;
+      padding: 0;
+      font-size: 17px;
+    }
+  }
+}
+
+.gis-ui-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.gis-ui-panel-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--gis-ui-border);
+}
+
+// Generic icon buttons.
+.gis-ui-icon-button,
+.gis-ui-layer-visibility {
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--gis-ui-text-muted);
+  cursor: pointer;
+  transition: color .14s ease, background-color .14s ease, transform .14s ease;
+
+  &:hover {
+    background: var(--gis-ui-hover);
+    color: var(--gis-ui-text);
+    transform: translateY(-1px);
+  }
+}
+
+.gis-ui-icon-button:disabled {
+  color: var(--gis-ui-text-disabled);
+  cursor: default;
+}
+
+.gis-ui-layer-visibility {
+  flex: 0 0 25px;
+}
+
+// Search.
+.gis-ui-search {
+  position: relative;
+  min-width: 0;
+
+  &.is-dropdown {
+    .gis-ui-search-feedback {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 5;
+      width: 100%;
+      max-height: 280px;
+      overflow: auto;
+      padding: 6px;
+      border: 1px solid var(--gis-ui-border);
+      border-radius: var(--gis-ui-radius-lg);
+      background: var(--gis-ui-surface-elevated);
+      box-shadow: var(--gis-ui-shadow-lg);
+      @include glass.glass-surface($surface: var(--gis-ui-surface-elevated));
+
+      p {
+        margin: 4px;
+      }
+    }
+
+    .gis-ui-search-results {
+      margin-top: 0;
+    }
+  }
+}
+
+.gis-ui-search-form {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--gis-ui-border);
+  border-radius: 10px;
+  background: var(--gis-ui-surface);
+  box-shadow: var(--gis-ui-shadow-sm);
+
+  &:focus-within {
+    border-color: var(--gis-ui-primary);
+    box-shadow: 0 0 0 3px var(--gis-ui-focus-ring), 0 12px 30px color-mix(in srgb, var(--gis-ui-primary) 10%, transparent);
+  }
+
+  input {
+    min-width: 0;
+    flex: 1;
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--gis-ui-text);
+    font: inherit;
+
+    &::placeholder {
+      color: var(--gis-ui-text-muted);
+    }
+  }
+
+  button {
+    display: grid;
+    width: 34px;
+    min-width: 34px;
+    min-height: 32px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--gis-ui-primary);
+    color: var(--gis-ui-on-primary);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 550;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
+
+    &:hover:not(:disabled) {
+      background: var(--gis-ui-primary-strong);
+      box-shadow: 0 8px 18px color-mix(in srgb, var(--gis-ui-primary) 25%, transparent);
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.gis-ui-search-results {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+
+  li + li {
+    border-top: 1px solid var(--gis-ui-border);
+  }
+
+  button {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 9px 7px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--gis-ui-text);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--gis-ui-hover);
+    }
+  }
+
+  strong {
+    font-size: 12px;
+    font-weight: 550;
+  }
+
+  small {
+    color: var(--gis-ui-text-muted);
+    font-size: 11px;
+  }
+}
+
+// Floating feature popup.
+.gis-ui-feature-popup {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  width: min(320px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--gis-ui-border);
+  border-radius: var(--gis-ui-radius-lg);
+  background: var(--gis-ui-surface-elevated);
+  box-shadow: var(--gis-ui-shadow-lg);
+  @include glass.glass-surface($surface: var(--gis-ui-surface-elevated));
+  pointer-events: auto;
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 28px;
+    color: var(--gis-ui-text);
+    font-size: 13px;
+  }
+
+  button {
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--gis-ui-text-muted);
+    font-size: 18px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--gis-ui-hover);
+    }
+  }
+
+  dl {
+    margin: 8px 0 0;
+
+    > div {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr);
+      gap: 8px;
+      padding: 4px 0;
+      border-top: 1px solid var(--gis-ui-border);
+    }
+  }
+
+  dt {
+    color: var(--gis-ui-text-muted);
+    font-size: 11px;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--gis-ui-text);
+    font-size: 11px;
+  }
+}
+
+// KPI and time controller.
+.gis-ui-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--gis-ui-gap);
+}
+
+.gis-ui-kpi-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--gis-ui-border);
+  border-radius: var(--gis-ui-panel-radius);
+  background: var(--gis-ui-surface-elevated);
+
+  strong {
+    font-size: 1.35em;
+
+    small {
+      color: var(--gis-ui-text-muted);
+      font-size: 0.7em;
+      font-weight: 400;
+    }
+  }
+}
+
+.gis-ui-kpi-label,
+.gis-ui-kpi-hint {
+  color: var(--gis-ui-text-muted);
+  font-size: 0.85em;
+}
+
+.gis-ui-time-controller {
+  display: flex;
+  align-items: center;
+  gap: var(--gis-ui-gap);
+
+  input {
+    min-width: 120px;
+    flex: 1;
+    accent-color: var(--gis-ui-primary);
+  }
+}
+
+// Segmented switch (theme and language selectors).
+.gis-ui-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--gis-ui-border);
+  border-radius: 8px;
+  background: var(--gis-ui-surface);
+
+  button {
+    display: inline-flex;
+    height: 26px;
+    min-width: 26px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--gis-ui-text-muted);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: color .12s ease, background-color .12s ease;
+
+    &:hover:not(.is-active) {
+      color: var(--gis-ui-text);
+      background: var(--gis-ui-hover);
+    }
+
+    &.is-active {
+      background: var(--gis-ui-primary);
+      color: var(--gis-ui-on-primary);
+    }
+  }
+}

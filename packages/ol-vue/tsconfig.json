@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true, "module": "ESNext", "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"], "types": ["vite/client"],
+    "outDir": "dist-types", "rootDir": "src"
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "references": [{ "path": "../core" }, { "path": "../adapter-ol" }, { "path": "../ui-vue/tsconfig.app.json" }],
+  "vueCompilerOptions": { "strictTemplates": true }
+}

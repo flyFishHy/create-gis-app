@@ -1,0 +1,40 @@
+// Responsive adjustments.
+
+@media (max-width: 1400px) {
+  .gis-ui-layout--docked {
+    --gis-ui-default-left-width: 220px;
+    --gis-ui-default-right-width: 240px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .gis-ui-layout--docked {
+    --gis-ui-default-left-width: 200px;
+    --gis-ui-default-right-width: 210px;
+  }
+}
+
+@media (max-width: 800px) {
+  .gis-ui-layout--docked {
+    .gis-ui-workspace {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(300px, 1fr) auto minmax(320px, 35vh) minmax(220px, 30vh);
+      grid-template-areas: "actions" "map" "map-status" "left" "right";
+      overflow: auto;
+    }
+
+    .gis-ui-left-region,
+    .gis-ui-right-region {
+      display: flex;
+      max-height: none;
+      overflow: auto;
+    }
+  }
+
+}
+
+@media (max-width: 680px) {
+  .gis-ui-switch--theme button span {
+    display: none;
+  }
+}
