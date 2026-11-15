@@ -17,7 +17,8 @@ export class SearchServiceImpl implements SearchService {
     this.assertActive()
     if (resources?.disposed) throw new Error('Cannot register in a disposed resource scope.')
     if (!provider.id?.trim() || this.providers.has(provider.id)) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: `Duplicate or empty search provider: ${provider.id}`, stage: 'search-registration' })
-    const entry = Object.freeze({ id: provider.id, search: (query: SearchQuery) => provider.search(query) })
+    if (provider.layerIds && (provider.layerIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(provider.layerIds).size !== provider.layerIds.length)) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Provider layerIds must contain unique non-empty IDs.' })
+    const entry = Object.freeze({ id: provider.id, ...(provider.layerIds ? { layerIds: Object.freeze([...provider.layerIds]) } : {}), search: (query: SearchQuery) => provider.search(query) })
     this.providers.set(entry.id, entry)
     const stop = () => { if (this.providers.get(entry.id) === entry) { this.providers.delete(entry.id); this.notify() } }
     resources?.add(stop)
@@ -48,7 +49,7 @@ export class SearchServiceImpl implements SearchService {
       if (query.signal?.aborted) abort()
       if (controller.signal.aborted) return await aborted
       if (!query.keyword.trim()) return []
-      const providers = this.listProviders()
+      const providers = this.listProviders().filter(provider => !query.layerId || !provider.layerIds || provider.layerIds.includes(query.layerId))
       const work = Promise.allSettled(providers.map(provider => Promise.resolve().then(() => {
         if (controller.signal.aborted) throw new DOMException('Search aborted', 'AbortError')
         return provider.search({ ...query, signal: controller.signal })
@@ -61,7 +62,7 @@ export class SearchServiceImpl implements SearchService {
         this.events.emit('app:error', { error })
         if (!successes.length) throw error
       }
-      return successes.flatMap(batch => batch.value)
+      return successes.flatMap(batch => batch.value).filter(result => !query.layerId || !result.layerId || result.layerId === query.layerId)
     } finally {
       query.signal?.removeEventListener('abort', abort)
       controller.signal.removeEventListener('abort', rejectAbort)

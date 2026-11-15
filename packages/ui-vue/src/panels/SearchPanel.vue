@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
 import type { SearchResult } from '../types.js'
 import { useGISApp } from '../use-gis-app.js'
 import { useGISUI } from '../use-gis-ui.js'
+import { useAppState } from '../use-app-state.js'
 import SvgIcon from '../components/SvgIcon.vue'
+import GisSelect from '../components/GisSelect.vue'
 
 const props = withDefaults(defineProps<{
   placeholder?: string
@@ -17,13 +19,15 @@ const props = withDefaults(defineProps<{
 
 const app = useGISApp()
 const ui = useGISUI()
-const providerCount = ref(app.search.listProviders().length)
-const stopProviders = app.search.subscribe(() => {
-  providerCount.value = app.search.listProviders().length
-  if (!providerCount.value) {
-    controller?.abort(); requestId++; loading.value = false; results.value = []; hasSearched.value = false
-  }
-})
+const snapshot = useAppState()
+const providers = shallowRef(app.search.listProviders())
+const providerCount = computed(() => providers.value.length)
+const selectedLayer = ref('')
+const searchableLayers = computed(() => snapshot.value.layers.filter(layer => layer.type !== 'GROUP'
+  && providers.value.some(provider => !provider.layerIds || provider.layerIds.includes(layer.id))))
+const generalSearch = computed(() => snapshot.value.layers.length === 0 && providers.value.some(provider => !provider.layerIds))
+const layerOptions = computed(() => searchableLayers.value.map(layer => ({ value: layer.id, label: layer.title || layer.id })))
+const canSearch = computed(() => !!selectedLayer.value || generalSearch.value)
 const placeholderText = computed(() => props.placeholder ?? ui.locale.t('search.placeholder'))
 const emptyText = computed(() => props.emptyText ?? ui.locale.t('search.empty'))
 const keyword = ref('')
@@ -36,6 +40,16 @@ const dropdownOpen = ref(false)
 const feedbackId = `gis-search-${useId()}`
 let controller: AbortController | undefined
 let requestId = 0
+
+function resetSearch() {
+  controller?.abort(); requestId++; loading.value = false; results.value = []; hasSearched.value = false
+  error.value = undefined; dropdownOpen.value = false
+}
+const stopProviders = app.search.subscribe(() => { providers.value = app.search.listProviders(); resetSearch() })
+watch(searchableLayers, layers => {
+  if (!layers.some(layer => layer.id === selectedLayer.value)) selectedLayer.value = layers[0]?.id ?? ''
+}, { immediate: true, flush: 'sync' })
+watch(selectedLayer, resetSearch, { flush: 'sync' })
 
 function dismiss() { dropdownOpen.value = false }
 function outsidePointer(event: PointerEvent) {
@@ -58,6 +72,7 @@ onBeforeUnmount(() => {
 })
 
 async function search() {
+  if (!canSearch.value || !keyword.value.trim()) return
   controller?.abort()
   const currentController = new AbortController()
   controller = currentController
@@ -67,7 +82,7 @@ async function search() {
   error.value = undefined
   hasSearched.value = true
   try {
-    const nextResults = await app.search.search({ keyword: keyword.value, signal: currentController.signal })
+    const nextResults = await app.search.search({ keyword: keyword.value, layerId: selectedLayer.value || undefined, signal: currentController.signal })
     if (currentRequest === requestId) results.value = nextResults.slice(0, props.maxResults)
   } catch (cause) {
     if (currentRequest === requestId && !currentController.signal.aborted) {
@@ -88,11 +103,14 @@ function selectResult(result: SearchResult) {
 
 <template>
   <div ref="root" class="gis-ui-search" :class="{ 'is-dropdown': dropdown }"
-    @focusin="focus" @focusout="blur" @keydown.esc.stop="dismiss">
+    @focusout="blur" @keydown.esc.stop="dismiss">
     <form class="gis-ui-search-form" role="search" :aria-busy="loading" @submit.prevent="search">
+      <GisSelect v-model="selectedLayer" class="gis-ui-search-layer" :options="layerOptions"
+        :label="ui.locale.t('search.layer')" :placeholder="ui.locale.t(generalSearch ? 'search.general' : 'search.noLayers')"
+        :disabled="!searchableLayers.length" @open="dismiss" />
       <input v-model="keyword" :placeholder="placeholderText" aria-label="Search" type="search"
-        :aria-controls="dropdown && dropdownOpen ? feedbackId : undefined">
-      <button type="submit" :disabled="loading || !keyword.trim() || providerCount === 0" :aria-label="loading ? 'Searching' : 'Search'">
+        :aria-controls="dropdown && dropdownOpen ? feedbackId : undefined" @focus="focus">
+      <button type="submit" :disabled="loading || !keyword.trim() || !canSearch" :aria-label="loading ? 'Searching' : 'Search'">
         <SvgIcon name="search" :size="17" />
       </button>
     </form>
@@ -100,7 +118,7 @@ function selectResult(result: SearchResult) {
       <p v-if="loading" class="gis-ui-empty" role="status">{{ ui.locale.t('search.loading') }}</p>
       <p v-else-if="error" class="gis-ui-error" role="alert">{{ error }}</p>
       <ul v-else-if="results.length" class="gis-ui-search-results">
-        <li v-for="result in results" :key="result.id">
+        <li v-for="result in results" :key="`${result.layerId ?? ''}:${result.id}`">
           <button type="button" @click="selectResult(result)">
             <strong>{{ result.title }}</strong>
             <small v-if="result.subtitle">{{ result.subtitle }}</small>
@@ -109,6 +127,7 @@ function selectResult(result: SearchResult) {
       </ul>
       <p v-else-if="hasSearched" class="gis-ui-empty">{{ emptyText }}</p>
       <p v-else-if="providerCount === 0" class="gis-ui-empty">{{ ui.locale.t('search.noProviders') }}</p>
+      <p v-else-if="!canSearch" class="gis-ui-empty">{{ ui.locale.t('search.noLayers') }}</p>
     </div>
   </div>
 </template>

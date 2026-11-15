@@ -11,7 +11,6 @@
     "@joinmap/adapter-ol": "workspace:*",
     "@joinmap/gis-core": "workspace:*",
     "@joinmap/ui-vue": "workspace:*",
-    "@joinmap/ol-vue": "workspace:*",
     "ol": "^10.11.0",
     "vue": "^3.5.45"
   }

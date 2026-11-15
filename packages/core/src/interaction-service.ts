@@ -71,6 +71,7 @@ export class InteractionServiceImpl implements InteractionService {
         stage: 'tool-activation',
       })
       if (this.activeToolId === id) return
+      if (!this.canActivateTool(id)) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: `Tool "${id}" is unavailable.`, stage: 'tool-activation' })
 
       const previousId = this.activeToolId
       const previous = previousId ? this.tools.get(previousId) : undefined
@@ -82,7 +83,7 @@ export class InteractionServiceImpl implements InteractionService {
 
       try {
         await next.activate(this.context)
-        this.activeToolId = id
+        if (next.mode !== 'action') this.activeToolId = id
         this.events.emit('tool:activated', { toolId: id })
       } catch (cause) {
         try { await next.deactivate?.(this.context) } catch { /* keep activation failure as primary */ }
@@ -108,6 +109,12 @@ export class InteractionServiceImpl implements InteractionService {
   }
 
   getActiveTool(): string | undefined { return this.activeToolId }
+  hasTool(id: string): boolean { return this.tools.has(id) }
+  canActivateTool(id: string): boolean {
+    return ['initializing', 'ready', 'mounted', 'unmounted'].includes(this.dependencies.state.status)
+      && this.tools.has(id) && (this.tools.get(id)!.canActivate?.(this.context) ?? true)
+  }
+  undoActiveTool(): void { if (this.activeToolId && this.canActivateTool(this.activeToolId)) this.tools.get(this.activeToolId)?.undo?.(this.context) }
 
   private async unregisterTool(id: string, definition: ToolDefinition): Promise<void> {
     if (this.tools.get(id) !== definition) return

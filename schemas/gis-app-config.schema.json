@@ -120,6 +120,14 @@
             "zh",
             "en"
           ]
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": true

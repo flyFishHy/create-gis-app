@@ -2,18 +2,16 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { createGISApp } from '../../core/src/index.js'
-import { createOLAdapter, createOLTools, useOLTools } from '../../adapter-ol/src/index.js'
+import { createOLAdapter, useOLTools } from '../../adapter-ol/src/index.js'
 import { createVueUI } from '../src/vue-ui.js'
-import { createOLToolsUI } from '../../ol-vue/src/index.js'
-import { createPropertiesUI } from '../../../examples/basic-vue/src/properties-ui.js'
+import { createOLResultsUI } from '../../ol-vue/src/index.js'
 
 afterEach(() => vi.unstubAllGlobals())
 it('connects the generic toolbar to Core, preserves results on remount and deletes a selected result', async () => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
   const app = createGISApp()
   app.use(createOLAdapter({ controls: false, interactions: false }))
-  app.use(createOLTools())
-  app.use(createVueUI({ extensions: [createOLToolsUI(), createPropertiesUI()] }))
+  app.use(createVueUI({ extensions: [createOLResultsUI()] }))
   const target = document.createElement('div')
   document.body.append(target)
   await app.init({ map: { center: [0, 0], zoom: 2 } })
@@ -38,7 +36,7 @@ it('connects the generic toolbar to Core, preserves results on remount and delet
     await flushPromises()
     expect(useOLTools(app).list()).toHaveLength(0)
     expect(app.interactions.getSelection()).toBeUndefined()
-    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull()
+    expect(target.querySelector('.gis-ui-panel-host--properties')).not.toBeNull()
     target.querySelector<HTMLButtonElement>('button[aria-label="English"]')!.click()
     await nextTick()
     expect(target.querySelector('button[aria-label="Draw point"]')).not.toBeNull()

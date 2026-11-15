@@ -17,6 +17,8 @@ describe('Header switches', () => {
       const themeSwitch = target.querySelector<HTMLElement>('[aria-label="Theme"]')!
       const languageSwitch = target.querySelector<HTMLElement>('[aria-label="Language"]')!
       const layerTitle = target.querySelector<HTMLElement>('.gis-ui-panel-host--layer-manager .gis-ui-panel-title')!
+      expect(themeSwitch.querySelectorAll('button')).toHaveLength(2)
+      expect(themeSwitch.querySelector('button[aria-label="System"]')).toBeNull()
 
       expect(layout.classList.contains('gis-ui-theme-light')).toBe(true)
       expect(layerTitle.textContent).toContain('图层')

@@ -1613,7 +1613,7 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 - 领域事件的观察者异常转为 app:error，不回滚已提交状态；app:error 观察者自身异常隔离。
 - DataSet.subscribe 通知 update；OL GeoJSON 重新解析并刷新 Source，删除时移除订阅。失败的图层私有数据集回滚，可同 ID 重试。
 - OL Adapter 将点击拾取转成 FeatureReference；激活工具时暂停拾取，隐藏/移除已选图层会清空选择。排序保留工具临时图层。
-- createOLTools() 是独立 GISPlugin，依赖 openlayers-adapter；注册 draw-point、draw-line、draw-polygon、measure-area、measure-angle、measure-distance。
+- createOLAdapter() 内部注册绘制、测量、删除及清空能力，不再公开 createOLTools；tools:false 可关闭工具安装。
 - useOLTools(app) 提供 list/subscribe/cancel/undo/clear；结果包含工具 ID、几何、投影、数值和单位。cancel 保留结果，clear 清空全部结果。结果由插件持有，不随 Vue UI 卸载消失。
 - 长度/面积使用当前投影，角度限定三点、按当前平面坐标计算 0–180°；它不是椭球测地夹角。
 - Demo 的 Escape 取消工具，Backspace 撤销当前绘制最后一个点；输入框内不拦截。结果选择删除、修改与吸附仍是后续能力。
@@ -1627,7 +1627,7 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 - 图层卸载分别尝试 adapter.removeLayer 与 handle.dispose，汇总错误；实例 dispose 的并发调用共享同一个清理 Promise。
 - OLToolsController 新增 get/remove/select/selected/updateGeometry/exportResults/importResults。结果 ID 与 Feature ID 一致；选中结果高亮，删除只作用于指定 ID。几何修改先校验并重新计算，导入批次先校验全部记录再提交，拒绝重复 ID 和不同于地图的投影。公开结果为拷贝。
 - Draw 不再自行提交 Source：插件校验后统一写入 Source 和结果集合，再通知 UI。测量值按 m、m²、° 保存；拒绝空几何、非有限坐标、零长度线、零面积面及重复角点。
-- Basic Vue 通过 createOLToolsUI 扩展注册通用 Toolbar 项目与结果面板；默认不再使用自定义 MapTools 组件。ToolbarItemDefinition.display 可提供响应式只读值（例如地图级别）。结果面板支持选中/高亮与单个删除；工具栏清空全部是独立动作。
+- Basic Vue 仅安装 createOLAdapter 和 createVueUI。基础工具栏、属性联动和状态栏内置；高级结果列表可显式安装 createOLResultsUI，编程结果操作保留 useOLTools。
 - OL 图层 options 支持 opacity（0–1）；GeoJSON 额外支持 style 对象：fillColor、strokeColor（颜色字符串）、strokeWidth、pointRadius（正数）。style 是完整替换，缺省字段使用默认值；创建和 update 均生效，不支持的 option/style 字段明确报错。参数先全部校验再应用。统一矢量样式通过 getMetadata().style 提供给图例，线符号使用 strokeColor，其余使用 fillColor；分级/分类表达式样式仍未实现。
 - 本轮测试包含 Core 异常/所有权回归与真实 OL、Vue UI 的 jsdom 集成；这些不等同于真实浏览器鼠标事件端到端回归。
 
@@ -1643,10 +1643,30 @@ ui-vue 公开 FeatureDetails 和 PropertiesPanel，属性面板与 FeaturePopup 
 
 属性抽屉开关导致的 Grid 变化只由 Vue UI 管理：宽屏左侧图例保持同一底部锚点，窄屏按底部抽屉规则分配空间，不涉及 Core 选择或地图状态变更。
 
-新增 @joinmap/ol-vue，导出 createOLToolsUI 与 OLMapStatus；依赖 Core、adapter-ol、ui-vue 的公开 API。工具按钮、结果面板、快捷键与鼠标坐标/比例尺包装从 Demo 提取，Core 和通用 ui-vue 保持引擎无关。集成包用法见 doc/ol-vue-api.md。
+@joinmap/ol-vue 仅保留可选高级结果列表 createOLResultsUI；基础工具栏、属性联动和状态栏由默认 UI 和适配器提供，Core 与 UI 保持引擎无关。详见 doc/ol-vue-api.md。
 
 侧栏 width 参与 Grid 占位，同侧可见面板取 CSS max；数字尺寸转为 px，尺寸应用到 PanelHost。优先级为面板 width > left/rightPanelWidth > Overlay 的 overlayPanelWidth > panelWidth > 布局默认值；响应式布局限制宽度并在窄屏将属性抽屉置于整行。主题变量映射见 doc/vue-ui-theme-tokens.md。
 
 Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操作及 OL 工具按钮/结果操作跟随语言切换；PanelShell 可通过 labels 覆盖操作文案，独立使用默认英文。
 
 LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 category 图例跟随统一图层样式。分类颜色不再自动被覆盖；continuous 按数值排序，色带按真实数值比例生成，interval 保持离散色块。图例交互过滤仍未实现。
+
+### 默认 GIS 能力收敛
+
+搜索范围复用现有 SearchService：SearchQuery.layerId 指定图层，SearchProvider.layerIds
+声明支持的图层 ID，SearchResult.layerId 标记结果归属。注册时复制冻结范围，聚合时只调用
+匹配的 Provider 并过滤明确属于其他图层的结果；不传范围仍聚合所有 Provider。通用 Provider
+省略 layerIds，但必须处理传入的 layerId。Core 不判断哪些 OL 类型可搜索。
+OL Adapter 为每个 GeoJSON 图层注册局部属性搜索 Provider，随图层释放；读取当前矢量源，
+DataSet 更新后搜索使用新要素。结果带正确投影和定位信息，最多返回 50 项；瓦片/远程搜索
+由业务 Provider 提供。不新增 Manager、Registry 或全局结果状态。
+
+图层面板的不透明度复用已有 LayerService.update(options.opacity) 和图层元数据通知；不增加第二份 Runtime 不透明度状态。分组滑块由 UI 统一提交各叶子层，Core 生命周期及更新队列保持不变。图层数据范围定位目前仅完成设计，未新增导出 API，见 layer-location-design.md。
+
+createOLAdapter 内部安装绘制、测量及结果操作，不再公开 createOLTools 工厂；tools:false 表示不安装工具能力。普通应用只需 createOLAdapter + createVueUI。
+UI 内置缩放和已知工具 ID 的按钮映射，以 hasTool/canActivateTool 查询可用性，UIConfig.tools 可选择显示的内置按钮。一次性删除/清空使用现有 ToolDefinition 的 mode=action，不占用激活工具状态；undoActiveTool 复用活动工具的 undo 回调，不新建 CommandBus/ToolService。
+PropertiesPanel 及选择联动归 ui-vue 内置。默认选中时打开，关闭保留选择，重新选择可再次打开；显式 properties.visible=false 关闭自动打开。Status 为内置专用槽位面板，status.visible=false 隐藏面板并清理订阅。
+MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时传 undefined；高频数据不进入 AppState。视图快照增加 metersPerPixel，适配器完成投影相关计算；默认状态栏按 0.28mm 名义像素格式化比例尺。键盘处理归工作区，仅在工作区内且非输入控件时处理 Escape/Backspace。
+状态栏忽略离开事件对坐标显示的清空，保留最后一次有限坐标；该展示策略和面板重挂载缓存只属于 UI，不改变 Core 指针事件语义或 AppState。
+搜索下拉的主题化选择器、选项/结果浮层互斥以及状态栏的顺序、标题图标文字和列宽均属于 Vue UI 呈现策略，不新增 Runtime 状态或 API。
+独立的 ol-vue 集成包只保留高级结果列表，不再是普通应用启动的必经步骤。

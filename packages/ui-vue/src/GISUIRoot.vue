@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, provide, shallowRef } from 'vue'
 import type { Component, CSSProperties } from 'vue'
-import type { GISApp } from '@joinmap/gis-core'
+import { GISRuntimeError, type GISApp } from '@joinmap/gis-core'
 import type { GISUIContext } from './types.js'
 import { regionWidth } from './panels/panel-size.js'
 import { GISAppKey } from './injection.js'
-import { GISUIContextKey } from './ui-context.js'
+import { GISUIContextKey, DockedPanelMotionKey } from './ui-context.js'
 import MapViewport from './components/MapViewport.vue'
 import PanelRegion from './components/PanelRegion.vue'
 import GisSwitch from './components/GisSwitch.vue'
 import PanelHost from './components/PanelHost.vue'
-import MapStatusPanel from './panels/MapStatusPanel.vue'
 import DockedDashboardLayout from './layouts/DockedDashboardLayout.vue'
 import OverlayDashboardLayout from './layouts/OverlayDashboardLayout.vue'
 import type { BuiltinLayoutName } from './types.js'
@@ -25,6 +24,9 @@ const props = defineProps<{
 
 provide(GISAppKey, props.runtime)
 provide(GISUIContextKey, props.ui)
+provide(DockedPanelMotionKey, computed(() => props.layout === 'docked-dashboard'))
+const hasRightPanels = computed(() => props.ui.panels.list('right').some(panel => props.ui.panels.getState(panel.id)?.visible))
+const layoutProps = computed(() => ({ ...props.appProps, ...(props.layout === 'docked-dashboard' ? { rightVisible: hasRightPanels.value } : {}) }))
 
 const theme = shallowRef<Readonly<ThemeOptions>>(props.ui.theme.get())
 const unsubscribeTheme = props.ui.theme.subscribe((next) => { theme.value = next })
@@ -77,17 +79,21 @@ const appTitle = computed(() => {
   return value && typeof value === 'object' ? value as { content?: string; icon?: string } : undefined
 })
 
-type ThemeMode = 'light' | 'dark' | 'system'
+type ThemeMode = 'light' | 'dark'
+const systemTheme = typeof window === 'undefined' ? undefined : window.matchMedia?.('(prefers-color-scheme: dark)')
+const systemDark = shallowRef(systemTheme?.matches ?? false)
+const updateSystemTheme = (event: MediaQueryListEvent) => { systemDark.value = event.matches }
+systemTheme?.addEventListener('change', updateSystemTheme)
+onBeforeUnmount(() => systemTheme?.removeEventListener('change', updateSystemTheme))
 
 const themeMode = computed<ThemeMode>(() => {
   const mode = theme.value.mode
-  return mode === 'dark' || mode === 'system' ? mode : 'light'
+  return mode === 'dark' || (mode === 'system' && systemDark.value) ? 'dark' : 'light'
 })
 
 const themeOptions = computed<readonly GisSwitchOption[]>(() => [
   { value: 'light', icon: 'sun', label: props.ui.locale.t('theme.light'), ariaLabel: 'Light' },
   { value: 'dark', icon: 'moon', label: props.ui.locale.t('theme.dark'), ariaLabel: 'Dark' },
-  { value: 'system', icon: 'monitor', label: props.ui.locale.t('theme.system'), ariaLabel: 'System' },
 ])
 
 const languageOptions: readonly GisSwitchOption[] = [
@@ -96,7 +102,7 @@ const languageOptions: readonly GisSwitchOption[] = [
 ]
 
 function setThemeMode(mode: string) {
-  if (mode === 'light' || mode === 'dark' || mode === 'system') {
+  if (mode === 'light' || mode === 'dark') {
     props.ui.theme.set({ mode })
   }
 }
@@ -106,10 +112,23 @@ function setLocale(locale: string) {
     props.ui.locale.set(locale)
   }
 }
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
+  const target = event.target
+  if (target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable)) return
+  try {
+    if (event.key === 'Escape') void props.runtime.interactions.deactivateTool().catch(reportToolError)
+    if (event.key === 'Backspace' && props.runtime.interactions.getActiveTool()) { event.preventDefault(); props.runtime.interactions.undoActiveTool() }
+  } catch (cause) { reportToolError(cause) }
+}
+function reportToolError(cause: unknown) {
+  props.runtime.events.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Tool shortcut failed.', cause }) })
+}
 </script>
 
 <template>
-  <component :is="layoutComponent" v-bind="appProps" class="gis-ui-root" :class="themeClasses" :style="[themeStyle, regionStyle]">
+  <component :is="layoutComponent" v-bind="layoutProps" class="gis-ui-root" :class="themeClasses" :style="[themeStyle, regionStyle]" @keydown="handleKeydown">
     <template #title>
       <div class="gis-ui-brand">
         <span class="gis-ui-brand-mark" aria-hidden="true">{{ appTitle?.icon || 'G' }}</span>
@@ -134,9 +153,8 @@ function setLocale(locale: string) {
     <template #bottom>
       <div class="gis-ui-bottom-content">
         <PanelRegion position="bottom" />
-        <div class="gis-ui-status-content">
-          <component :is="ui.statusComponent" v-if="ui.statusComponent" />
-          <MapStatusPanel v-else />
+        <div v-if="ui.panels.getState('status')?.visible" class="gis-ui-status-content">
+          <PanelHost id="status" />
         </div>
       </div>
     </template>

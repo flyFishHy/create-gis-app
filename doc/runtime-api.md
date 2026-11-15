@@ -41,12 +41,13 @@ continues to belong to the UI adapter.
 ```ts
 const stop = app.search.registerProvider({
   id: 'places',
-  async search({ keyword, signal }) {
-    return [{ id: 'one', title: keyword,
+  layerIds: ['places-layer'],
+  async search({ keyword, layerId, signal }) {
+    return [{ id: 'one', title: keyword, layerId,
       projection: 'EPSG:4326', coordinate: [10, 20] }]
   },
 })
-const results = await app.search.search({ keyword: 'place', signal })
+const results = await app.search.search({ keyword: 'place', layerId: 'places-layer', signal })
 stop()
 ```
 
@@ -61,6 +62,20 @@ store a global result list or perform map navigation.
 Partial provider failure returns successful results and reports app:error; all
 providers failing rejects SEARCH_FAILED. Caller cancellation is AbortError.
 No providers returns an empty result array.
+
+SearchQuery.layerId optionally scopes a query. SearchProvider.layerIds declares the
+supported layer IDs (copied/frozen at registration); dispatch excludes other scoped
+providers. Omission declares a general provider that must honor query.layerId when
+present. SearchResult.layerId identifies its owning layer; explicitly mismatched
+results are filtered out. Unscoped calls preserve aggregation across all providers.
+This contract is engine/UI independent and adds no config registry or result store.
+
+The OL adapter automatically registers one local attribute provider per GeoJSON
+layer (id `ol-geojson:<layerId>`), removing it on layer disposal. It searches scalar
+properties/feature IDs case-insensitively, returns at most 50 matches with projected
+locations, and reads current source features after DataSet updates. It does not
+implement remote full-text search for tile/WMS services. Custom providers can be
+registered for those layers using the same public contract.
 
 SearchResult preserves id/title/subtitle/coordinate/extent/data and adds optional
 projection. Omission explicitly means the current map projection. Prefer declaring
@@ -130,7 +145,22 @@ InteractionService owns selection and one active tool. FeatureReference.source
 omitted/layer means business layer; other owners manage their own invalidation.
 OL tools use ol-tools, share selection with business features and provide result
 list/get/select/remove/updateGeometry/importResults/exportResults/cancel/undo/clear.
-Tool results survive UI remounts. The integration package connects them to Vue.
+Tool results survive UI remounts. createOLAdapter installs base tools internally;
+there is no public createOLTools factory. Use createOLAdapter({ tools: false }) to
+omit tool capability. Interactions and result layers are attached lazily as used.
+useOLTools still exposes the OL-specific programmatic result controller.
+
+InteractionService.hasTool/canActivateTool support a known basic toolbar without
+a new metadata registry. ToolDefinition.mode='action' executes once and never
+becomes active; delete-result and clear-results use it. Switching to an action
+first deactivates the previous interaction. canActivate controls availability,
+undoActiveTool calls the active definition's optional undo callback.
+
+Map snapshots add metersPerPixel (ground resolution at the view center, null when
+unsupported). MapAdapter/MapService.onPointerMove emits WGS84 longitude/latitude
+or undefined on pointer leave. This local stream is excluded from AppState and
+listeners are owned by consumers. Default status uses the 0.28 mm nominal pixel
+for scale; OL supplies the projection-specific resolution calculation.
 
 OL built-ins are xyz/geojson; Core supplies GROUP. OL options support opacity and
 uniform vector styles fillColor/strokeColor/strokeWidth/pointRadius. Classification,

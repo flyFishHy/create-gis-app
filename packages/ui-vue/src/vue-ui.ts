@@ -15,6 +15,9 @@ import LayerManagerPanel from './panels/LayerManagerPanel.vue'
 import Toolbar from './panels/Toolbar.vue'
 import FeaturePopup from './panels/FeaturePopup.vue'
 import TimePlaceholder from './components/TimePlaceholder.vue'
+import MapStatusPanel from './panels/MapStatusPanel.vue'
+import PropertiesPanel from './panels/PropertiesPanel.vue'
+import { registerBuiltinToolbar } from './builtin-toolbar.js'
 
 const adapters = new WeakMap<GISApp, VueUIAdapter>()
 export function getVueUIAdapter(app: GISApp): VueUIAdapter {
@@ -44,14 +47,15 @@ class VueUIAdapter implements UIAdapter {
     this.layout = options.layouts?.[layout] ?? layout
     if (typeof this.layout === 'string' && !['docked-dashboard', 'overlay-dashboard'].includes(this.layout)) throw new Error(`Unknown UI layout "${layout}". Register its component in layouts.`)
     const panels = (config.panels ?? []).map(panel => {
-      const supported = panel.id === 'toolbar' || panel.id === 'time' ? 'top' : panel.id === 'popup' ? 'floating' : undefined
+      const supported = panel.id === 'toolbar' || panel.id === 'time' ? 'top' : panel.id === 'popup' ? 'floating' : panel.id === 'status' ? 'bottom' : undefined
       if (supported && panel.position && panel.position !== supported) {
         console.warn(`[gis-ui-vue] ${panel.id} only supports position "${supported}"; using that position.`)
-        return { ...panel, position: supported as 'top' | 'floating' }
+        return { ...panel, position: supported as 'top' | 'floating' | 'bottom' }
       }
       return panel
     })
     this.panels = new PanelRegistry(panels)
+    registerBuiltinToolbar(runtime, this.toolbar, config.tools)
     for (const item of options.toolbarItems ?? []) this.toolbar.register(item)
     this.context = Object.freeze({
       app: runtime, panels: this.panels, search: runtime.search, toolbar: this.toolbar,
@@ -60,6 +64,16 @@ class VueUIAdapter implements UIAdapter {
     })
     this.registerDefaultPanels()
     for (const panel of options.panelDefinitions ?? []) this.panels.register(panel)
+    const applicationProperties = runtime.config?.ui?.panels?.find(panel => panel.id === 'properties')
+    const defaultProperties = options.config?.panels?.find(panel => panel.id === 'properties')
+    const autoOpen = (applicationProperties?.visible ?? defaultProperties?.visible) !== false
+    const syncProperties = () => {
+      if (runtime.interactions.getSelection()) { if (autoOpen) this.panels.show('properties') }
+      else if (config.layout !== 'docked-dashboard') this.panels.hide('properties')
+    }
+    // Initial rendering and subsequent selections use the same policy; closing preserves selection.
+    if (runtime.interactions.getSelection()) syncProperties()
+    this.extensionCleanups.push(runtime.interactions.onSelect(syncProperties))
   }
   get rootProps() { return { runtime: this.runtime, ui: this.context, layout: this.layout, appProps: this.options.appProps ?? {} } }
   bindHost(render: (visible: boolean) => void, target: () => Element | undefined): () => void {
@@ -123,6 +137,8 @@ class VueUIAdapter implements UIAdapter {
     this.panels.register({ id: 'legend', title: 'panel.legend', component: LegendPanel, position: 'left', defaultVisible: true, collapsible: false, closable: false })
     this.panels.register({ id: 'toolbar', component: this.options.toolbarComponent ?? Toolbar, position: 'top', unframed: true, props: { tooltipPlacement: this.layout === 'overlay-dashboard' ? 'left' : 'bottom' } })
     this.panels.register({ id: 'popup', component: FeaturePopup, position: 'floating', unframed: true })
+    if (!this.options.panelDefinitions?.some(panel => panel.id === 'properties')) this.panels.register({ id: 'properties', title: 'panel.properties', component: PropertiesPanel, position: 'right', defaultVisible: false, collapsible: false, closable: true })
+    this.panels.register({ id: 'status', component: this.options.statusComponent ?? MapStatusPanel, position: 'bottom', unframed: true })
   }
 }
 

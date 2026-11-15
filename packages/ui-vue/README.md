@@ -30,3 +30,9 @@ Pure `Legend` accepts definitions/titles/emptyText without any Runtime injection
 
 Import @joinmap/ui-vue/style.css. See [API](../../doc/vue-ui-api.md), including
 embedded ownership, panel registration, search cancellation and supported positions.
+
+Basic toolbar, properties selection behavior and status are built in. The OL
+adapter supplies drawing/measurement plus pointer/ground-resolution capabilities;
+no separate tools plugin or OL status component is required. UIConfig.tools filters
+known buttons, properties.visible=false disables automatic opening, and
+status.visible=false removes the status surface and its pointer subscription.

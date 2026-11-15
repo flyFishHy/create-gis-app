@@ -16,6 +16,7 @@ const error = ref<string>()
 const itemGroups = () => {
   const groups = new Map<string, ToolbarItemDefinition[]>()
   for (const item of ui.toolbar.list()) {
+    if (item.toolId && !app.interactions.hasTool(item.toolId)) continue
     const key = item.group ?? ''
     groups.set(key, [...(groups.get(key) ?? []), item])
   }
@@ -44,7 +45,7 @@ async function activate(item: ToolbarItemDefinition) {
 </script>
 
 <template>
-  <div v-if="ui.toolbar.list().length" class="gis-ui-toolbar-root">
+  <div v-if="itemGroups().length" class="gis-ui-toolbar-root">
     <div class="gis-ui-toolbar">
       <div v-for="([group, items], groupIndex) in itemGroups()" :key="group || groupIndex" class="gis-ui-toolbar-group" :aria-label="group || undefined">
         <Tooltip v-for="item in items" :key="item.id" :placement="tooltipPlacement"

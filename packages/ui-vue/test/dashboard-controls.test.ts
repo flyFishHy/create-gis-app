@@ -12,6 +12,7 @@ describe('Dashboard controls', () => {
     const action = vi.fn()
     app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }))
     app.use(createVueUI({
+      config: { panels: [{ id: 'properties', visible: true }] },
       toolbarItems: [{ id: 'save', title: 'Save', icon: 'save', onClick: action }],
       panelDefinitions: [{ id: 'properties', title: 'Properties', position: 'right', defaultVisible: true,
         component: defineComponent({ render: () => h('p', 'Select a feature') }) }],
@@ -41,6 +42,14 @@ describe('Dashboard controls', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       await nextTick()
       expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
+      const layerSelect = searchPanel.querySelector<HTMLButtonElement>('[role="combobox"]')!
+      layerSelect.focus(); await nextTick()
+      expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
+      layerSelect.click(); await nextTick()
+      expect(searchPanel.querySelector('[role="listbox"]')).not.toBeNull()
+      expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })); await nextTick()
+      expect(searchPanel.querySelector('[role="listbox"]')).toBeNull()
       input.focus()
       await nextTick()
       expect(searchPanel.textContent).toContain('Found feature')
@@ -66,7 +75,7 @@ describe('Dashboard controls', () => {
       await nextTick()
       expect(app.layers.get('sample')?.visible).toBe(true)
 
-      const tool = target.querySelector<HTMLButtonElement>('.gis-ui-map-actions .gis-ui-toolbar-host button')!
+      const tool = target.querySelector<HTMLButtonElement>('button[aria-label="Save"]')!
       expect(tool.textContent?.trim()).toBe('')
       expect(tool.getAttribute('aria-label')).toBe('Save')
       expect(tool.querySelector('svg')).not.toBeNull()

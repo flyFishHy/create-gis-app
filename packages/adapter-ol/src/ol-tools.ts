@@ -11,7 +11,7 @@ import Feature from 'ol/Feature.js'
 import type Geometry from 'ol/geom/Geometry.js'
 import { getArea, getLength } from 'ol/sphere.js'
 import type OlMap from 'ol/Map.js'
-import type { GISApp, GISPlugin } from '@joinmap/gis-core'
+import type { GISApp, ResourceScope } from '@joinmap/gis-core'
 import type { JsonValue } from '@joinmap/gis-core'
 import { GISRuntimeError } from '@joinmap/gis-core'
 import { useOLMap } from './ol-adapter.js'
@@ -51,13 +51,12 @@ export interface OLToolsController {
 const controllers = new WeakMap<GISApp, OLToolsController>()
 export function useOLTools(app: GISApp): OLToolsController {
   const controller = controllers.get(app)
-  if (!controller) throw new Error('Install createOLTools() before using map tools.')
+  if (!controller) throw new Error('OpenLayers tools are not installed (createOLAdapter({ tools: false })).')
   return controller
 }
 
-/** OL interactions are owned by the plugin, independent of Vue mount cycles. */
-export function createOLTools(): GISPlugin {
-  return { name: 'openlayers-tools', dependencies: ['openlayers-adapter'], install(app, _, resources) {
+/** Adapter-owned implementation. No separate plugin installation is required. */
+export function installOLTools(app: GISApp, resources: ResourceScope): void {
     const source = new VectorSource()
     const layer = new VectorLayer({ source, zIndex: 10000 })
     let map: OlMap | undefined
@@ -116,6 +115,11 @@ export function createOLTools(): GISPlugin {
       if (selectedId) source.getFeatureById(selectedId)?.setStyle(highlight)
       notify()
     }))
+    const clearResults = () => {
+      source.clear(); results = []
+      if (app.interactions.getSelection()?.source === 'ol-tools') app.interactions.clearSelection()
+      selectedId = undefined; notify()
+    }
     const controller: OLToolsController = {
       list: () => results.map(snapshot),
       get: id => { const result = results.find(result => result.id === id); return result && snapshot(result) },
@@ -167,7 +171,7 @@ export function createOLTools(): GISPlugin {
         notify()
       },
       subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
-      clear: async () => { assertActive(); await app.interactions.deactivateTool(); source.clear(); results = []; if (app.interactions.getSelection()?.source === 'ol-tools') app.interactions.clearSelection(); selectedId = undefined; notify() },
+      clear: async () => { assertActive(); await app.interactions.deactivateTool(); clearResults() },
       cancel: () => app.interactions.deactivateTool(),
       undo: () => draw?.removeLastPoint(),
     }
@@ -177,7 +181,7 @@ export function createOLTools(): GISPlugin {
       subscribe: listener => controller.subscribe(listener),
     }, resources)
     for (const tool of olTools) app.registerTool(tool.id, {
-      id: tool.id, title: tool.title,
+      id: tool.id, title: tool.title, undo: () => draw?.removeLastPoint(),
       activate() {
         ensureLayer()
         draw = new Draw({ type: tool.type, ...(tool.id === 'measure-angle' ? { minPoints: 3, maxPoints: 3 } : {}) })
@@ -199,6 +203,9 @@ export function createOLTools(): GISPlugin {
         map!.addInteraction(draw)
       }, deactivate: stop,
     }, resources)
+    app.registerTool('delete-result', { id: 'delete-result', mode: 'action',
+      canActivate: () => !!selectedId, activate: () => { if (selectedId) controller.remove(selectedId) },
+    }, resources)
+    app.registerTool('clear-results', { id: 'clear-results', mode: 'action', activate: clearResults }, resources)
     resources.add(() => { disposed = true; stop(); map?.removeLayer(layer); source.clear(); source.dispose(); layer.dispose(); results = []; listeners.clear(); controllers.delete(app) })
-  } }
 }

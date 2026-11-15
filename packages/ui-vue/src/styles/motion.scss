@@ -1,6 +1,11 @@
 // Motion and high-contrast preferences.
 
 @media (prefers-reduced-motion: no-preference) {
+  .gis-ui-layout--docked .gis-ui-workspace { transition: grid-template-columns .22s ease, grid-template-rows .22s ease; }
+  .gis-ui-layout--docked .gis-ui-panel-enter-active,
+  .gis-ui-layout--docked .gis-ui-panel-leave-active { transition: opacity .18s ease, transform .18s ease; }
+  .gis-ui-layout--docked .gis-ui-panel-enter-from,
+  .gis-ui-layout--docked .gis-ui-panel-leave-to { opacity: 0; transform: translateX(12px); }
   .gis-ui-layout--overlay {
     > .gis-ui-title,
     .gis-ui-overlay--top,

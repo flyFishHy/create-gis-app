@@ -23,7 +23,7 @@ see the [UI API](doc/vue-ui-api.md) for lifecycle and ownership rules.
   configuration validation, map/layer services, datasets, interactions, and events.
 - `packages/adapter-ol` — OpenLayers 10.11 adapter with XYZ and GeoJSON layer types.
 - `packages/ui-vue` — Vue 3 UI adapter with Docked and Overlay dashboard layouts.
-- `packages/ol-vue` — reusable OL toolbar/results and map status integration ([API](doc/ol-vue-api.md)).
+- `packages/ol-vue` — optional OL result-list integration ([API](doc/ol-vue-api.md)).
 - `doc` — Runtime and Vue UI API design documents.
 
 ## Development

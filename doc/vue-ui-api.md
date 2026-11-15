@@ -51,10 +51,16 @@ Custom layouts are registered as `layouts: { custom: CustomLayout }` and selecte
 by name through UIConfig.layout; Vue components never enter JSON.
 
 Built-in panels are registered automatically. Search, time placeholder, Layers,
-Legend and toolbar are visible by default; popup is hidden. Use
+Legend, toolbar and status are visible by default; popup starts hidden. Properties
+is initially visible in Docked and hidden in Overlay. Properties opens on selection;
+deselection keeps the Docked panel visible with its empty state and hides Overlay.
+Closing preserves selection. Docked close/open fades and slides the panel while
+the sidebar grid resizes, respecting reduced-motion preferences.
+Explicit properties.visible=false disables automatic opening, while visible=true
+displays it initially. A subsequent selection can reopen a manually closed panel. Use
 `ui.panels: [{ id: 'time', visible: false }]` to disable the placeholder.
 The toolbar definition renders in a dedicated layout slot, while its visibility
-uses the same PanelRegistry state. Toolbar/time support top; popup supports floating.
+uses the same PanelRegistry state. Toolbar/time support top; popup supports floating; status supports bottom.
 Unsupported positions for those controls warn and fall back; unknown panel IDs
 warn after extensions install.
 
@@ -97,6 +103,18 @@ are connected components, not standalone data-only primitives.
 Provider types are exported by Core (also re-exported by UI). SearchPanel uses
 app.search, observes provider changes and disables submit without providers. Its
 loading/results/errors remain local; unmount cancels only its request.
+The joined select/input uses Runtime layer titles (initially appConfig.layers),
+excluding groups and layers unsupported by registered providers. It passes layerId
+with the query; changing/removing the chosen layer cancels and clears old results.
+The internal GisSelect uses theme tokens for its popup, selected/active states and
+scrollbar. It supports arrow/Home/End navigation, Enter/Space selection, typeahead,
+Escape/Tab/outside dismissal, and combobox/listbox ARIA. Focus remains on the trigger.
+Only keyword-input focus can restore search results; opening the layer selector
+dismisses them. Layer options and result suggestions never open together.
+General providers without layerIds must honor query.layerId. With no configured
+layers, a general provider can still be used by a standalone Runtime-backed panel.
+GeoJSON layers provide built-in local attribute search through the OL adapter;
+other sources need their own providers and are not advertised as searchable by default.
 Escape, outside pointer input, blur or result selection dismisses dropdown results.
 Caller AbortSignals isolate queries; stale UI responses cannot replace newer ones.
 Result selection calls app.map.locate. An explicit result projection is transformed
@@ -109,7 +127,8 @@ colors are otherwise preserved. LegendPanel never reads OL style metadata.
 
 ## Layout and state
 
-Docked: left Layers/Legend sidebar, central Search/time and horizontal toolbar row,
+Docked: left Layers/Legend sidebar, three independent Search/time/toolbar surfaces
+above the map (Search and time left aligned, toolbar right aligned; narrow rows wrap),
 map and compact status, right properties region. Overlay: Search/time upper-left,
 Layers below, Legend lower-left, vertical toolbar right, status bottom-center,
 right drawer when a right panel is visible. Above 1100px, drawer visibility keeps
@@ -126,11 +145,46 @@ Read Core state with useAppState(), which returns a readonly Vue computed ref an
 unsubscribes on component removal. Panels/theme/locale contribute the existing
 extensions['vue-ui'] JSON slice. State is a read model, not a writable second store.
 
-MapStatusPanel reads zoom/projection and accepts coordinate/scale props; Docked is
-a compact row, Overlay gives each item a title above its value. TimePlaceholder
-is disabled and has no time/filter business state. [OL integration](ol-vue-api.md)
-provides OL pointer coordinates, scale, drawing toolbar and result list.
+MapStatusPanel uses Core pointer subscription and metersPerPixel from the view
+snapshot to display longitude/latitude/zoom/projection/scale automatically. Optional
+coordinate/scale props still override its values. Hiding status or unmounting removes
+the pointer subscription; high-frequency pointer data never enters AppState.
+Longitude/latitude share one cell. The order is level, scale, projection, coordinates.
+Docked is a compact row with left-aligned coordinates; Overlay uses four fixed
+columns (72/116/104/156px) with icon/text titles above values, subtle dividers and
+tabular numbers. The bar is capped at 500px and uses two equal columns when its
+content width is at most 460px. Coordinates are one text
+value (`139.12550,26.25500`, five decimals, no degree signs or separator element).
+Initially they display `--`; leaving the map preserves the last finite position,
+including across status-panel remounts. The per-app UI cache uses weak references;
+it adds no AppState slice or background subscriptions while the panel is hidden.
+Coordinates/level/scale/projection use location/scan/scale/global SVG titles with
+accessible names/tooltips. Both layouts display icons and text. All columns have bounded
+overflow so pointer movement cannot resize the bar. Toolbar and panels share the
+same Overlay glass mixin; later background shorthands must not override it.
+The header offers Light/Dark only; theme.mode=system remains supported in config.
+TimePlaceholder remains disabled and has no time/filter business state.
+
+Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It uses
+InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
+Missing capabilities hide buttons; unavailable actions are disabled. UIConfig.tools
+optionally lists visible built-in IDs (including zoom-in/zoom-out); [] hides all
+built-ins. Custom toolbarItems are separate. Escape cancels and Backspace undoes
+inside the workspace; text inputs/contenteditable and modified keys are ignored.
+Status uses the dedicated id=status panel slot and respects visible=false.
+No createOLToolsUI/createPropertiesUI/OLMapStatus is needed for basic applications.
+The optional [OL integration](ol-vue-api.md) adds only an advanced result-list panel.
 
 Tooltip has no header; hover delay is 180ms, focus opens immediately. right/left/
 bottom placement flips at viewport edges, and Escape/click/blur/resize/scroll closes
 it. Timers/listeners are cleaned up at unmount.
+
+LayerManager renders expandable cards with visibility and a reserved send-icon
+location button. Status and removal are not shown. Settings contain only an
+opacity-icon range slider, without ID/type. 0–100% maps to LayerService.update
+options.opacity 0–1 (100% is opaque).
+Rapid input coalesces pending slider values; committed values are read from layer
+metadata. A group slider applies a uniform value to leaf children and shows Mixed
+when children differ; unsupported layers disable the slider. Existing groups keep
+their children listed; no new composite-layer settings are introduced. The location button is currently disabled;
+see [location design](layer-location-design.md) for the proposed data flow.

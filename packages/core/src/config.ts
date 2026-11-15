@@ -46,6 +46,7 @@ function validateGISShape(config: Record<string, unknown>): void {
 
   if (config.ui !== undefined) {
     if (!isPlainObject(config.ui)) throw configError('ui must be an object.', 'ui')
+    if (config.ui.tools !== undefined && (!Array.isArray(config.ui.tools) || config.ui.tools.some(id => typeof id !== 'string' || !id.trim()) || new Set(config.ui.tools).size !== config.ui.tools.length)) throw configError('ui.tools must contain unique non-empty tool IDs.', 'ui.tools')
     for (const field of ['layout']) {
       if (config.ui[field] !== undefined && (typeof config.ui[field] !== 'string' || !config.ui[field].trim())) {
         throw configError(`ui.${field} must be a non-empty string.`, `ui.${field}`)

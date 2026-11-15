@@ -1,7 +1,11 @@
+<script setup lang="ts">
+withDefaults(defineProps<{ rightVisible?: boolean }>(), { rightVisible: true })
+</script>
+
 <template>
   <main class="gis-ui-layout gis-ui-layout--docked">
     <header class="gis-ui-title"><slot name="title" /></header>
-    <div class="gis-ui-workspace">
+    <div class="gis-ui-workspace" :class="{ 'is-right-hidden': !rightVisible }">
       <aside class="gis-ui-left-region">
         <slot name="left" />
       </aside>

@@ -7,8 +7,7 @@ import PanelHost from './PanelHost.vue'
 const props = defineProps<{ position: PanelPosition }>()
 const ui = useGISUI()
 const panelIds = computed(() => ui.panels.list(props.position)
-  .filter(panel => panel.id !== 'toolbar')
-  .filter((panel) => ui.panels.getState(panel.id)?.visible)
+  .filter(panel => panel.id !== 'toolbar' && panel.id !== 'status')
   .map((panel) => panel.id))
 </script>
 

@@ -1,57 +1,19 @@
 // Layer manager, legend, toolbar and demo map tools.
 @use 'glass' as glass;
 
-.gis-ui-layer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.gis-ui-layer-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 40px;
-  padding-right: 6px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  transition: background-color .14s ease, border-color .14s ease, transform .14s ease;
-
-  &:hover {
-    background: var(--gis-ui-hover);
-    border-color: color-mix(in srgb, var(--gis-ui-primary) 12%, transparent);
-    transform: translateX(2px);
-  }
-
-  input {
-    width: 15px;
-    height: 15px;
-    margin: 0;
-    accent-color: var(--gis-ui-primary);
-  }
-
-  small {
-    color: var(--gis-ui-text-muted);
-    font-size: 11px;
-  }
-}
-
-.gis-ui-layer-indent {
-  width: 14px;
-  flex: 0 0 14px;
-}
-
-.gis-ui-layer-name {
-  flex: 1;
-  overflow: hidden;
-  color: var(--gis-ui-text);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.gis-ui-layer-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.gis-ui-layer-row { min-width: 0; overflow: hidden; border: 1px solid var(--gis-ui-border); border-radius: 9px; background: var(--gis-ui-surface); transition: border-color .15s ease; }
+.gis-ui-layer-row:hover, .gis-ui-layer-row.is-expanded { border-color: color-mix(in srgb, var(--gis-ui-primary) 38%, var(--gis-ui-border)); }
+.gis-ui-layer-heading { display: flex; align-items: center; gap: 4px; min-height: 40px; min-width: 0; padding: 4px; }
+.gis-ui-layer-heading button { flex-shrink: 0; }
+.gis-ui-layer-heading .gis-ui-icon-button { width: 24px; height: 26px; min-height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.gis-ui-layer-name { flex: 1; min-width: 0; overflow: hidden; color: var(--gis-ui-text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.gis-ui-layer-locate:disabled { color: var(--gis-ui-text-muted); opacity: .5; cursor: not-allowed; }
+.gis-ui-layer-settings { padding: 10px 9px; border-top: 1px solid var(--gis-ui-border); background: color-mix(in srgb, var(--gis-ui-hover) 30%, var(--gis-ui-surface)); }
+.gis-ui-layer-opacity { display: grid; grid-template-columns: 16px auto minmax(32px, 1fr) 36px; align-items: center; gap: 6px; font-size: 11px; color: var(--gis-ui-text-muted); }
+.gis-ui-layer-opacity input { width: 100%; min-width: 0; margin: 0; accent-color: var(--gis-ui-primary); cursor: ew-resize; }
+.gis-ui-layer-opacity input:disabled { cursor: not-allowed; opacity: .45; }
+.gis-ui-layer-opacity output { text-align: right; color: var(--gis-ui-text); font-variant-numeric: tabular-nums; }
 
 .gis-ui-legend-group {
   + .gis-ui-legend-group {

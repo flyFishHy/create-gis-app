@@ -52,6 +52,8 @@ ui: {
 
 ## 已确认的 UI 独立引用修订
 
+后续收敛决策：createOLAdapter 默认提供绘制和测量，createOLTools 不再公开或单独安装；tools:false 可关闭能力。createVueUI 内置基础工具栏、属性选择联动和状态栏，不要求 createOLToolsUI/createPropertiesUI/OLMapStatus。ol-vue 仅保留可选高级结果列表 createOLResultsUI。下文历史示例中的独立工具安装以本条为准。
+
 本任务按与使用方确认后的边界实施：UI 可以独立配置必要默认参数，完整应用仍以
 appConfig.ui 的显式字段为优先。createVueUI({ config }) 与 AppConfig 使用同一 UIConfig；
 不是禁止 UI 接收配置，而是禁止维护两种等价、优先级不明确的配置和业务状态。

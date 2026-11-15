@@ -16,5 +16,5 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="target" class="gis-ui-map-viewport" aria-label="GIS map" />
+  <div ref="target" class="gis-ui-map-viewport" tabindex="0" aria-label="GIS map" />
 </template>

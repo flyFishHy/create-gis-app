@@ -1,5 +1,6 @@
 import Feature from 'ol/Feature.js'
-import { transform, transformExtent } from 'ol/proj.js'
+import { transform, transformExtent, toLonLat, getPointResolution } from 'ol/proj.js'
+import { installOLTools } from './ol-tools.js'
 import type { MapLocation } from '@joinmap/gis-core'
 import { featureReferenceKey, type FeatureReferenceResolver } from './feature-reference.js'
 import OlMap from 'ol/Map.js'
@@ -15,6 +16,8 @@ import Stroke from 'ol/style/Stroke.js'
 import Fill from 'ol/style/Fill.js'
 import CircleStyle from 'ol/style/Circle.js'
 import { unByKey } from 'ol/Observable.js'
+import { getUid } from 'ol/util.js'
+import type { SearchResult } from '@joinmap/gis-core'
 import type { MapStateSnapshot, Unsubscribe } from '@joinmap/gis-core'
 import { defaults as defaultControls } from 'ol/control/defaults.js'
 import type {
@@ -30,6 +33,7 @@ import type {
 } from '@joinmap/gis-core'
 
 export interface OLAdapterOptions {
+  readonly tools?: boolean
   readonly controls?: boolean
   readonly zoomControl?: boolean
   readonly interactions?: boolean
@@ -44,6 +48,7 @@ export function createOLAdapter(options: OLAdapterOptions = {}): GISPlugin {
       app.registerMapAdapter(adapter, resources)
       app.registerLayerType('xyz', createXYZDefinition(adapter), resources)
       app.registerLayerType('geojson', createGeoJSONDefinition(adapter), resources)
+      if (options.tools !== false) installOLTools(app, resources)
     },
   }
 }
@@ -131,7 +136,9 @@ class OLMapAdapter implements MapAdapter {
   getViewState(): Omit<MapStateSnapshot, 'ready'> {
     const view = this.requireMap().getView()
     const center = view.getCenter()
-    return { projection: view.getProjection().getCode(), center: center ? [center[0]!, center[1]!] : null,
+    const resolution = view.getResolution()
+    const meters = center && resolution !== undefined ? getPointResolution(view.getProjection(), resolution, center, 'm') : NaN
+    return { metersPerPixel: Number.isFinite(meters) ? meters : null, projection: view.getProjection().getCode(), center: center ? [center[0]!, center[1]!] : null,
       zoom: view.getZoom() ?? null, resolution: view.getResolution() ?? null, rotation: view.getRotation() }
   }
   onViewChange(listener: () => void): Unsubscribe {
@@ -148,6 +155,18 @@ class OLMapAdapter implements MapAdapter {
   getSize(): [number, number] | undefined {
     const size = this.requireMap().getSize()
     return size ? [size[0], size[1]] : undefined
+  }
+  onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe {
+    const map = this.requireMap()
+    const key = map.on('pointermove', event => {
+      if (event.dragging) return
+      const position = toLonLat(event.coordinate, map.getView().getProjection())
+      listener([position[0]!, position[1]!])
+    })
+    const leave = () => listener(undefined)
+    const viewport = map.getViewport()
+    viewport?.addEventListener('pointerleave', leave)
+    return () => { unByKey(key); viewport?.removeEventListener('pointerleave', leave) }
   }
 
   updateSize(): void { this.requireMap().updateSize() }
@@ -197,6 +216,8 @@ class OLMapAdapter implements MapAdapter {
     }
     const datasetId = `layer:${config.id}`
     const ownsDataSet = !context.data.get(datasetId)
+    const cleanup: (() => void)[] = []
+    let handle: MapLayerHandle | undefined
     try {
       const dataSet = await context.data.load({
         id: datasetId,
@@ -208,22 +229,51 @@ class OLMapAdapter implements MapAdapter {
       const format = new GeoJSON({ featureProjection: projection })
       const features = format.readFeatures(dataSet.data as Record<string, unknown>)
       const vectorSource = new VectorSource({ features })
-      const handle = this.createHandle(new VectorLayer({ source: vectorSource }), config)
+      handle = this.createHandle(new VectorLayer({ source: vectorSource }), config)
       const unvalidate = dataSet.validate(data => { format.readFeatures(data as Record<string, unknown>) })
+      cleanup.push(unvalidate)
       const unsubscribe = dataSet.subscribe(data => {
         const next = format.readFeatures(data as Record<string, unknown>)
         vectorSource.clear(); vectorSource.addFeatures(next)
         if (context.interactions.getSelection()?.layerId === config.id) context.interactions.clearSelection()
       })
+      cleanup.push(unsubscribe)
+      cleanup.push(context.search.registerProvider({
+        id: `ol-geojson:${config.id}`,
+        layerIds: [config.id],
+        async search({ keyword, signal }) {
+          const term = keyword.trim().toLocaleLowerCase()
+          if (!term) return []
+          const results: SearchResult[] = []
+          for (const feature of vectorSource.getFeatures()) {
+            signal?.throwIfAborted()
+            const properties = { ...feature.getProperties() }
+            delete properties[feature.getGeometryName()]
+            const values = Object.values(properties).filter(value => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+            if (![feature.getId(), ...values].some(value => value !== undefined && String(value).toLocaleLowerCase().includes(term))) continue
+            const extent = feature.getGeometry()?.getExtent()
+            const location = extent?.every(Number.isFinite) ? extent[0] === extent[2] && extent[1] === extent[3]
+              ? { coordinate: [extent[0]!, extent[1]!] as [number, number] }
+              : { extent: [extent[0]!, extent[1]!, extent[2]!, extent[3]!] as [number, number, number, number] } : {}
+            const title = [properties.name, properties.title, properties.label, ...values, feature.getId()].find(value => value !== undefined && value !== null && String(value).trim())
+            results.push({ id: `${config.id}:${feature.getId() ?? getUid(feature)}`, layerId: config.id,
+              title: String(title ?? config.title ?? config.id), subtitle: context.layers.get(config.id)?.title ?? config.title,
+              projection: projection.getCode(), ...location })
+            if (results.length >= 50) break
+          }
+          return results
+        },
+      }))
       const dispose = handle.dispose
       handle.dispose = async () => {
-        unsubscribe()
-        unvalidate()
+        for (const stop of cleanup.splice(0).reverse()) stop()
         await dispose?.()
         if (context.data.get(datasetId)) await context.data.remove(datasetId)
       }
       return handle
     } catch (error) {
+      for (const stop of cleanup.reverse()) stop()
+      await handle?.dispose?.()
       if (ownsDataSet) await context.data.remove(datasetId).catch(() => undefined)
       throw error
     }

@@ -6,11 +6,37 @@ import View from 'ol/View.js'
 import VectorLayer from 'ol/layer/Vector.js'
 import VectorSource from 'ol/source/Vector.js'
 import { createGISApp } from '@joinmap/gis-core'
-import { createOLAdapter, useOLMap, createOLTools, useOLTools } from '../src/index.js'
+import { createOLAdapter, useOLMap, useOLTools } from '../src/index.js'
 
 beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }))
 afterEach(() => vi.unstubAllGlobals())
 const collection = { type: 'FeatureCollection', features: [] }
+
+it('searches GeoJSON attributes per layer, refreshes results with data and releases owned providers', async () => {
+  const app = createGISApp()
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const data = (name: string) => ({ type: 'FeatureCollection', features: [{ type: 'Feature', id: 1,
+    properties: { name, count: 42 }, geometry: { type: 'Point', coordinates: [10, 20] } }] })
+  try {
+    await app.init({ map: { projection: 'EPSG:3857', center: [0, 0], zoom: 2 }, layers: [
+      { id: 'a', title: 'Places A', type: 'geojson', source: { type: 'inline', data: data('Alpha') } },
+      { id: 'b', title: 'Places B', type: 'geojson', source: { type: 'inline', data: data('Alpha B') } },
+    ] })
+    const results = await app.search.search({ keyword: 'ALPHA', layerId: 'a' })
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ layerId: 'a', title: 'Alpha', subtitle: 'Places A', projection: 'EPSG:3857' })
+    app.map.locate(results[0]!)
+    expect(app.map.getView().getCenter()?.[0]).toBeCloseTo(1113194.9079, 2)
+    expect(await app.search.search({ keyword: '42', layerId: 'a' })).toHaveLength(1)
+    await app.data.get('layer:a')!.update(data('Updated'))
+    expect(await app.search.search({ keyword: 'Alpha', layerId: 'a' })).toEqual([])
+    expect((await app.search.search({ keyword: 'Updated', layerId: 'a' }))[0]?.title).toBe('Updated')
+    await app.layers.remove('a')
+    expect(app.search.listProviders().map(provider => provider.layerIds)).toEqual([['b']])
+    expect(await app.search.search({ keyword: 'Updated', layerId: 'a' })).toEqual([])
+  } finally { await app.dispose() }
+  expect(app.search.listProviders()).toEqual([])
+})
 
 it('resolves layer legend styles without Vue and transforms search coordinates to the current projection', async () => {
   const app = createGISApp()
@@ -36,7 +62,6 @@ it('resolves layer legend styles without Vue and transforms search coordinates t
 it('unifies map picks, result selection, business selection and removal', async () => {
   const app = createGISApp()
   app.use(createOLAdapter({ controls: false, interactions: false }))
-  app.use(createOLTools())
   await app.init({ map: { center: [0, 0], zoom: 2 }, layers: [{ id: 'vector', type: 'geojson', source: { type: 'inline', data: collection } }] })
   try {
     const tools = useOLTools(app), map = useOLMap(app)
@@ -96,7 +121,6 @@ it('refreshes GeoJSON data, bridges picks, invalidates hidden selections, and di
 it('runs real drawing interactions through Core, preserves sketches on sorting, and calculates angles', async () => {
   const app = createGISApp()
   app.use(createOLAdapter({ controls: false, interactions: false }))
-  app.use(createOLTools())
   await app.init({ map: { projection: 'EPSG:4326', center: [0, 0], zoom: 2 }, layers: [{ id: 'vector', type: 'geojson', source: { type: 'inline', data: collection } }] })
   const map = useOLMap(app)
   try {

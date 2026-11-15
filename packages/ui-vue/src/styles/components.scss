@@ -140,6 +140,22 @@
   flex: 0 0 25px;
 }
 
+// Theme-aware, keyboard-operated select.
+.gis-ui-select { position: relative; min-width: 0; font-size: 12px; }
+.gis-ui-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 7px; width: 100%; min-height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--gis-ui-text); font: inherit; text-align: left; cursor: pointer; }
+.gis-ui-select-trigger:hover:not(:disabled), .gis-ui-select.is-open .gis-ui-select-trigger { background: var(--gis-ui-hover); }
+.gis-ui-select-trigger:disabled { color: var(--gis-ui-text-muted); cursor: default; }
+.gis-ui-select-trigger > .gis-ui-svg-icon { color: var(--gis-ui-text-muted); transition: transform .15s ease; }
+.gis-ui-select.is-open .gis-ui-select-trigger > .gis-ui-svg-icon { transform: rotate(180deg); color: var(--gis-ui-primary); }
+.gis-ui-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gis-ui-select-menu { position: absolute; top: calc(100% + 10px); left: -4px; z-index: 10; width: max(100%, 200px); max-width: min(280px, calc(100vw - 32px)); max-height: 240px; margin: 0; padding: 5px; overflow: auto; list-style: none; border: 1px solid var(--gis-ui-border); border-radius: 10px; background: var(--gis-ui-surface-elevated); box-shadow: var(--gis-ui-shadow-lg); color: var(--gis-ui-text); }
+.gis-ui-select-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; padding: 7px 9px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+.gis-ui-select-option > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gis-ui-select-option + .gis-ui-select-option { margin-top: 2px; }
+.gis-ui-select-option.is-selected { background: color-mix(in srgb, var(--gis-ui-primary) 12%, var(--gis-ui-surface-elevated)); color: var(--gis-ui-primary); font-weight: 600; }
+.gis-ui-select-option.is-active { border-color: color-mix(in srgb, var(--gis-ui-primary) 35%, var(--gis-ui-border)); background: var(--gis-ui-hover); }
+.gis-ui-select-check { flex: 0 0 14px; color: var(--gis-ui-primary); text-align: center; }
+
 // Search.
 .gis-ui-search {
   position: relative;
@@ -188,6 +204,14 @@
     box-shadow: 0 0 0 3px var(--gis-ui-focus-ring), 0 12px 30px color-mix(in srgb, var(--gis-ui-primary) 10%, transparent);
   }
 
+  .gis-ui-search-layer {
+    flex: 0 1 128px;
+    width: 128px;
+    min-width: 80px;
+    padding-right: 5px;
+    border-right: 1px solid var(--gis-ui-border);
+  }
+
   input {
     min-width: 0;
     flex: 1;
@@ -204,7 +228,7 @@
     }
   }
 
-  button {
+  button[type='submit'] {
     display: grid;
     width: 34px;
     min-width: 34px;

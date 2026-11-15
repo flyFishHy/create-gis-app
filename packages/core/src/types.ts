@@ -19,6 +19,8 @@ export interface MapStateSnapshot {
   readonly center: readonly [number, number] | null
   readonly zoom: number | null
   readonly resolution: number | null
+  /** Ground resolution at the view center, supplied by the map adapter. */
+  readonly metersPerPixel: number | null
   readonly rotation: number | null
 }
 export interface LayerStateSnapshot {
@@ -71,6 +73,8 @@ export interface UIThemeConfig {
   readonly className?: string
 }
 export interface UIConfig {
+  /** Known built-in tool IDs to show; omitted shows all available built-ins. */
+  readonly tools?: readonly string[]
   readonly layout?: string
   readonly theme?: 'light' | 'dark' | 'system' | UIThemeConfig
   readonly locale?: 'zh' | 'en'
@@ -163,6 +167,8 @@ export interface MapLayerHandle {
 }
 
 export interface MapAdapter {
+  /** Pointer longitude/latitude (EPSG:4326); undefined when leaving the viewport. */
+  onPointerMove?(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe
   locate?(location: MapLocation): void
   readonly name: string
   create(config: MapConfig): void | Promise<void>
@@ -179,6 +185,7 @@ export interface MapAdapter {
 }
 
 export interface MapService {
+  onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe
   locate(location: MapLocation): void
   readonly isReady: boolean
   getView(): MapViewService
@@ -277,6 +284,10 @@ export interface SelectOptions {
 }
 
 export interface ToolDefinition {
+  /** Actions execute once and do not remain the active interaction. */
+  readonly mode?: 'action'
+  canActivate?(context: AppContext): boolean
+  undo?(context: AppContext): void
   readonly id: string
   readonly title?: string
   activate(context: AppContext): void | Promise<void>
@@ -284,6 +295,9 @@ export interface ToolDefinition {
 }
 
 export interface InteractionService {
+  hasTool(id: string): boolean
+  canActivateTool(id: string): boolean
+  undoActiveTool(): void
   select(options?: SelectOptions): void
   clearSelection(): void
   getSelection(): FeatureReference | undefined
@@ -442,18 +456,22 @@ export interface MapLocation {
   readonly extent?: readonly [number, number, number, number]
 }
 export interface SearchResult<T = unknown> extends MapLocation {
+  readonly layerId?: string
   readonly id: string
   readonly title: string
   readonly subtitle?: string
   readonly data?: T
 }
 export interface SearchQuery {
+  readonly layerId?: string
   readonly keyword: string
   readonly filters?: Readonly<Record<string, unknown>>
   readonly signal?: AbortSignal
 }
 export interface SearchProvider {
   readonly id: string
+  /** Omitted means a general provider that must honor query.layerId when present. */
+  readonly layerIds?: readonly string[]
   search(query: SearchQuery): Promise<readonly SearchResult[]>
 }
 export interface SearchService {

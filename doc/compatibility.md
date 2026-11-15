@@ -17,9 +17,10 @@ Core is framework-neutral and its package entry exports ESM plus declarations.
 The Vue package exposes its root API and `./style.css`; the OpenLayers package
 exposes its root API. Internal `src` paths are not supported imports.
 
-`@joinmap/ol-vue` exposes createOLToolsUI and OLMapStatus at its root and uses
-Vue 3.5 and OpenLayers 10. It composes existing packages; it does not replace
-their Runtime or resource lifecycle contracts.
+`@joinmap/ol-vue` exposes optional createOLResultsUI. Normal tools/properties/status
+need only createOLAdapter and createVueUI. createOLTools, createOLToolsUI and
+OLMapStatus are removed; the adapter installs tools unless tools:false. Core and
+generic Vue UI remain independent of the optional OL results integration.
 
 During v1, changes to exported types, lifecycle behavior, plugin registration,
 and config fields must be checked against both design documents and the test

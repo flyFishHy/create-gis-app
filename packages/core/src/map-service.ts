@@ -10,10 +10,10 @@ export class MapServiceImpl implements MapService {
   private config: MapConfig = {}
   constructor(private readonly state: AppStateImpl) {}
   snapshot(): MapStateSnapshot {
-    if (!this.ready) return { ready: false, projection: null, center: null, zoom: null, resolution: null, rotation: null }
+    if (!this.ready) return { ready: false, projection: null, center: null, zoom: null, resolution: null, metersPerPixel: null, rotation: null }
     const view = this.requireAdapter().getView()
     return { ready: true, ...(this.adapter?.getViewState?.() ?? { projection: this.config.projection ?? null,
-      center: view.getCenter() ?? null, zoom: view.getZoom() ?? null, resolution: null, rotation: null }) }
+      center: view.getCenter() ?? null, zoom: view.getZoom() ?? null, resolution: null, metersPerPixel: null, rotation: null }) }
   }
 
   get isReady(): boolean {
@@ -102,6 +102,10 @@ export class MapServiceImpl implements MapService {
 
   getSize(): [number, number] | undefined {
     return this.requireAdapter().getSize()
+  }
+  onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe {
+    if (!this.ready) return () => {}
+    return this.requireAdapter().onPointerMove?.(listener) ?? (() => {})
   }
 
   updateSize(): void {

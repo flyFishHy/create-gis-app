@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Toolbar } from '@joinmap/ui-vue'
-// Compatibility wrapper; items are registered by createOLToolsUI().
+// Compatibility wrapper; basic tools are provided by createVueUI().
 </script>
 
 <template><Toolbar /></template>

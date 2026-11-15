@@ -1,37 +1,30 @@
-# OpenLayers / Vue integration
+# Optional OpenLayers result-list integration
 
-`@joinmap/ol-vue` connects the public Runtime, OL adapter and Vue UI APIs. Neither
-Core nor the generic Vue UI imports OpenLayers for this integration.
+Ordinary applications need only createOLAdapter() and createVueUI().
+The adapter owns drawing/measurement, and Vue UI includes the toolbar, properties
+selection behavior and map status. No createOLTools, createOLToolsUI or OLMapStatus
+installation is needed.
+
+Advanced applications can add the result-list panel:
 
 ```ts
-import { createGISApp } from '@joinmap/gis-core'
-import { createOLAdapter, createOLTools } from '@joinmap/adapter-ol'
+import { createOLAdapter } from '@joinmap/adapter-ol'
 import { createVueUI } from '@joinmap/ui-vue'
-import { createOLToolsUI, OLMapStatus } from '@joinmap/ol-vue'
-import 'ol/ol.css'
-import '@joinmap/ui-vue/style.css'
+import { createOLResultsUI } from '@joinmap/ol-vue'
 
-const app = createGISApp()
-app.use(createOLAdapter({ zoomControl: false }))
-app.use(createOLTools())
-app.use(createVueUI({
-  config: { panels: [{ id: 'toolbar', visible: true }] },
-  extensions: [createOLToolsUI()],
-  statusComponent: OLMapStatus,
-}))
+app.use(createOLAdapter())
+app.use(createVueUI({ extensions: [createOLResultsUI()] }))
 ```
 
-Install the OL adapter and tools before the UI integration. `createOLToolsUI()`
-registers zoom/drawing/measurement/delete/clear buttons and a result panel.
-Keyboard Escape cancels the active tool, Backspace undoes its last point; these
-shortcuts apply only when the app owns focus and do not intercept text editing.
-Extension cleanup removes registrations and DOM listeners; results stay with the
-OL tools plugin across UI remounts. Toolbar labels and result actions follow zh/en.
+createOLResultsUI registers only an unframed bottom result list (id tool-results).
+The list selects/highlights and deletes individual results through useOLTools.
+It does not register a second toolbar, keyboard handlers or a status component.
+Dispose removes registrations/subscriptions; results remain with the adapter
+across UI remounts. tools:false is incompatible with this optional extension.
 
-`OLMapStatus` supplies local pointer coordinates and a scale calculated at the
-map center (0.28 mm nominal pixel), while `MapStatusPanel` stays engine-neutral.
-Component unmount removes its pointer listener. Import the generic UI stylesheet
-for toolbar/result panel appearance; no Demo-specific stylesheet is required.
+useOLTools(app) remains available from adapter-ol for result inspection, geometry
+updates and import/export. Core and the standard UI never read the OL-specific
+controller or extensions['ol-tools'] directly.
 
-The Basic Vue files `ol-tools-ui.ts` and `MapStatus.vue` remain compatibility
-wrappers. New apps can import this package directly.
+Import ol/ol.css and @joinmap/ui-vue/style.css for the normal app and result
+appearance. Basic Vue does not depend on this optional package.

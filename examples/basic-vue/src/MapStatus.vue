@@ -1,4 +1,4 @@
 <script setup lang="ts">
-import { OLMapStatus } from '@joinmap/ol-vue'
+import { MapStatusPanel } from '@joinmap/ui-vue'
 </script>
-<template><OLMapStatus /></template>
+<template><MapStatusPanel /></template>

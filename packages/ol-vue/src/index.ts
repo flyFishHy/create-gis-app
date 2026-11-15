@@ -1,2 +1,1 @@
-export { createOLToolsUI } from './ol-tools-ui.js'
-export { default as OLMapStatus } from './OLMapStatus.vue'
+export { createOLResultsUI } from './ol-results-ui.js'
