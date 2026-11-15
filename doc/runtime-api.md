@@ -23,6 +23,36 @@ dispose is terminal/idempotent. Failed init cleans up and cannot be retried.
 Registrations belong to their ResourceScope and clean up in reverse order.
 Never put engine objects, Vue components or functions into JSON configuration.
 
+Selection and map-view writes reject once shutdown starts; retained view facades
+check lifecycle on every call. During cleanup, map reads, clearing selection and
+detaching the target remain available until their resources are released. Final
+snapshots remain readable after disposal; event and selection listeners are then
+released and late subscriptions are inert.
+
+Registration validates the owner scope and rolls back if binding its cleanup
+fails. Map adapter registration belongs to the plugin scope, with detachment
+deferred until map destruction when the engine is still in use by layer cleanup.
+Map listener cleanup failures do not prevent engine destruction.
+
+Every reported `app:error` also reaches `GISAppOptions.onError` once per emission.
+Failing error listeners or callbacks cannot replace the originating failure.
+Promise-returning operations still reject for callers to handle. Tool activation
+failures use `TOOL_ACTIVATION_FAILED` and preserve their original cause.
+
+## Internal modules and compatibility
+
+`runtime/gis-app.ts` assembles services and coordinates lifecycle; plugin dependency
+sorting is an internal pure function. `context/` retains the application-local
+capability container; `state/` contains snapshot projection, JSON sanitization and
+the internal writer. `data/` separates DataSet lifecycle from loading and processing.
+`config/` separates JSON/UI validation from application and layer validation.
+Public contracts are grouped under `types/`; errors live in `errors.ts`.
+
+The package-root API is unchanged. `types.ts` remains a compatibility barrel and
+currently retains the layer/legend contracts. The former internal `gis-app.ts` and
+`data-service.ts` entry files also re-export their moved implementations. None of
+these internal modules is a new package export or a new Manager/Registry.
+
 ## Configuration
 
 GISAppConfig explicitly types map, layers, data, title and ui while allowing
@@ -218,6 +248,44 @@ or undefined on pointer leave. This local stream is excluded from AppState and
 listeners are owned by consumers. Default status uses the 0.28 mm nominal pixel
 for scale; OL supplies the projection-specific resolution calculation.
 
-OL built-ins are xyz/geojson; Core supplies GROUP. OL options support opacity and
-uniform vector styles fillColor/strokeColor/strokeWidth/pointRadius. Classification,
-interactive Modify/Snap and automatic thematic legend generation remain future work.
+OL built-ins are xyz/geojson; Core supplies GROUP. `options` supports opacity.
+`style` is a top-level layer field with fillColor/strokeColor/strokeWidth/pointRadius;
+`options.style` is rejected with a migration message. Interactive Modify/Snap and
+automatic thematic legend generation remain future work.
+
+## Layer style and classification
+
+LayerConfig/LayerUpdate.style sits alongside legend. It is a complete style
+replacement; omitted style properties use adapter defaults. LayerInstance.style and
+snapshot.layers[].style expose the effective style; the adapter owns its rendering.
+MapLayerHandle.getStyle is optional. Unsupported style updates fail explicitly.
+
+```ts
+await app.layers.update('population', {
+  style: { fillColor: '#94a3b8', strokeColor: '#ffffff', strokeWidth: 1 },
+  legend: {
+    title: 'Population', type: 'interval', field: 'population',
+    ranges: [
+      { id: 'low', min: 0, max: 100, color: '#dbeafe' },
+      { id: 'high', min: 100, max: 200, color: '#60a5fa' },
+    ],
+  },
+})
+```
+
+Category rules use legend.field and items[].value (string, finite number or boolean,
+strict typed equality). Duplicate matching values are invalid. Interval rules use
+ranges[] with stable id/min/max/color and optional label/includeMax. They are
+left-closed/right-open by default; includeMax explicitly closes an upper boundary.
+Ranges must have finite min < max, unique IDs and no overlap, including closed shared
+boundaries. Gaps are permitted. Unmatched and null values use the base layer style;
+an optional noData color overrides null values. Rule colors replace strokeColor for
+line features and fillColor for polygon/point features; other style fields inherit
+the base style. Time filtering composes with classification.
+
+LayerInstance.getFields() reads current scalar GeoJSON properties through the
+optional handle.getFields hook, returning name/type descriptors, not raw features.
+Fieldless legacy legends remain presentation definitions; single useLayerStyle
+category entries derive their color from the base style. Continuous/image legends
+retain their presentation behavior. Classification is implemented for category and
+interval only. UI applies legend and style together in one version-checked update.

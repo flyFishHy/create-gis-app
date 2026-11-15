@@ -1,5 +1,6 @@
-import { GISRuntimeError } from './types.js'
+import { GISRuntimeError } from './errors.js'
 import type { AppStatus, EventService, ResourceScope, SearchProvider, SearchQuery, SearchResult, SearchService } from './types.js'
+import { assertResourceScopeActive } from './resource-scope.js'
 
 /** Runtime-owned provider registrations; query results belong to each caller. */
 export class SearchServiceImpl implements SearchService {
@@ -15,13 +16,14 @@ export class SearchServiceImpl implements SearchService {
   }
   registerProvider(provider: SearchProvider, resources?: ResourceScope): () => void {
     this.assertActive()
-    if (resources?.disposed) throw new Error('Cannot register in a disposed resource scope.')
+    if (resources) assertResourceScopeActive(resources)
     if (!provider.id?.trim() || this.providers.has(provider.id)) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: `Duplicate or empty search provider: ${provider.id}`, stage: 'search-registration' })
     if (provider.layerIds && (provider.layerIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(provider.layerIds).size !== provider.layerIds.length)) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Provider layerIds must contain unique non-empty IDs.' })
     const entry = Object.freeze({ id: provider.id, ...(provider.layerIds ? { layerIds: Object.freeze([...provider.layerIds]) } : {}), search: (query: SearchQuery) => provider.search(query) })
     this.providers.set(entry.id, entry)
     const stop = () => { if (this.providers.get(entry.id) === entry) { this.providers.delete(entry.id); this.notify() } }
-    resources?.add(stop)
+    try { resources?.add(stop) }
+    catch (error) { this.providers.delete(entry.id); throw error }
     this.notify()
     return stop
   }

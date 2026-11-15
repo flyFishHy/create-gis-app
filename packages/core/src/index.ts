@@ -1,12 +1,15 @@
-export { createGISApp } from './gis-app.js'
+export { createGISApp } from './runtime/gis-app.js'
 export { normalizeUIConfig } from './config.js'
 export { normalizeConfig as parseGISAppConfig } from './config.js'
 export { ResourceScopeImpl } from './resource-scope.js'
-export { GISRuntimeError } from './types.js'
+export { GISRuntimeError } from './errors.js'
 export type {
   UIConfig,
   UIThemeConfig,
   LayerLegend,
+  LayerStyle,
+  LayerField,
+  LegendRange,
   MapLocation,
   SearchQuery,
   SearchResult,

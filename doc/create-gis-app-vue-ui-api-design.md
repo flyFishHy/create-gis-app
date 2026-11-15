@@ -12,6 +12,12 @@
 
 ## 1. 定位与设计原则
 
+Core 内部模块整理不改变 Vue UI 接入 API：仍通过包根契约、`app.context` 与只读
+State 连接 Runtime。组件销毁须继续取消自己创建的订阅；Runtime 最终销毁也会释放
+事件/选择监听。保留的 MapView 代理在执行写操作时检查生命周期，UI 不应在 shutdown
+后继续提交地图操作。卸载期间解除 target 与必要读取仍可执行。Core 的类型拆分、
+错误模型、DataSet/配置/快照模块均为内部组织调整，不引入 Vue 依赖或第二份 UI 状态。
+
 ### 1.1 Vue UI 的定位
 
 `@joinmap/ui-vue` 是 GIS Application Runtime 的官方 Vue UI
@@ -307,29 +313,30 @@ Overlay 模式中，地图作为完整工作画布，搜索、图层、图例、
 ┌──────────────────────────────────────────────────────────┐
 │ Title                                                    │
 ├──────────────────────────────────────────────────────────┤
-│ Search + Layer time controller                          │
-│ ┌──────────┐                         ┌──┐ ┌──────────┐  │
-│ │ Layers   │                         │工│ │Properties│  │
-│ └──────────┘           Map           │具│ │按需抽屉  │  │
-│ ┌──────────┐                         │栏│ │          │  │
-│ │ Legend   │                         └──┘ └──────────┘  │
-│ └──────────┘     Status: 上标题 / 下数据                  │
+│     Search + Layer time           Layers  Properties   │
+│ ┌──┐                              右上    按需抽屉     │
+│ │工│                                                   │
+│ │具│                  Map                              │
+│ │栏│                              Legend               │
+│ └──┘                              右下                 │
+│                Status: 上标题 / 下数据                  │
 └──────────────────────────────────────────────────────────┘
 ```
 
 - 标题栏约 60px；地图工作区填满剩余高度并作为浮层定位容器。
-- 搜索浮层位于地图左上，参考尺寸约 280×48px，距边缘约 16px。
-- 图层管理位于左上搜索下方，图例位于左下；工具栏位于右侧，使用纵向图标组，提示向左展开。
+- 搜索浮层位于地图左上，与左侧工具栏左边缘对齐，不预留工具栏宽度的缩进；时间控件跟随搜索右侧，空间不足换行。
+- 图层管理位于右上，图例位于右下；工具栏位于左侧正中，使用纵向图标组，提示向右展开。
 - 属性面板为右侧按需抽屉，选中要素后打开；关闭只隐藏面板，不清除选择，下一次选择重新打开。
-  抽屉打开时工具栏向左避让。该选择联动由 Demo Vue UI 扩展负责，不进入 Core 或 OL Adapter。
+  抽屉打开时图层/图例整列向左避让，保持面板实例及图例底部锚点不变。选择联动由内置 Vue UI 负责，不进入 Core 或 OL Adapter。
 - 图层、图例和属性默认同宽 260px，通过 --gis-ui-overlay-panel-width 统一覆盖。
   - 状态栏位于底部中央，Overlay 每项上方为标题、下方为数据，经纬度合并后四项固定列宽排列；Docked 使用紧凑单行。
   地图级别由 AppState 提供，在状态栏显示，不再占据工具栏。
 - 搜索右侧使用 LayerTimePanel。它通过公开 LayerInstance 时间能力读取 GeoJSON 图层的离散
   日期时间值，选择图层/字段、沿时间轴步进、设置单点时间过滤或恢复全部时间；无时间维度时显示禁用空状态。
   默认启用，可通过 `ui.panels[id=time].visible` 覆盖。
-- 浮层使用统一 Grid，根据地图容器宽度避让：1100px 以下状态栏独占底部行，
-  800px 以下属性抽屉移到底部、状态栏上方。工具栏及面板内部滚动，空白网格不拦截地图事件。
+- 浮层使用统一 Grid，根据地图容器宽度避让：1100px 及以下状态栏独占底部行，
+  900px 及以下属性仍位于右侧，打开时临时隐藏图层/图例列，关闭即恢复，不改写面板可见状态。
+  工具栏及面板内部滚动，空白网格不拦截地图事件。Grid 列宽及抽屉显隐过渡遵循 reduced-motion。
 - MapStatusPanel 属于 ui-vue，依赖只读快照及可选 coordinate/scale props；
   Demo 的 OL 包装层负责鼠标坐标与按投影/中心位置计算比例尺。结果列表独立于状态栏。
 
@@ -1667,17 +1674,26 @@ ui-vue 公开 FeatureDetails 和 PropertiesPanel，属性面板与 FeaturePopup 
 
 ### 面板尺寸与 OL/Vue 集成补充
 
-宽于 1100px 时，左侧区域在属性抽屉开关前后均延伸到底部状态行，图例的底部锚点保持不变；状态栏在自身空间不足时换行。1100px 及以下仍统一预留状态行，800px 及以下底部属性抽屉按响应式规则占用纵向空间。
+Overlay 图层/图例默认位于右上/右下；属性抽屉从最右侧出现时整列左移。宽于 1100px 时图层/图例列延伸到底部，1100px 及以下统一预留状态行，图例底部锚点不随抽屉显隐跳动。900px 及以下采用右侧属性覆盖与图层/图例临时隐藏策略，关闭恢复原面板状态，不再使用底部抽屉。
 
 @joinmap/ol-vue 仅保留可选高级结果列表 createOLResultsUI；基础工具栏、属性联动和状态栏由默认 UI 和适配器提供，Core 与 UI 保持引擎无关。详见 doc/ol-vue-api.md。
 
-侧栏 width 参与 Grid 占位，同侧可见面板取 CSS max；数字尺寸转为 px，尺寸应用到 PanelHost。优先级为面板 width > left/rightPanelWidth > Overlay 的 overlayPanelWidth > panelWidth > 布局默认值；响应式布局限制宽度并在窄屏将属性抽屉置于整行。主题变量映射见 doc/vue-ui-theme-tokens.md。
+侧栏 width 参与 Grid 占位，同侧可见面板取 CSS max；Overlay 属性抽屉单独计算宽度，不影响图层/图例列。数字尺寸转为 px，尺寸应用到 PanelHost。优先级为面板 width > left/rightPanelWidth > Overlay 的 overlayPanelWidth > panelWidth > 布局默认值；响应式布局限制宽度，窄屏属性仍位于右侧。主题变量映射见 doc/vue-ui-theme-tokens.md。
 
 Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操作及 OL 工具按钮/结果操作跟随语言切换；PanelShell 可通过 labels 覆盖操作文案，独立使用默认英文。
 
 LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 category 图例跟随统一图层样式。分类颜色不再自动被覆盖；continuous 按数值排序，色带按真实数值比例生成，interval 保持离散色块。图例交互过滤仍未实现。
 
 ### 默认 GIS 能力收敛
+
+搜索结果和 Select 菜单统一使用 88% 主题色、28px 模糊的玻璃表面，兼顾通透与文字可读性；
+不支持 backdrop-filter 时回退实色。属性内容增加当前所选图层的 title
+标题，订阅 Runtime（含 children），无对应图层时回退 layerId。图层根项使用 TransitionGroup
+实现排序后的 240ms 位移过渡，配合拖动透明度和插入高亮，不改变原排序数据流。
+ScrollArea 公开导出并接入 PanelShell 正文、搜索结果和 Select 菜单。保留原生内容滚动，
+自绘覆盖式轨道/滑块，不挤占布局宽度；支持拖动、轨道点击、方向/Page/Home/End 键，
+并同步滚轮、触摸、原生编程滚动。ResizeObserver 与合帧内容观察刷新几何，卸载释放观察器、
+帧与拖拽监听。仅溢出时生成控件，悬浮/聚焦/拖动时渐显；触屏显示控件，高对比回退原生。
 
 图层管理职责修订：移除样式/图例入口，图例编辑统一放在 LegendPanel。GROUP 的 children
 随父节点展开并嵌入父层 gis-ui-layer-settings，子项只显示名称和显隐开关，不提供展开、
@@ -1717,3 +1733,13 @@ UI 内置缩放和已知工具 ID 的按钮映射，以 hasTool/canActivateTool 
 PropertiesPanel 及选择联动归 ui-vue 内置。默认选中时打开，关闭保留选择，重新选择可再次打开；显式 properties.visible=false 关闭自动打开。Status 为内置专用槽位面板，status.visible=false 隐藏面板并清理订阅。
 MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时传 undefined；高频数据不进入 AppState。视图快照增加 metersPerPixel，适配器完成投影相关计算；默认状态栏按 0.28mm 名义像素格式化比例尺。键盘处理归工作区，仅在工作区内且非输入控件时处理 Escape/Backspace。
 独立的 ol-vue 集成包只保留高级结果列表，不再是普通应用启动的必经步骤。
+
+### 图例卡片查看态与原位编辑修订
+
+图例面板默认直接展示每层图例卡片：标题、枚举/区间标识、编辑/重置/关闭，
+条目为颜色符号与名称或实际区间。线使用横条、面使用方形、点使用圆点。
+编辑态保持卡片位置，标题栏为保存/重置/关闭；正文为类型、字段、颜色选择器、
+枚举值/名称或上下限输入及删除、新增、基础默认色。“更多”先禁用预留。
+保存一次提交顶层 style 和 legend，地图同步分类着色；重置恢复本次编辑基线，
+关闭取消草稿。查看态重置恢复卡片初次加载定义，关闭只隐藏卡片并提供恢复入口。
+其他卡片仍显示。属性面板不参与图例编辑。高级符号弹窗暂不实现。

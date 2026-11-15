@@ -31,8 +31,11 @@ Example:
 
 侧栏优先级：可见面板配置 width（同侧取 CSS max）> 对应 left/rightPanelWidth >
 Overlay 的 overlayPanelWidth > panelWidth > 布局默认值。数字尺寸转换为 px。
-width 为布局偏好宽度：Docked 限制为工作区的 30%，Overlay 限制为地图浮层网格的 40%，
-窄屏属性抽屉改为整行。面板占满预留侧栏；height 和 min/max 尺寸应用到 PanelHost，
+width 为布局偏好宽度：Docked 限制为工作区的 30%；Overlay 的右侧图层/图例列与属性抽屉
+独立计算 width，各限制为地图容器的 28%，属性宽度不参与图层/图例列的 max。
+900px 及以下二者共用右侧区域：属性打开时临时隐藏图层/图例列，关闭恢复；分别限制为
+容器的 74% / 82%，同时不超过工具栏右侧剩余空间。显式 left 面板限制为容器的 40%。
+面板占满预留侧栏；height 和 min/max 尺寸应用到 PanelHost，
 宽度约束受可用空间限制。top/bottom/floating 面板保留自己的 width。
 
 ```ts

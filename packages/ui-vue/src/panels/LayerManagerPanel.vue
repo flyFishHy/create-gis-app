@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, shallowRef, useId } from 'vue'
+import { computed, onBeforeUnmount, shallowRef, useId, TransitionGroup } from 'vue'
 import type { LayerInstance } from '@joinmap/gis-core'
 import { useGISApp } from '../use-gis-app.js'
 import { useGISUI } from '../use-gis-ui.js'
@@ -173,7 +173,7 @@ function pointerUp(event: PointerEvent) {
   <div class="gis-ui-layer-manager">
     <p v-if="error" class="gis-ui-error" role="alert">{{ error }}</p>
     <p v-if="tree.length === 0" class="gis-ui-empty">{{ ui.locale.t('layer.empty') }}</p>
-    <ul v-else class="gis-ui-layer-list">
+    <TransitionGroup v-else name="gis-ui-layer-sort" tag="ul" class="gis-ui-layer-list">
       <li v-for="row in tree" :key="row.layer.id" :id="detailsId + '-row-' + row.layer.id" class="gis-ui-layer-row is-root"
         :class="{ 'is-expanded': expanded.has(row.layer.id), 'is-dragging': dragging === row.layer, 'is-drop-before': dropTarget === row.layer.id && !dropAfter, 'is-drop-after': dropTarget === row.layer.id && dropAfter }"
         @dragover="dragOver($event, row.layer)" @drop="drop($event, row.layer)">
@@ -212,6 +212,6 @@ function pointerUp(event: PointerEvent) {
           <LayerChildren v-if="row.children.length" :nodes="row.children" @toggle="toggleVisibility" />
         </div>
       </li>
-    </ul>
+    </TransitionGroup>
   </div>
 </template>

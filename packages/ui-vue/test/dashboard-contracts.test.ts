@@ -34,3 +34,25 @@ it('reserves configured side widths, normalizes numeric heights and responds to 
   } finally { await app.dispose(); target.remove() }
 })
 
+it('keeps the overlay rail and drawer widths independent and honors explicit panel positions', async () => {
+  const app = createGISApp()
+  let ui!: GISUIContext
+  app.use(createFakeMapPlugin())
+  app.use(createVueUI({ config: { layout: 'overlay-dashboard', panels: [{ id: 'legend', position: 'left' }] },
+    extensions: [{ name: 'capture', install: context => { ui = context } }],
+  }))
+  const target = document.createElement('div'); document.body.append(target)
+  try {
+    await app.init({ ui: { panels: [{ id: 'layer-manager', width: 240 }, { id: 'properties', width: 320 }] } })
+    await app.mount(target)
+    const root = target.querySelector<HTMLElement>('.gis-ui-root')!
+    expect(root.style.getPropertyValue('--gis-ui-configured-right-width')).toBe('240px')
+    expect(root.style.getPropertyValue('--gis-ui-configured-drawer-width')).toBe('320px')
+    expect(target.querySelector('.gis-ui-overlay--left .gis-ui-panel-host--legend')).not.toBeNull()
+    ui.panels.show('properties'); await nextTick()
+    expect(root.style.getPropertyValue('--gis-ui-configured-right-width')).toBe('240px')
+    expect(target.querySelectorAll('.gis-ui-panel-host--properties')).toHaveLength(1)
+    expect(target.querySelector('.gis-ui-overlay--drawer .gis-ui-panel-host--properties')).not.toBeNull()
+  } finally { await app.dispose(); target.remove() }
+})
+

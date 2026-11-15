@@ -12,6 +12,43 @@ beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve(
 afterEach(() => vi.unstubAllGlobals())
 const collection = { type: 'FeatureCollection', features: [] }
 
+it('renders typed categories and half-open intervals from the same legend rules as the UI', async () => {
+  const app = createGISApp()
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const data = { type: 'FeatureCollection', features: [0, 100, 200, null, '100'].map((value, id) => ({
+    type: 'Feature', id, properties: { value }, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+  })) }
+  await app.init({ layers: [{ id: 'rules', type: 'geojson', source: { type: 'inline', data },
+    style: { strokeColor: '#888888', strokeWidth: 3 }, legend: { type: 'interval', field: 'value', ranges: [
+      { id: 'a', min: 0, max: 100, color: '#ff0000' }, { id: 'b', min: 100, max: 200, color: '#00ff00' },
+    ] },
+  }] })
+  try {
+    const layer = useOLMap(app).getLayers().item(0) as VectorLayer<VectorSource>
+    const features = layer.getSource()!.getFeatures()
+    const color = (index: number) => {
+      const result = layer.getStyleFunction()!(features[index]!, 1)
+      return (Array.isArray(result) ? result[0]! : result as import('ol/style/Style.js').default).getStroke()!.getColor()
+    }
+    expect(features.map((_, index) => color(index))).toEqual(['#ff0000', '#00ff00', '#888888', '#888888', '#888888'])
+    await app.layers.update('rules', { legend: { type: 'category', field: 'value', items: [
+      { id: 'number', value: 100, label: 'Number', color: '#0000ff' }, { id: 'string', value: '100', label: 'String', color: '#ffff00' },
+    ] } })
+    expect(color(1)).toBe('#0000ff'); expect(color(4)).toBe('#ffff00')
+    await app.layers.update('rules', { style: { strokeColor: '#111111', strokeWidth: 5 } })
+    expect(color(0)).toBe('#111111'); expect(color(1)).toBe('#0000ff')
+    const before = app.layers.get('rules')!.version
+    await expect(app.layers.update('rules', { options: { opacity: 0.2 }, style: { strokeWidth: -1 } })).rejects.toThrow()
+    expect(layer.getOpacity()).toBe(1); expect(app.layers.get('rules')!.version).toBe(before)
+    expect(app.context.state.snapshot().layers[0]?.style?.strokeWidth).toBe(5)
+    await app.layers.update('rules', { legend: null })
+    expect(color(1)).toBe('#111111')
+    await expect(app.layers.add({ id: 'tiles', type: 'xyz', source: { url: '/tiles/{z}/{x}/{y}.png' },
+      legend: { type: 'category', field: 'value', items: [] },
+    })).rejects.toThrow()
+  } finally { await app.dispose() }
+})
+
 it('locates current GeoJSON data, merges groups, handles points and preserves correct projection after view replacement', async () => {
   const app = createGISApp()
   app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
@@ -95,13 +132,13 @@ it('resolves layer legend styles without Vue and transforms search coordinates t
   const app = createGISApp()
   app.use(createOLAdapter({ controls: false, interactions: false }))
   await app.init({ map: { projection: 'EPSG:3857', center: [0, 0], zoom: 2 }, layers: [{ id: 'styled', type: 'geojson',
-    source: { type: 'inline', data: collection }, options: { style: { fillColor: '#ff0000' } },
+    source: { type: 'inline', data: collection }, style: { fillColor: '#ff0000' },
     legend: { type: 'category', useLayerStyle: true, items: [{ id: 'one', label: 'One', symbol: 'fill', color: '#0000ff' }] },
   }] })
   try {
     expect(app.layers.get('styled')?.legend?.items?.[0]?.color).toBe('#ff0000')
     const old = app.context.state.snapshot()
-    await app.layers.update('styled', { options: { style: { fillColor: '#00ff00' } } })
+    await app.layers.update('styled', { style: { fillColor: '#00ff00' } })
     expect(app.context.state.snapshot().layers[0]?.legend?.items?.[0]?.color).toBe('#00ff00')
     expect(old.layers[0]?.legend?.items?.[0]?.color).toBe('#ff0000')
     await app.layers.update('styled', { legend: { type: 'category', useLayerStyle: true, items: [{ id: 'a', label: 'A', color: '#ff0000' }, { id: 'b', label: 'B', color: '#0000ff' }] } })
@@ -153,9 +190,9 @@ it('refreshes GeoJSON data, bridges picks, invalidates hidden selections, and di
     const layer = map.getLayers().item(0) as VectorLayer<VectorSource>
     app.data.get('layer:vector')!.update({ type: 'FeatureCollection', features: [{ type: 'Feature', id: 'one', geometry: { type: 'Point', coordinates: [0, 0] }, properties: { title: 'One' } }] })
     expect(layer.getSource()!.getFeatures()).toHaveLength(1)
-    await app.layers.update('vector', { options: { opacity: 0.4, style: { fillColor: '#ff0000', strokeColor: '#000000', strokeWidth: 2 } } })
+    await app.layers.update('vector', { options: { opacity: 0.4 }, style: { fillColor: '#ff0000', strokeColor: '#000000', strokeWidth: 2 } })
     expect(layer.getOpacity()).toBe(0.4)
-    expect(app.layers.get('vector')!.getMetadata().style).toMatchObject({ fillColor: '#ff0000' })
+    expect(app.layers.get('vector')!.style).toMatchObject({ fillColor: '#ff0000' })
     await expect(app.layers.update('vector', { options: { opacity: 0.9, unknown: true } })).rejects.toThrow()
     expect(layer.getOpacity()).toBe(0.4)
     const previous = app.data.get('layer:vector')!.data

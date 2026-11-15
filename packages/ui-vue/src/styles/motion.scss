@@ -1,22 +1,27 @@
 // Motion and high-contrast preferences.
 
 @media (prefers-reduced-motion: no-preference) {
+  .gis-ui-layer-sort-move { transition: transform .24s cubic-bezier(.22, 1, .36, 1); }
   .gis-ui-layout--docked .gis-ui-workspace { transition: grid-template-columns .22s ease, grid-template-rows .22s ease; }
   .gis-ui-layout--docked .gis-ui-panel-enter-active,
-  .gis-ui-layout--docked .gis-ui-panel-leave-active { transition: opacity .18s ease, transform .18s ease; }
+  .gis-ui-layout--docked .gis-ui-panel-leave-active,
+  .gis-ui-overlay--drawer .gis-ui-panel-enter-active,
+  .gis-ui-overlay--drawer .gis-ui-panel-leave-active { transition: opacity .18s ease, transform .18s ease; }
   .gis-ui-layout--docked .gis-ui-panel-enter-from,
-  .gis-ui-layout--docked .gis-ui-panel-leave-to { opacity: 0; transform: translateX(12px); }
+  .gis-ui-layout--docked .gis-ui-panel-leave-to,
+  .gis-ui-overlay--drawer .gis-ui-panel-enter-from,
+  .gis-ui-overlay--drawer .gis-ui-panel-leave-to { opacity: 0; transform: translateX(12px); }
+  .gis-ui-overlay-controls { transition: grid-template-columns .24s cubic-bezier(.22, 1, .36, 1); }
+  .gis-ui-overlay--right { transition: opacity .18s ease, transform .24s ease, visibility .18s; }
   .gis-ui-layout--overlay {
     > .gis-ui-title,
     .gis-ui-overlay--top,
     .gis-ui-overlay--left,
-    .gis-ui-overlay--right,
     .gis-ui-overlay--bottom {
       animation: gis-ui-fade-up .32s cubic-bezier(.22, 1, .36, 1) both;
     }
 
     .gis-ui-overlay--left { animation-delay: .04s; }
-    .gis-ui-overlay--right { animation-delay: .08s; }
     .gis-ui-overlay--bottom { animation-delay: .12s; }
   }
 }

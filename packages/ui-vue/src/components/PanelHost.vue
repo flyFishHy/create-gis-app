@@ -5,7 +5,7 @@ import PanelShell from './PanelShell.vue'
 import { cssSize } from '../panels/panel-size.js'
 import { DockedPanelMotionKey } from '../ui-context.js'
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; animate?: boolean }>()
 const ui = useGISUI()
 const dockedMotion = inject(DockedPanelMotionKey, computed(() => false))
 const definition = computed(() => ui.panels.get(props.id))
@@ -30,7 +30,7 @@ const panelStyle = computed(() => {
 </script>
 
 <template>
-  <Transition name="gis-ui-panel" :css="id === 'properties' && dockedMotion">
+  <Transition name="gis-ui-panel" :css="id === 'properties' && (dockedMotion || animate)">
   <div v-if="definition && state?.visible" class="gis-ui-panel-host" :style="panelStyle" :class="[`gis-ui-panel-host--${id}`, { 'is-unframed': definition.unframed }]">
     <div v-if="definition.unframed" v-show="!state.collapsed" class="gis-ui-panel-content">
       <component :is="definition.component" v-bind="definition.props" />

@@ -17,7 +17,8 @@ function theme(value: UIConfig['theme']): UIThemeConfig {
 export function resolveUIConfig(defaults: UIConfig = {}, app: UIConfig = {}): Readonly<UIConfig> {
   normalizeUIConfig(defaults); normalizeUIConfig(app)
   const layout = app.layout ?? defaults.layout ?? 'docked-dashboard'
-  const preset = builtinPanels.map(panel => panel.id === 'properties' ? { ...panel, visible: layout === 'docked-dashboard' } : panel)
+  const preset = builtinPanels.map(panel => panel.id === 'properties' ? { ...panel, visible: layout === 'docked-dashboard' }
+    : layout === 'overlay-dashboard' && (panel.id === 'layer-manager' || panel.id === 'legend') ? { ...panel, position: 'right' as const } : panel)
   const panels = new Map<string, PanelConfig>()
   for (const config of [preset, defaults.panels ?? [], app.panels ?? []]) {
     for (const panel of config) panels.set(panel.id, { ...panels.get(panel.id), ...panel })

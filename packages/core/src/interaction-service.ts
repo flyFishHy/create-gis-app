@@ -1,5 +1,7 @@
-import { GISRuntimeError } from './types.js'
-import type { ServiceDependencies } from './context/service-dependencies.js'
+import { GISRuntimeError } from './errors.js'
+import type { InteractionDependencies } from './context/service-dependencies.js'
+import { assertRuntimeStatus, writableStatuses } from './runtime/lifecycle.js'
+import { assertResourceScopeActive } from './resource-scope.js'
 import type {
   AppContext,
   EventService,
@@ -19,11 +21,14 @@ export class InteractionServiceImpl implements InteractionService {
   private get activeToolId(): string | undefined { return this.dependencies.state.interactions.activeToolId ?? undefined }
   private set activeToolId(id: string | undefined) { this.dependencies.state.setInteractions({ activeToolId: id ?? null }) }
   private transition: Promise<void> = Promise.resolve()
+  private closed = false
 
-  constructor(private readonly dependencies: ServiceDependencies, private readonly events: EventService) {}
+  constructor(private readonly dependencies: InteractionDependencies, private readonly events: EventService) {}
   private get context(): AppContext { return this.dependencies.context() }
 
   select(options?: SelectOptions): void {
+    assertRuntimeStatus(this.dependencies.state.status, 'change selection', 'feature-selection', options?.feature
+      ? writableStatuses : [...writableStatuses, 'disposing', 'error'])
     const feature = options?.feature
     this.selection = feature
       ? Object.freeze({ ...feature, properties: feature.properties ? Object.freeze({ ...feature.properties }) : undefined })
@@ -38,11 +43,14 @@ export class InteractionServiceImpl implements InteractionService {
   getSelection(): FeatureReference | undefined { return this.selection }
 
   onSelect(listener: (feature: FeatureReference | undefined) => void): Unsubscribe {
+    if (this.closed) return () => {}
     this.selectionListeners.add(listener)
     return () => this.selectionListeners.delete(listener)
   }
 
   registerTool(id: string, definition: ToolDefinition, resources: ResourceScope): void {
+    assertRuntimeStatus(this.dependencies.state.status, 'register a tool', 'tool-registration')
+    assertResourceScopeActive(resources)
     if (!id.trim() || this.tools.has(id) || definition.id !== id) {
       throw new GISRuntimeError({
         code: 'TOOL_DUPLICATE',
@@ -51,19 +59,13 @@ export class InteractionServiceImpl implements InteractionService {
       })
     }
     this.tools.set(id, definition)
-    resources.add(() => this.unregisterTool(id, definition))
+    try { resources.add(() => this.unregisterTool(id, definition)) }
+    catch (error) { this.tools.delete(id); throw error }
   }
 
   activateTool(id: string): Promise<void> {
     return this.enqueue(async () => {
-      const status = this.dependencies.state.status
-      if (!['initializing', 'ready', 'mounted', 'unmounted'].includes(status)) {
-        throw new GISRuntimeError({
-          code: status === 'disposed' || status === 'disposing' ? 'APP_DISPOSED' : 'APP_INVALID_STATE',
-          message: `Cannot activate a tool while the app is ${status}.`,
-          stage: 'tool-activation',
-        })
-      }
+      assertRuntimeStatus(this.dependencies.state.status, 'activate a tool', 'tool-activation')
       const next = this.tools.get(id)
       if (!next) throw new GISRuntimeError({
         code: 'TOOL_NOT_FOUND',
@@ -88,7 +90,7 @@ export class InteractionServiceImpl implements InteractionService {
       } catch (cause) {
         try { await next.deactivate?.(this.context) } catch { /* keep activation failure as primary */ }
         throw new GISRuntimeError({
-          code: 'APP_INITIALIZATION_FAILED',
+          code: 'TOOL_ACTIVATION_FAILED',
           message: `Tool "${id}" failed to activate.`,
           stage: 'tool-activation',
           cause,
@@ -109,6 +111,12 @@ export class InteractionServiceImpl implements InteractionService {
   }
 
   getActiveTool(): string | undefined { return this.activeToolId }
+  close(): void {
+    this.closed = true
+    this.selectionListeners.clear()
+    this.tools.clear()
+    this.dependencies.state.setInteractions({ selection: null, activeToolId: null })
+  }
   hasTool(id: string): boolean { return this.tools.has(id) }
   canActivateTool(id: string): boolean {
     return ['initializing', 'ready', 'mounted', 'unmounted'].includes(this.dependencies.state.status)

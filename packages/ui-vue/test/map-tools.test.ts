@@ -1,10 +1,29 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { createGISApp } from '@joinmap/gis-core'
 import { createVueUI } from '../src/vue-ui.js'
-import { createFakeMapPlugin } from '../../core/test/fake-map.js'
+import { createFakeLayerDefinition, createFakeMapPlugin } from '../../core/test/fake-map.js'
 
 describe('Dashboard status and query placement', () => {
+  it('shows the selected layer title from config and follows runtime renaming, with a fallback for external selections', async () => {
+    const app = createGISApp()
+    app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() })); app.use(createVueUI())
+    const target = document.createElement('div'); document.body.append(target)
+    try {
+      await app.init({ layers: [{ id: 'group', title: 'Group', type: 'GROUP', children: [{ id: 'child', title: 'Child layer title', type: 'test' }] }] })
+      await app.mount(target)
+      const title = () => target.querySelector('.gis-ui-properties-layer-title')
+      expect(title()).toBeNull()
+      app.interactions.select({ feature: { layerId: 'child', id: 1, properties: { name: 'Sample' } } }); await nextTick()
+      expect(title()?.textContent).toBe('Child layer title')
+      await app.layers.update('child', { title: 'Renamed layer' }); await nextTick()
+      expect(title()?.textContent).toBe('Renamed layer')
+      app.interactions.select({ feature: { source: 'custom', layerId: 'external', properties: {} } }); await nextTick()
+      expect(title()?.textContent).toBe('external')
+      app.interactions.clearSelection(); await nextTick()
+      expect(title()).toBeNull()
+    } finally { await app.dispose(); target.remove() }
+  })
   it('shares custom feature renderers between Properties and Popup', async () => {
     const app = createGISApp()
     app.use(createFakeMapPlugin())
@@ -61,10 +80,11 @@ describe('Dashboard status and query placement', () => {
       expect(status.querySelector('[aria-label="Map level"]')!.textContent).toBe('5.5')
       if (layout === 'overlay-dashboard') {
         expect(target.querySelector('.gis-ui-overlay--toolbar .gis-ui-toolbar')).not.toBeNull()
-        expect(target.querySelector('.gis-ui-overlay--left .gis-ui-panel-host--layer-manager')).not.toBeNull()
-        expect(target.querySelector('.gis-ui-overlay--left .gis-ui-panel-host--legend')).not.toBeNull()
-        expect(target.querySelector('.gis-ui-overlay--right .gis-ui-panel-host--properties')).not.toBeNull()
-        expect(target.querySelector('.gis-ui-overlay--left .gis-ui-panel-region')!.firstElementChild?.classList.contains('gis-ui-panel-host--layer-manager')).toBe(true)
+        expect(target.querySelector('.gis-ui-overlay--right .gis-ui-panel-host--layer-manager')).not.toBeNull()
+        expect(target.querySelector('.gis-ui-overlay--right .gis-ui-panel-host--legend')).not.toBeNull()
+        expect(target.querySelector('.gis-ui-overlay--drawer .gis-ui-panel-host--properties')).not.toBeNull()
+        expect(target.querySelector('.gis-ui-overlay--right .gis-ui-panel-region')!.firstElementChild?.classList.contains('gis-ui-panel-host--layer-manager')).toBe(true)
+        expect(target.querySelector('.gis-ui-overlay-controls.has-drawer')).not.toBeNull()
       }
     } finally { await app.dispose(); target.remove() }
   })
@@ -80,12 +100,27 @@ describe('Dashboard status and query placement', () => {
       await app.init({ map: { center: [0, 0], zoom: 3 } })
       await app.mount(target)
       expect(drawer()).toBeNull()
+      const rail = target.querySelector('.gis-ui-overlay--right')!
+      const layers = rail.querySelector('.gis-ui-panel-host--layer-manager')!
+      const legend = rail.querySelector('.gis-ui-panel-host--legend')!
+      const expectStableRail = () => {
+        expect(rail.querySelector('.gis-ui-panel-host--layer-manager')).toBe(layers)
+        expect(rail.querySelector('.gis-ui-panel-host--legend')).toBe(legend)
+        expect(target.querySelectorAll('.gis-ui-panel-host--legend')).toHaveLength(1)
+        expect(rail.querySelector('.gis-ui-panel-host--properties')).toBeNull()
+      }
       app.interactions.select({ feature: { id: 'one', layerId: 'sample', properties: { name: 'First' } } })
       await nextTick()
       expect(drawer()?.textContent).toContain('First')
+      expect(target.querySelector('.gis-ui-overlay--drawer')?.contains(drawer())).toBe(true)
+      expect(target.querySelector('.gis-ui-overlay-controls.has-drawer')).not.toBeNull()
+      expectStableRail()
       drawer()!.querySelector<HTMLButtonElement>('.gis-ui-panel-close')!.click()
       await nextTick()
-      expect(drawer()).toBeNull()
+      expect(drawer()?.classList.contains('gis-ui-panel-leave-active')).toBe(true)
+      expect(target.querySelector('.gis-ui-overlay-controls.has-drawer')).toBeNull()
+      await vi.waitFor(() => expect(drawer()).toBeNull())
+      expectStableRail()
       expect(app.interactions.getSelection()?.id).toBe('one')
       app.map.getView().setZoom(4)
       await nextTick()
@@ -95,7 +130,7 @@ describe('Dashboard status and query placement', () => {
       expect(drawer()).not.toBeNull()
       app.interactions.clearSelection()
       await nextTick()
-      expect(drawer()).toBeNull()
+      await vi.waitFor(() => expect(drawer()).toBeNull())
       await app.unmount()
       await app.mount(target)
       app.interactions.select({ feature: { id: 'two', layerId: 'sample', properties: { name: 'Second' } } })

@@ -1,14 +1,16 @@
-import { GISRuntimeError } from './types.js'
+import { GISRuntimeError } from './errors.js'
 import type { MapAdapter, MapService, MapViewService, MapLocation } from './types.js'
-import type { MapConfig, MapStateSnapshot, Unsubscribe } from './types.js'
+import type { AppStatus, MapConfig, MapStateSnapshot, Unsubscribe } from './types.js'
 import type { AppStateImpl } from './state/app-state.js'
+import { assertRuntimeStatus, writableStatuses } from './runtime/lifecycle.js'
 
 export class MapServiceImpl implements MapService {
   private adapter?: MapAdapter
   private ready = false
+  private releaseAfterDestroy = false
   private unsubscribeView?: Unsubscribe
   private config: MapConfig = {}
-  constructor(private readonly state: AppStateImpl) {}
+  constructor(private readonly state: Pick<AppStateImpl, 'status' | 'refresh'>) {}
   snapshot(): MapStateSnapshot {
     if (!this.ready) return { ready: false, projection: null, center: null, zoom: null, resolution: null, metersPerPixel: null, rotation: null }
     const view = this.requireAdapter().getView()
@@ -34,7 +36,10 @@ export class MapServiceImpl implements MapService {
   }
 
   unregisterAdapter(adapter: MapAdapter): void {
-    if (this.adapter === adapter) this.adapter = undefined
+    if (this.adapter !== adapter) return
+    // Plugin scopes close before map resources; layer cleanup still needs the adapter.
+    if (this.ready) this.releaseAfterDestroy = true
+    else this.adapter = undefined
   }
 
   async create(config: Parameters<MapAdapter['create']>[0]): Promise<void> {
@@ -52,15 +57,19 @@ export class MapServiceImpl implements MapService {
       this.unsubscribeView = this.adapter.onViewChange?.(() => this.state.refresh())
       this.state.refresh()
     } catch (cause) {
-      try {
-        await this.adapter.destroy()
-      } catch (cleanupError) {
+      const cleanupErrors: unknown[] = []
+      try { this.unsubscribeView?.() } catch (error) { cleanupErrors.push(error) }
+      try { await this.adapter.destroy() } catch (error) { cleanupErrors.push(error) }
+      this.unsubscribeView = undefined
+      this.ready = false
+      this.state.refresh()
+      if (cleanupErrors.length) {
         throw new GISRuntimeError({
           code: 'APP_INITIALIZATION_FAILED',
           message: 'Map Adapter creation failed and cleanup also failed.',
           stage: 'map-create',
           cause,
-          cleanupErrors: [cleanupError],
+          cleanupErrors,
         })
       }
       throw cause
@@ -69,26 +78,33 @@ export class MapServiceImpl implements MapService {
 
   async destroy(): Promise<void> {
     if (!this.adapter || !this.ready) return
+    const errors: unknown[] = []
     try {
-      this.unsubscribeView?.()
-      await this.adapter.destroy()
+      try { this.unsubscribeView?.() } catch (error) { errors.push(error) }
+      try { await this.adapter.destroy() } catch (error) { errors.push(error) }
     } finally {
       this.ready = false
+      this.unsubscribeView = undefined
+      if (this.releaseAfterDestroy) { this.adapter = undefined; this.releaseAfterDestroy = false }
       this.state.refresh()
     }
+    if (errors.length) throw new GISRuntimeError({ code: 'APP_DISPOSE_FAILED', message: 'Map cleanup failed.', stage: 'map-destroy', cleanupErrors: errors })
   }
 
   getView(): MapViewService {
-    const view = this.requireAdapter().getView()
-    return { getCenter: () => view.getCenter(), getZoom: () => view.getZoom(),
-      setCenter: center => { view.setCenter(center); this.state.refresh() },
-      setZoom: zoom => { view.setZoom(zoom); this.state.refresh() },
-      fit: extent => { view.fit(extent); this.state.refresh() } }
+    const readable: readonly AppStatus[] = [...writableStatuses, 'disposing', 'error']
+    this.requireReadyAdapter('read the map view', readable)
+    // Resolve on every call: retained facades cannot bypass shutdown checks.
+    const view = () => this.requireReadyAdapter('access the map view').getView()
+    const read = () => this.requireReadyAdapter('read the map view', readable).getView()
+    return { getCenter: () => read().getCenter(), getZoom: () => read().getZoom(),
+      setCenter: center => { view().setCenter(center); this.state.refresh() },
+      setZoom: zoom => { view().setZoom(zoom); this.state.refresh() },
+      fit: extent => { view().fit(extent); this.state.refresh() } }
   }
 
   locate(location: MapLocation): void {
-    const adapter = this.requireAdapter()
-    if (!this.ready) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Map is not ready.', stage: 'map-locate' })
+    const adapter = this.requireReadyAdapter('locate on the map')
     if (location.coordinate && (location.coordinate.length !== 2 || !location.coordinate.every(Number.isFinite))) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Invalid location coordinate.' })
     if (location.extent && (location.extent.length !== 4 || !location.extent.every(Number.isFinite))) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Invalid location extent.' })
     if (adapter.locate) adapter.locate(location)
@@ -101,7 +117,7 @@ export class MapServiceImpl implements MapService {
   }
 
   getSize(): [number, number] | undefined {
-    return this.requireAdapter().getSize()
+    return this.requireReadyAdapter('read the map size', [...writableStatuses, 'disposing', 'error']).getSize()
   }
   onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe {
     if (!this.ready) return () => {}
@@ -109,14 +125,22 @@ export class MapServiceImpl implements MapService {
   }
 
   updateSize(): void {
-    this.requireAdapter().updateSize()
+    this.requireReadyAdapter('update the map size').updateSize()
   }
 
   setTarget(target: HTMLElement | string | undefined): void {
+    assertRuntimeStatus(this.state.status, 'set the map target', 'map-target', target === undefined
+      ? [...writableStatuses, 'disposing', 'error'] : writableStatuses)
     this.requireAdapter().setTarget(target)
   }
 
   getAdapter(): MapAdapter {
+    return this.requireAdapter()
+  }
+
+  private requireReadyAdapter(action: string, allowed?: readonly AppStatus[]): MapAdapter {
+    assertRuntimeStatus(this.state.status, action, 'map-access', allowed)
+    if (!this.ready) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Map is not ready.', stage: 'map-access' })
     return this.requireAdapter()
   }
 

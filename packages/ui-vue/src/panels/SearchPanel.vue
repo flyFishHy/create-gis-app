@@ -6,6 +6,7 @@ import { useGISUI } from '../use-gis-ui.js'
 import { useAppState } from '../use-app-state.js'
 import SvgIcon from '../components/SvgIcon.vue'
 import GisSelect from '../components/GisSelect.vue'
+import ScrollArea from '../components/ScrollArea.vue'
 
 const props = withDefaults(defineProps<{
   placeholder?: string
@@ -114,7 +115,7 @@ function selectResult(result: SearchResult) {
         <SvgIcon name="search" :size="17" />
       </button>
     </form>
-    <div v-if="!dropdown || dropdownOpen" :id="feedbackId" class="gis-ui-search-feedback">
+    <ScrollArea v-if="!dropdown || dropdownOpen" :id="feedbackId" class="gis-ui-search-feedback" :label="ui.locale.t('panel.search')">
       <p v-if="loading" class="gis-ui-empty" role="status">{{ ui.locale.t('search.loading') }}</p>
       <p v-else-if="error" class="gis-ui-error" role="alert">{{ error }}</p>
       <ul v-else-if="results.length" class="gis-ui-search-results">
@@ -128,6 +129,6 @@ function selectResult(result: SearchResult) {
       <p v-else-if="hasSearched" class="gis-ui-empty">{{ emptyText }}</p>
       <p v-else-if="providerCount === 0" class="gis-ui-empty">{{ ui.locale.t('search.noProviders') }}</p>
       <p v-else-if="!canSearch" class="gis-ui-empty">{{ ui.locale.t('search.noLayers') }}</p>
-    </div>
+    </ScrollArea>
   </div>
 </template>

@@ -193,6 +193,11 @@
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/jsonValue"
+          },
+          "not": {
+            "required": [
+              "style"
+            ]
           }
         },
         "children": {
@@ -203,6 +208,9 @@
         },
         "legend": {
           "$ref": "#/$defs/legend"
+        },
+        "style": {
+          "$ref": "#/$defs/layerStyle"
         }
       },
       "allOf": [
@@ -402,6 +410,13 @@
         },
         "visible": {
           "type": "boolean"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
         }
       },
       "additionalProperties": false
@@ -462,6 +477,89 @@
           "$ref": "#/$defs/legendItem"
         },
         "imageUrl": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/legendRange"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "ranges"
+            ]
+          },
+          "then": {
+            "required": [
+              "field"
+            ],
+            "properties": {
+              "type": {
+                "const": "interval"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "layerStyle": {
+      "type": "object",
+      "properties": {
+        "fillColor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strokeColor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pointRadius": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "legendRange": {
+      "type": "object",
+      "required": [
+        "id",
+        "min",
+        "max",
+        "color"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "includeMax": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
           "type": "string"
         }
       },

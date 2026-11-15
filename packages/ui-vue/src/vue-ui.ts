@@ -135,7 +135,7 @@ class VueUIAdapter implements UIAdapter {
     this.panels.register({ id: 'time', component: LayerTimePanel, position: 'top', unframed: true })
     this.panels.register({ id: 'layer-manager', title: 'panel.layers', component: LayerManagerPanel, position: 'left', defaultVisible: true, collapsible: false, closable: false })
     this.panels.register({ id: 'legend', title: 'panel.legend', component: LegendPanel, position: 'left', defaultVisible: true, collapsible: false, closable: false })
-    this.panels.register({ id: 'toolbar', component: this.options.toolbarComponent ?? Toolbar, position: 'top', unframed: true, props: { tooltipPlacement: this.layout === 'overlay-dashboard' ? 'left' : 'bottom' } })
+    this.panels.register({ id: 'toolbar', component: this.options.toolbarComponent ?? Toolbar, position: 'top', unframed: true, props: { tooltipPlacement: this.layout === 'overlay-dashboard' ? 'right' : 'bottom' } })
     this.panels.register({ id: 'popup', component: FeaturePopup, position: 'floating', unframed: true })
     if (!this.options.panelDefinitions?.some(panel => panel.id === 'properties')) this.panels.register({ id: 'properties', title: 'panel.properties', component: PropertiesPanel, position: 'right', defaultVisible: false, collapsible: false, closable: true })
     this.panels.register({ id: 'status', component: this.options.statusComponent ?? MapStatusPanel, position: 'bottom', unframed: true })

@@ -101,7 +101,7 @@
 .gis-ui-panel-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 14px;
 }
 
@@ -148,7 +148,8 @@
 .gis-ui-select-trigger > .gis-ui-svg-icon { color: var(--gis-ui-text-muted); transition: transform .15s ease; }
 .gis-ui-select.is-open .gis-ui-select-trigger > .gis-ui-svg-icon { transform: rotate(180deg); color: var(--gis-ui-primary); }
 .gis-ui-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gis-ui-select-menu { position: absolute; top: calc(100% + 10px); left: -4px; z-index: 10; width: max(100%, 200px); max-width: min(280px, calc(100vw - 32px)); max-height: 240px; margin: 0; padding: 5px; overflow: auto; list-style: none; border: 1px solid var(--gis-ui-border); border-radius: 10px; background: var(--gis-ui-surface-elevated); box-shadow: var(--gis-ui-shadow-lg); color: var(--gis-ui-text); }
+.gis-ui-select-menu { position: absolute; top: calc(100% + 10px); left: -4px; z-index: 10; width: max(100%, 200px); max-width: min(280px, calc(100vw - 32px)); max-height: 240px; margin: 0; padding: 5px; border: 1px solid var(--gis-ui-border); border-radius: 10px; box-shadow: var(--gis-ui-shadow-lg); color: var(--gis-ui-text); @include glass.glass-surface($blur: 28px, $alpha: 88%, $surface: var(--gis-ui-surface-elevated)); }
+.gis-ui-select-options { margin: 0; padding: 0; list-style: none; }
 .gis-ui-select-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; padding: 7px 9px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
 .gis-ui-select-option > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gis-ui-select-option + .gis-ui-select-option { margin-top: 2px; }
@@ -160,6 +161,7 @@
 .gis-ui-search {
   position: relative;
   min-width: 0;
+  .gis-ui-search-feedback { max-height: 280px; }
 
   &.is-dropdown {
     .gis-ui-search-feedback {
@@ -169,13 +171,12 @@
       z-index: 5;
       width: 100%;
       max-height: 280px;
-      overflow: auto;
       padding: 6px;
       border: 1px solid var(--gis-ui-border);
       border-radius: var(--gis-ui-radius-lg);
       background: var(--gis-ui-surface-elevated);
       box-shadow: var(--gis-ui-shadow-lg);
-      @include glass.glass-surface($surface: var(--gis-ui-surface-elevated));
+      @include glass.glass-surface($blur: 28px, $alpha: 88%, $surface: var(--gis-ui-surface-elevated));
 
       p {
         margin: 4px;
@@ -184,6 +185,9 @@
 
     .gis-ui-search-results {
       margin-top: 0;
+      max-height: none;
+      overflow: visible;
+      scrollbar-gutter: auto;
     }
   }
 }
@@ -259,10 +263,10 @@
 }
 
 .gis-ui-search-results {
-  max-height: 240px;
+  max-height: none;
   margin: 8px 0 0;
   padding: 0;
-  overflow: auto;
+  overflow: visible;
   list-style: none;
 
   li + li {

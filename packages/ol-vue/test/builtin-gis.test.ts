@@ -66,7 +66,7 @@ it('provides tools, properties, pointer status and scale with only the two defau
     expect(useOLTools(app).list()).toHaveLength(0)
     expect(app.interactions.getSelection()).toBeUndefined()
     expect(app.interactions.getActiveTool()).toBeUndefined()
-    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull()
+    await vi.waitFor(() => expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull())
     useOLTools(app).importResults([{ id: 'clear-me', toolId: 'draw-point', projection: 'EPSG:3857', geometry: { type: 'Point', coordinates: [0, 0] } }])
     target.querySelector<HTMLButtonElement>('button[aria-label="绘制点"]')!.click(); await flushPromises()
     expect(app.interactions.getActiveTool()).toBe('draw-point')

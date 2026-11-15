@@ -443,6 +443,18 @@ disposed
 
 ## 6. GISApp 公共接口
 
+当前 Core 内部实现按职责整理：`runtime/gis-app.ts` 保留服务装配及生命周期协调，
+插件依赖排序提取为纯函数；`state/` 独立快照投影与 JSON 清洗，`data/` 分离 DataSet，
+`config/` 分离 JSON/UI 校验，`types/` 按领域保存公共契约，`errors.ts` 保存错误模型。
+原内部入口及 `types.ts` 保留兼容转出，包根公共 API 不变；图层/图例契约暂留原文件。
+
+业务写操作在 disposing/disposed 后拒绝，已取得的 MapView 代理也执行调用时检查。
+内部清理仍可清空选择、读取现存地图及解除 target。注册必须检查资源作用域，绑定
+清理失败回滚；地图注册随插件 Scope 释放，但引擎使用期间延迟解除 Adapter，保证
+后续图层清理可用。地图取消监听失败仍继续销毁引擎，最终销毁会清空事件/选择监听。
+各处上报的 app:error 统一通知 onError，报告器异常不覆盖主错误；工具激活失败使用
+TOOL_ACTIVATION_FAILED。保持独立服务队列及只读快照，不增加通用生命周期管理器。
+
 建议公共类型：
 
 ``` ts
@@ -1593,7 +1605,7 @@ MapLayerHandle/LayerInstance 上提供可选的通用时间维度与范围过滤
 毫秒，具体字段识别与地图过滤由 Adapter 实现。
 级别/投影从 app.context.state 读取；鼠标位置保留为 UI 局部高频状态，比例尺
 计算由 OL 包装层完成。Docked 单行；Overlay 每项上标题、下数据，五项横向排列，结果面板与状态信息分层。
-Overlay 的图层/图例在左侧、工具栏右侧纵向、属性按需抽屉及窄屏底部布局属于 Vue UI。
+Overlay 的搜索与工具栏左边缘对齐、工具栏左侧居中、图层/图例右上/右下、属性在最右侧按需显示并推动面板列左移，以及窄屏临时隐藏图层/图例列的策略属于 Vue UI。
 Demo 属性扩展通过 InteractionService.onSelect 联动面板可见性，关闭面板保留选择，销毁时移除监听；Core 不管理抽屉位置或可见性。
 
 OpenLayers Adapter 提供 `zoomControl?: boolean`，默认启用；设置为 false 仅移除
@@ -1643,17 +1655,21 @@ ui-vue 公开 FeatureDetails 和 PropertiesPanel，属性面板与 FeaturePopup 
 
 ### 面板尺寸与 OL/Vue 集成补充
 
-属性抽屉开关导致的 Grid 变化只由 Vue UI 管理：宽屏左侧图例保持同一底部锚点，窄屏按底部抽屉规则分配空间，不涉及 Core 选择或地图状态变更。
+属性抽屉开关导致的 Grid 变化只由 Vue UI 管理：宽屏图层/图例列横向避让，图例保持同一底部锚点；900px 及以下属性仍位于右侧，临时隐藏图层/图例列，关闭恢复，不涉及 Core 选择、地图状态或面板可见状态变更。
 
 @joinmap/ol-vue 仅保留可选高级结果列表 createOLResultsUI；基础工具栏、属性联动和状态栏由默认 UI 和适配器提供，Core 与 UI 保持引擎无关。详见 doc/ol-vue-api.md。
 
-侧栏 width 参与 Grid 占位，同侧可见面板取 CSS max；数字尺寸转为 px，尺寸应用到 PanelHost。优先级为面板 width > left/rightPanelWidth > Overlay 的 overlayPanelWidth > panelWidth > 布局默认值；响应式布局限制宽度并在窄屏将属性抽屉置于整行。主题变量映射见 doc/vue-ui-theme-tokens.md。
+侧栏 width 参与 Grid 占位，同侧可见面板取 CSS max；Overlay 属性抽屉独立计算，不改变图层/图例列宽度。数字尺寸转为 px，尺寸应用到 PanelHost。优先级为面板 width > left/rightPanelWidth > Overlay 的 overlayPanelWidth > panelWidth > 布局默认值；响应式宽度约束及窄屏右侧抽屉由 Vue UI 实现。主题变量映射见 doc/vue-ui-theme-tokens.md。
 
 Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操作及 OL 工具按钮/结果操作跟随语言切换；PanelShell 可通过 labels 覆盖操作文案，独立使用默认英文。
 
 LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 category 图例跟随统一图层样式。分类颜色不再自动被覆盖；continuous 按数值排序，色带按真实数值比例生成，interval 保持离散色块。图例交互过滤仍未实现。
 
 ### 默认 GIS 能力收敛
+
+属性内容标题直接从只读图层快照解析；搜索结果不透明度、图层排序动画及 ScrollArea
+均由 Vue UI 管理。ScrollArea 复用浏览器 overflow，通过组件内部观察器同步自绘滑块，
+卸载释放观察器及拖拽资源，不向 Core 增加 DOM、滚动或动画状态。
 
 GROUP 显式 zIndex 将当前叶子按原有相对顺序布置到 [zIndex,zIndex+1)；未配置则保持
 子层自身 zIndex。UI 仅对最外层做整块拖拽，调用原有 setOrder 更新实际绘制顺序和 zIndex，
@@ -1686,3 +1702,15 @@ MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时�
 状态栏忽略离开事件对坐标显示的清空，保留最后一次有限坐标；该展示策略和面板重挂载缓存只属于 UI，不改变 Core 指针事件语义或 AppState。
 搜索下拉的主题化选择器、选项/结果浮层互斥以及状态栏的顺序、标题图标文字和列宽均属于 Vue UI 呈现策略，不新增 Runtime 状态或 API。
 独立的 ol-vue 集成包只保留高级结果列表，不再是普通应用启动的必经步骤。
+
+### 图层顶层样式及分类规则修订
+
+LayerConfig/LayerUpdate.style 与 legend 同级，options 仅保留透明度等选项，
+旧 options.style 明确报迁移错误。style 为完整替换；LayerInstance.style 和
+snapshot.layers[].style 提供有效基础样式，Adapter 通过 getStyle 返回解析结果。
+category 使用 field + items[].value 精确匹配标量值；interval 使用 field +
+ranges[]（id/min/max/color/label/includeMax），默认左闭右开，有限边界、
+唯一 ID、禁止重叠、允许空缺。规则色覆盖点面填充或线颜色，其余属性继承基础
+style；未匹配值回退基础 style，无数据可用 noData.color。分类与时间过滤组合。
+LayerInstance.getFields 通过 Adapter 可选能力读取当前字段描述，不传递引擎对象。
+上述契约取代历史 options.style 与“分类渲染未实现”的描述。

@@ -1,5 +1,7 @@
-import { GISRuntimeError } from './types.js'
-import type { GISAppConfig, JsonValue, LayerLegend, LegendDefinition, UIConfig } from './types.js'
+import { configError, deepFreeze, isPlainObject, validateJsonValue } from './config/json.js'
+import { validateUIShape } from './config/ui-config.js'
+export { normalizeUIConfig } from './config/ui-config.js'
+import type { GISAppConfig, LayerLegend, LayerStyle, LegendDefinition } from './types.js'
 
 export function normalizeConfig(config: unknown): Readonly<GISAppConfig> {
   if (!isPlainObject(config)) {
@@ -43,60 +45,8 @@ function validateGISShape(config: Record<string, unknown>): void {
   if (config.layers !== undefined && !Array.isArray(config.layers)) {
     throw configError('layers must be an array.', 'layers')
   }
+  if (config.ui !== undefined) validateUIShape(config.ui)
 
-  if (config.ui !== undefined) {
-    if (!isPlainObject(config.ui)) throw configError('ui must be an object.', 'ui')
-    if (config.ui.tools !== undefined && (!Array.isArray(config.ui.tools) || config.ui.tools.some(id => typeof id !== 'string' || !id.trim()) || new Set(config.ui.tools).size !== config.ui.tools.length)) throw configError('ui.tools must contain unique non-empty tool IDs.', 'ui.tools')
-    for (const field of ['layout']) {
-      if (config.ui[field] !== undefined && (typeof config.ui[field] !== 'string' || !config.ui[field].trim())) {
-        throw configError(`ui.${field} must be a non-empty string.`, `ui.${field}`)
-      }
-    }
-    const theme = config.ui.theme
-    const modes = ['light', 'dark', 'system']
-    if (theme !== undefined) {
-      if (typeof theme === 'string') {
-        if (!modes.includes(theme)) throw configError('Unknown theme mode.', 'ui.theme')
-      } else if (!isPlainObject(theme)) throw configError('theme must be a mode or theme object.', 'ui.theme')
-      else {
-        if (theme.mode !== undefined && !modes.includes(String(theme.mode))) throw configError('Unknown theme mode.', 'ui.theme.mode')
-        if (theme.className !== undefined && typeof theme.className !== 'string') throw configError('className must be a string.', 'ui.theme.className')
-        if (theme.tokens !== undefined && (!isPlainObject(theme.tokens) || Object.values(theme.tokens).some(value => typeof value !== 'string'))) throw configError('Theme tokens must be strings.', 'ui.theme.tokens')
-      }
-    }
-    if (config.ui.locale !== undefined && !['zh', 'en'].includes(String(config.ui.locale))) throw configError('Unknown locale.', 'ui.locale')
-    if (config.ui.panels !== undefined && !Array.isArray(config.ui.panels)) {
-      throw configError('ui.panels must be an array.', 'ui.panels')
-    }
-    const panelIds = new Set<string>()
-    for (const [index, value] of (config.ui.panels as unknown[] | undefined ?? []).entries()) {
-      const path = `ui.panels[${index}]`
-      if (!isPlainObject(value)) throw configError('Panel config must be an object.', path)
-      if (typeof value.id !== 'string' || !value.id.trim()) {
-        throw configError('Panel id must be a non-empty string.', `${path}.id`)
-      }
-      if (panelIds.has(value.id)) throw configError(`Panel id "${value.id}" is duplicated.`, `${path}.id`)
-      panelIds.add(value.id)
-      if (value.visible !== undefined && typeof value.visible !== 'boolean') {
-        throw configError('Panel visible must be a boolean.', `${path}.visible`)
-      }
-      if (value.collapsed !== undefined && typeof value.collapsed !== 'boolean') {
-        throw configError('Panel collapsed must be a boolean.', `${path}.collapsed`)
-      }
-      if (value.position !== undefined && !['left', 'right', 'top', 'bottom', 'floating'].includes(String(value.position))) {
-        throw configError('Panel position is invalid.', `${path}.position`)
-      }
-      if (value.order !== undefined && (typeof value.order !== 'number' || !Number.isFinite(value.order))) {
-        throw configError('Panel order must be a finite number.', `${path}.order`)
-      }
-      for (const dimension of ['width', 'height']) {
-        const size = value[dimension]
-        if (size !== undefined && !(typeof size === 'string' || (typeof size === 'number' && Number.isFinite(size) && size > 0))) {
-          throw configError(`Panel ${dimension} must be a positive number or CSS size string.`, `${path}.${dimension}`)
-        }
-      }
-    }
-  }
 
   const ids = new Set<string>()
   const validateLayers = (layers: unknown[], prefix: string) => {
@@ -108,6 +58,8 @@ function validateGISShape(config: Record<string, unknown>): void {
       ids.add(item.id)
       if (typeof item.type !== 'string' || !item.type.trim()) throw configError('Layer type must be a non-empty string.', `${path}.type`)
       if (item.legend !== undefined) normalizeLayerLegend(item.legend as LayerLegend, item.id, `${path}.legend`)
+      if (item.style !== undefined) normalizeLayerStyle(item.style as LayerStyle, `${path}.style`)
+      if (isPlainObject(item.options) && item.options.style !== undefined) throw configError('Move options.style to layer.style.', `${path}.options.style`)
       if (item.children !== undefined) {
         if (item.type !== 'GROUP' || !Array.isArray(item.children)) {
           throw configError('children is supported only as a GROUP layer array.', `${path}.children`)
@@ -142,65 +94,12 @@ function validateGISShape(config: Record<string, unknown>): void {
   }
 }
 
-function validateJsonValue(value: unknown, path: string, seen: WeakSet<object>): asserts value is JsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return
-
-  if (typeof value === 'number') {
-    if (Number.isFinite(value)) return
-    throw configError('Configuration numbers must be finite.', path)
-  }
-
-  if (typeof value !== 'object') {
-    throw configError('Configuration must contain only JSON values.', path)
-  }
-
-  if (seen.has(value)) throw configError('Configuration cannot contain cycles.', path)
-  seen.add(value)
-
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => validateJsonValue(entry, `${path}[${index}]`, seen))
-  } else {
-    if (!isPlainObject(value)) throw configError('Configuration objects must be plain objects.', path)
-    for (const [key, entry] of Object.entries(value)) {
-      validateJsonValue(entry, `${path}.${key}`, seen)
-    }
-  }
-
-  seen.delete(value)
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-    Object.freeze(value)
-    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child)
-  }
-  return value
-}
-
-function configError(message: string, path: string): GISRuntimeError {
-  return new GISRuntimeError({
-    code: 'CONFIG_INVALID',
-    message,
-    stage: 'config-validation',
-    detail: { path },
-  })
-}
-
-export function normalizeUIConfig(config: UIConfig): Readonly<UIConfig> {
-  return normalizeConfig({ ui: config }).ui!
-}
-
 export function normalizeLayerLegend(value: LayerLegend, layerId: string, path = 'legend'): LegendDefinition {
   validateJsonValue(value, path, new WeakSet())
   if (!isPlainObject(value) || !['category', 'continuous', 'interval', 'image'].includes(String(value.type))) throw configError('Invalid legend type.', path)
   if (value.id !== undefined && (typeof value.id !== 'string' || !value.id.trim())) throw configError('Legend id must not be empty.', `${path}.id`)
   if (value.title !== undefined && typeof value.title !== 'string') throw configError('Legend title must be a string.', `${path}.title`)
+  if (value.field !== undefined && (typeof value.field !== 'string' || !value.field.trim())) throw configError('Legend field must not be empty.', `${path}.field`)
   if (value.useLayerStyle !== undefined && typeof value.useLayerStyle !== 'boolean') throw configError('useLayerStyle must be boolean.', `${path}.useLayerStyle`)
   if (value.imageUrl !== undefined && typeof value.imageUrl !== 'string') throw configError('imageUrl must be a string.', `${path}.imageUrl`)
   const validateItem = (item: unknown, itemPath: string) => {
@@ -208,6 +107,7 @@ export function normalizeLayerLegend(value: LayerLegend, layerId: string, path =
     if (item.color !== undefined && typeof item.color !== 'string') throw configError('color must be a string.', itemPath)
     if (item.symbol !== undefined && !['fill', 'line', 'circle', 'square'].includes(String(item.symbol))) throw configError('Invalid legend symbol.', itemPath)
     if (item.visible !== undefined && typeof item.visible !== 'boolean') throw configError('visible must be boolean.', itemPath)
+    if (item.value !== undefined && !['string', 'number', 'boolean'].includes(typeof item.value)) throw configError('Category value must be scalar.', itemPath)
   }
   if (value.items !== undefined) {
     if (!Array.isArray(value.items)) throw configError('items must be an array.', path)
@@ -215,6 +115,41 @@ export function normalizeLayerLegend(value: LayerLegend, layerId: string, path =
     value.items.forEach((item, index) => { validateItem(item, `${path}.items[${index}]`); if (ids.has(item.id)) throw configError('Duplicate legend item id.', path); ids.add(item.id) })
   }
   if (value.noData !== undefined) validateItem(value.noData, `${path}.noData`)
+  if (value.field && value.type === 'category') {
+    const seen = new Set<string>()
+    for (const item of value.items ?? []) {
+      if (item.value === undefined) throw configError('Bound categories require matching values.', `${path}.items`)
+      const key = JSON.stringify(item.value)
+      if (seen.has(key)) throw configError('Duplicate category value.', `${path}.items`)
+      seen.add(key)
+    }
+  }
+  if (value.ranges !== undefined) {
+    if (value.type !== 'interval' || !value.field || !Array.isArray(value.ranges)) throw configError('Ranges require interval type and field.', `${path}.ranges`)
+    const ids = new Set<string>()
+    for (const range of value.ranges) {
+      if (!isPlainObject(range) || typeof range.id !== 'string' || !range.id.trim() || ids.has(range.id)
+        || typeof range.min !== 'number' || !Number.isFinite(range.min) || typeof range.max !== 'number' || !Number.isFinite(range.max) || range.min >= range.max
+        || typeof range.color !== 'string' || !range.color.trim() || (range.label !== undefined && typeof range.label !== 'string')
+        || (range.includeMax !== undefined && typeof range.includeMax !== 'boolean')) throw configError('Invalid interval range.', `${path}.ranges`)
+      ids.add(range.id)
+    }
+    const sorted = [...value.ranges].sort((a, b) => a.min - b.min)
+    if (sorted.some((range, index) => index > 0 && (range.min < sorted[index - 1]!.max || (range.min === sorted[index - 1]!.max && sorted[index - 1]!.includeMax)))) throw configError('Legend ranges must not overlap.', `${path}.ranges`)
+  }
   if (value.stops !== undefined && (!Array.isArray(value.stops) || value.stops.some(stop => !isPlainObject(stop) || typeof stop.value !== 'number' || !Number.isFinite(stop.value) || typeof stop.color !== 'string' || (stop.label !== undefined && typeof stop.label !== 'string')))) throw configError('Invalid legend stops.', `${path}.stops`)
   return deepFreeze(JSON.parse(JSON.stringify({ ...value, id: value.id ?? layerId, layerId })) as LegendDefinition)
+}
+
+export function normalizeLayerStyle(value: LayerStyle, path = 'style'): LayerStyle {
+  validateJsonValue(value, path, new WeakSet())
+  if (!isPlainObject(value)) throw configError('Layer style must be an object.', path)
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'fillColor' || key === 'strokeColor') {
+      if (typeof item !== 'string' || !item.trim()) throw configError('Style color must not be empty.', `${path}.${key}`)
+    } else if (key === 'strokeWidth' || key === 'pointRadius') {
+      if (typeof item !== 'number' || !Number.isFinite(item) || item <= 0) throw configError('Style sizes must be positive.', `${path}.${key}`)
+    } else throw configError('Unknown layer style property.', `${path}.${key}`)
+  }
+  return deepFreeze(JSON.parse(JSON.stringify(value)) as LayerStyle)
 }

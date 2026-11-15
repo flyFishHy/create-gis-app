@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ScrollArea from './ScrollArea.vue'
 defineProps<{
   title?: string
   icon?: string
@@ -25,7 +26,7 @@ const emit = defineEmits<{
         <button v-if="closable" type="button" class="gis-ui-panel-close" :aria-label="labels?.close ?? 'Close panel'" @click="emit('close')">×</button>
       </div>
     </header>
-    <div v-if="!collapsed" class="gis-ui-panel-body"><slot /></div>
+    <ScrollArea v-if="!collapsed" class="gis-ui-panel-body" :label="title"><slot /></ScrollArea>
     <footer v-if="$slots.footer && !collapsed" class="gis-ui-panel-footer"><slot name="footer" /></footer>
   </article>
 </template>

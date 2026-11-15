@@ -1,4 +1,5 @@
 import type { AppContext, AppState, DataService, EventService, GISAppConfig, InteractionService, LayerService, MapService, ResourceScope, SearchService } from '../types.js'
+import { GISRuntimeError } from '../errors.js'
 
 type Services = Pick<AppContext, 'map' | 'layers' | 'data' | 'interactions' | 'search' | 'events' | 'resources' | 'state'>
 /** Application-local capability container. No GISApp back-reference. */
@@ -23,7 +24,7 @@ export class AppContextImpl implements AppContext {
   static create(services: Services): { context: AppContextImpl; initializeConfig: (config: Readonly<GISAppConfig>) => void } {
     const context = new AppContextImpl(services)
     return { context, initializeConfig: config => {
-      if (context.#config) throw new Error('Context configuration is already initialized.')
+      if (context.#config) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Context configuration is already initialized.', stage: 'config-initialization' })
       context.#config = config
     } }
   }

@@ -29,24 +29,7 @@
   }
 }
 
-// Scrollbars follow the theme instead of using the browser default.
 .gis-ui-root {
-  scrollbar-color: var(--gis-ui-text-muted) transparent;
-
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--gis-ui-text-muted) 45%, transparent);
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   button:focus-visible {
     outline: 2px solid var(--gis-ui-primary);
     outline-offset: 2px;

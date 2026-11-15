@@ -243,6 +243,13 @@ class OLMapAdapter implements MapAdapter {
         return value !== undefined && value >= timeFilter.start && value <= timeFilter.end
       }
       handle.getTimeDimensions = timeDimensions
+      handle.getFields = () => {
+        const fields = new Map<string, 'string' | 'number' | 'boolean'>()
+        for (const feature of vectorSource.getFeatures()) for (const [name, value] of Object.entries(feature.getProperties())) {
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') fields.set(name, typeof value as 'string' | 'number' | 'boolean')
+        }
+        return [...fields].map(([name, type]) => ({ name, type }))
+      }
       handle.getTimeFilter = () => timeFilter && { ...timeFilter }
       handle.setTimeFilter = filter => {
         if (filter) {
@@ -322,50 +329,76 @@ class OLMapAdapter implements MapAdapter {
   }
 
   private createHandle(layer: BaseLayer, config: LayerConfig): MapLayerHandle {
-    let styleOptions: Record<string, string | number> | undefined
-    let vectorStyle: Style | undefined
+    const defaults = { fillColor: '#ffffff66', strokeColor: '#3399cc', strokeWidth: 1.25, pointRadius: 5 }
+    let styleOptions = { ...defaults, ...config.style }
+    let legend: LayerConfig['legend'] = config.legend ? JSON.parse(JSON.stringify(config.legend)) : undefined
     let featureFilter: ((feature: Feature) => boolean) | undefined
+    let vectorStyle: Style
+    const colors = new Map<string, Style>()
+    const makeStyle = (options: typeof defaults) => {
+      const fill = new Fill({ color: options.fillColor })
+      const stroke = new Stroke({ color: options.strokeColor, width: options.strokeWidth })
+      return new Style({ fill, stroke, image: new CircleStyle({ radius: options.pointRadius, fill, stroke }) })
+    }
+    const validateStyle = (options: typeof defaults) => {
+      parseColor(options.fillColor); parseColor(options.strokeColor)
+      if (!Number.isFinite(options.strokeWidth) || options.strokeWidth <= 0 || !Number.isFinite(options.pointRadius) || options.pointRadius <= 0) throw new Error('Style sizes must be positive.')
+    }
+    const validateLegend = (value: typeof legend) => {
+      if (value?.field && !(layer instanceof VectorLayer)) throw new Error('Field-based legend rules require a vector layer.')
+      for (const item of value?.items ?? []) if (item.color) parseColor(item.color)
+      for (const range of value?.ranges ?? []) parseColor(range.color)
+      if (value?.noData?.color) parseColor(value.noData.color)
+    }
+    const featureStyle = (feature: Feature) => {
+      if (featureFilter && !featureFilter(feature)) return undefined
+      if (!legend?.field) return vectorStyle
+      const value: unknown = feature.get(legend.field)
+      let color: string | undefined
+      if (value === null || value === undefined) color = legend.noData?.color
+      else if (legend.type === 'category') color = legend.items?.find(item => item.value === value)?.color
+      else if (legend.type === 'interval' && typeof value === 'number' && Number.isFinite(value)) {
+        color = legend.ranges?.find(range => value >= range.min && (value < range.max || (range.includeMax && value === range.max)))?.color
+      }
+      if (!color) return vectorStyle
+      const line = /LineString$/.test(feature.getGeometry()?.getType() ?? '')
+      const key = (line ? 'line:' : 'fill:') + color
+      let style = colors.get(key)
+      if (!style) { style = makeStyle({ ...styleOptions, [line ? 'strokeColor' : 'fillColor']: color }); colors.set(key, style) }
+      return style
+    }
     const applyVectorStyle = () => {
       if (!(layer instanceof VectorLayer)) return
-      layer.setStyle(featureFilter
-        ? feature => feature instanceof Feature && featureFilter!(feature) ? vectorStyle : undefined
+      vectorStyle = makeStyle(styleOptions)
+      colors.clear()
+      layer.setStyle(legend?.field || featureFilter
+        ? feature => feature instanceof Feature ? featureStyle(feature) : undefined
         : vectorStyle)
     }
-    const applyOptions = (options: Readonly<Record<string, import('@joinmap/gis-core').JsonValue>>) => {
-      for (const key of Object.keys(options)) if (key !== 'opacity' && key !== 'style') throw new Error(`Unsupported OL layer option "${key}".`)
-      let style: Style | undefined
-      let prepared: Record<string, string | number> | undefined
-      if (options.style !== undefined) {
-        if (!(layer instanceof VectorLayer) || !options.style || typeof options.style !== 'object' || Array.isArray(options.style)) throw new Error('style requires a vector layer and a style object.')
-        prepared = { fillColor: '#ffffff66', strokeColor: '#3399cc', strokeWidth: 1.25, pointRadius: 5 }
-        for (const [key, value] of Object.entries(options.style)) {
-          if (key === 'fillColor' || key === 'strokeColor') {
-            if (typeof value !== 'string' || !value.trim()) throw new Error(`${key} must be a color string.`)
-            parseColor(value)
-          } else if (key === 'strokeWidth' || key === 'pointRadius') {
-            if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) throw new Error(`${key} must be positive.`)
-          } else throw new Error(`Unsupported style option "${key}".`)
-          prepared[key] = value
-        }
-        const fill = new Fill({ color: prepared.fillColor as string })
-        const stroke = new Stroke({ color: prepared.strokeColor as string, width: prepared.strokeWidth as number })
-        style = new Style({ fill, stroke, image: new CircleStyle({ radius: prepared.pointRadius as number, fill, stroke }) })
-      }
-      if (options.opacity !== undefined) {
-        if (typeof options.opacity !== 'number' || !Number.isFinite(options.opacity) || options.opacity < 0 || options.opacity > 1) throw new Error('opacity must be a number between 0 and 1.')
-        layer.setOpacity(options.opacity)
-      }
-      if (style && layer instanceof VectorLayer) { vectorStyle = style; styleOptions = prepared; applyVectorStyle() }
+    const validateOptions = (options: Readonly<Record<string, import('@joinmap/gis-core').JsonValue>>) => {
+      for (const key of Object.keys(options)) if (key !== 'opacity') throw new Error(`Unsupported OL layer option "${key}". Put style at layer.style.`)
+      if (options.opacity !== undefined && (typeof options.opacity !== 'number' || !Number.isFinite(options.opacity) || options.opacity < 0 || options.opacity > 1)) throw new Error('opacity must be a number between 0 and 1.')
     }
-    if (layer instanceof VectorLayer) applyOptions({ style: {} })
-    if (config.options) applyOptions(config.options)
+    if (config.style && !(layer instanceof VectorLayer)) throw new Error('style requires a vector layer.')
+    validateStyle(styleOptions); validateLegend(legend)
+    if (config.options) { validateOptions(config.options); if (typeof config.options.opacity === 'number') layer.setOpacity(config.options.opacity) }
+    applyVectorStyle()
     layer.set('gisLayerId', config.id)
     let handle: MapLayerHandle
     handle = {
-      setVisible: (visible) => layer.setVisible(visible),
-      setZIndex: (zIndex) => layer.setZIndex(zIndex),
-      update: (patch) => {
-        if (patch.options) applyOptions(patch.options)
+      getStyle: () => layer instanceof VectorLayer ? Object.freeze({ ...styleOptions }) : undefined,
+      setVisible: visible => layer.setVisible(visible),
+      setZIndex: zIndex => layer.setZIndex(zIndex),
+      update: patch => {
+        if (patch.style && !(layer instanceof VectorLayer)) throw new Error('style requires a vector layer.')
+        const nextStyle = patch.style === undefined ? styleOptions : { ...defaults, ...patch.style }
+        const nextLegend = patch.legend === undefined ? legend : patch.legend ?? undefined
+        validateStyle(nextStyle); validateLegend(nextLegend)
+        if (patch.options) validateOptions(patch.options)
+        // Prepare every value before committing any engine mutations.
+        styleOptions = nextStyle; legend = nextLegend
+        applyVectorStyle()
+        if (typeof patch.options?.opacity === 'number') layer.setOpacity(patch.options.opacity)
         if (patch.visible !== undefined) layer.setVisible(patch.visible)
         if (patch.zIndex !== undefined) layer.setZIndex(patch.zIndex)
         if (patch.title !== undefined) layer.set('title', patch.title)
@@ -374,15 +407,14 @@ class OLMapAdapter implements MapAdapter {
         this.handles.delete(handle)
         if (layer instanceof VectorLayer) layer.getSource()?.clear(true)
       },
-      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), zIndex: layer.getZIndex() ?? 0, style: styleOptions ? { ...styleOptions } : undefined }),
-      resolveLegend: legend => styleOptions && legend.useLayerStyle && legend.type === 'category' && legend.items?.length === 1 ? {
-        ...legend, items: legend.items.map(item => ({ ...item, color: (item.symbol === 'line' ? styleOptions!.strokeColor : styleOptions!.fillColor) as string ?? item.color })),
-      } : legend,
+      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), zIndex: layer.getZIndex() ?? 0,
+        geometryType: layer instanceof VectorLayer ? layer.getSource()?.getFeatures()[0]?.getGeometry()?.getType() : undefined }),
+      resolveLegend: value => !value.field && value.useLayerStyle && value.type === 'category' && value.items?.length === 1 ? {
+        ...value, items: value.items.map(item => ({ ...item, color: item.symbol === 'line' ? styleOptions.strokeColor : styleOptions.fillColor })),
+      } : value,
     }
     this.layerByHandle.set(handle, layer)
-    if (layer instanceof VectorLayer) {
-      this.featureFilterByHandle.set(handle, filter => { featureFilter = filter; applyVectorStyle(); layer.changed() })
-    }
+    if (layer instanceof VectorLayer) this.featureFilterByHandle.set(handle, filter => { featureFilter = filter; applyVectorStyle(); layer.changed() })
     this.handles.add(handle)
     return handle
   }

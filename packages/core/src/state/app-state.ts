@@ -1,21 +1,7 @@
-import type { AppState, AppStateSnapshot, AppStatus, DeepReadonly, EventService, FeatureReference, JsonValue, StateContributor, Unsubscribe } from '../types.js'
-import { GISRuntimeError } from '../types.js'
-
-/** Plain JSON only. Engine objects, functions and cyclic references are excluded. */
-export function stateValue(value: unknown, ancestors = new Set<object>()): JsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (!value || typeof value !== 'object' || ancestors.has(value)) return null
-  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return null
-  const next = new Set(ancestors).add(value)
-  if (Array.isArray(value)) return value.map(item => stateValue(item, next))
-  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && typeof item !== 'function').map(([key, item]) => [key, stateValue(item, next)]))
-}
-function freeze<T>(value: T): T {
-  if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value) }
-  return value
-}
-
+import type { AppState, AppStateSnapshot, AppStatus, DeepReadonly, EventService, JsonValue, StateContributor, Unsubscribe } from '../types.js'
+import { GISRuntimeError } from '../errors.js'
+import { stateValue, freezeStateValue as freeze } from './json-value.js'
+export { stateValue } from './json-value.js'
 /** Internal writer. Only the frozen read facade is exposed through AppContext. */
 export class AppStateImpl {
   private statusValue: AppStatus = 'created'
@@ -48,13 +34,25 @@ export class AppStateImpl {
     this.listeners.add(listener); return () => { this.listeners.delete(listener) }
   }
   register(name: string, contributor: StateContributor): Unsubscribe {
-    if (this.closed || !name.trim() || this.slices.has(name)) throw new Error(`Invalid or duplicate state slice "${name}".`)
+    if (this.closed || !name.trim() || this.slices.has(name)) throw new GISRuntimeError({
+      code: this.closed ? 'APP_DISPOSED' : 'CONFIG_INVALID', message: 'Invalid or duplicate state slice.', stage: 'state-registration', detail: { name },
+    })
     const refresh = () => this.refresh()
     this.slices.set(name, contributor)
-    let unsubscribe: Unsubscribe
-    try { unsubscribe = contributor.subscribe(refresh); this.refresh() } catch (error) { this.slices.delete(name); throw error }
+    let unsubscribe: Unsubscribe | undefined
+    try { unsubscribe = contributor.subscribe(refresh); this.refresh() }
+    catch (error) {
+      this.slices.delete(name)
+      try { unsubscribe?.() } catch (cause) { this.report(cause) }
+      throw error
+    }
     let active = true
-    return () => { if (!active) return; active = false; unsubscribe(); this.slices.delete(name); this.refresh() }
+    return () => {
+      if (!active) return
+      active = false
+      this.slices.delete(name)
+      try { unsubscribe?.() } finally { this.refresh() }
+    }
   }
   refresh(): void {
     if (!this.read || this.closed) return

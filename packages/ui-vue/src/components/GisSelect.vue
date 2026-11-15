@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import SvgIcon from './SvgIcon.vue'
+import ScrollArea from './ScrollArea.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -85,7 +86,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
 </script>
 
 <template>
-  <div ref="root" class="gis-ui-select" :class="{ 'is-open': open }" @focusout="blur">
+  <div ref="root" class="gis-ui-select" :class="{ 'is-open': open }" @focusout="blur" @keydown.esc.stop.prevent="close(); trigger?.focus()">
     <button ref="trigger" class="gis-ui-select-trigger" type="button" role="combobox"
       :aria-label="label" :aria-expanded="open" aria-haspopup="listbox" :aria-controls="open ? listId : undefined"
       :aria-activedescendant="open && active >= 0 ? `${listId}-option-${active}` : undefined"
@@ -94,7 +95,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
       <span class="gis-ui-select-value">{{ selectedLabel }}</span>
       <SvgIcon name="chevron-down" :size="14" />
     </button>
-    <ul v-if="open" :id="listId" class="gis-ui-select-menu" role="listbox" :aria-label="label">
+    <ScrollArea v-if="open" class="gis-ui-select-menu">
+    <ul :id="listId" class="gis-ui-select-options" role="listbox" :aria-label="label">
       <li v-for="(option, index) in options" :id="`${listId}-option-${index}`" :key="option.value"
         class="gis-ui-select-option" :class="{ 'is-selected': option.value === modelValue, 'is-active': index === active }"
         role="option" :aria-selected="option.value === modelValue" :title="option.label"
@@ -102,5 +104,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
         <span>{{ option.label }}</span><span class="gis-ui-select-check" aria-hidden="true">{{ option.value === modelValue ? '✓' : '' }}</span>
       </li>
     </ul>
+    </ScrollArea>
   </div>
 </template>

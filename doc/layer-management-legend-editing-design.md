@@ -90,3 +90,16 @@ await app.layers.update(layerId, {
 4. 按需扩展分类/分段样式、图例过滤、比例尺范围及远程刷新。
 
 参考实现：packages/core/src/layer-service.ts、packages/adapter-ol/src/ol-adapter.ts、packages/ui-vue/src/panels/LayerManagerPanel.vue、packages/ui-vue/src/panels/LegendPanel.vue、packages/ui-vue/src/components/Legend.vue。
+
+## 枚举/区间图例卡片实施修订（取代以上旧阶段计划）
+
+style 已从 options 提升到图层顶层，与 legend 同级；旧 options.style 拒绝并给出迁移提示。
+category 绑定 field 和严格类型的 items[].value；interval 绑定 field 与 ranges[]。
+区间默认 [min,max)，includeMax 可显式闭合末端；拒绝重叠与无效上下限，允许空缺。
+地图与图例共用规则色，默认颜色来自基础 style，线覆盖描边、点面覆盖填充。
+独立 Legend 渲染真实区间与默认色，LegendPanel 每层原位编辑。
+编辑态颜色选择器、枚举/区间行、删除、新增、保存/重置/关闭已接入；
+更多按钮禁用预留，详细符号弹窗暂不实现。取消/重置不提交，保存通过
+expectedVersion 检测外部更新和实例替换；查看态重置回初始卡片值，关闭只隐藏卡片。
+字段描述通过公开 LayerInstance.getFields 获取，不在 UI 导入 OL。
+本修订替代上文“分类未实现”、完整 options.style 提交及整面板编辑视图的旧说明。

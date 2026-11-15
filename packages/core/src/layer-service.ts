@@ -1,10 +1,11 @@
 import { GISRuntimeError } from './types.js'
-import { normalizeLayerLegend } from './config.js'
+import { normalizeLayerLegend, normalizeLayerStyle } from './config.js'
 import type { LayerLegend, LegendDefinition, MapLocation } from './types.js'
 import type { ServiceDependencies } from './context/service-dependencies.js'
 import type {
   AppContext,
   LayerConfig,
+  LayerStyle,
   LayerInstance,
   LayerService,
   LayerTimeDimension,
@@ -26,6 +27,7 @@ class LayerInstanceImpl implements LayerInstance {
   private disposal?: Promise<void>
   private updates: Promise<void> = Promise.resolve()
   private currentLegend?: LegendDefinition
+  private currentStyle?: LayerStyle
   private currentVersion = 0
 
   constructor(
@@ -39,13 +41,17 @@ class LayerInstanceImpl implements LayerInstance {
     private readonly transact: (operation: () => void) => void,
     private readonly assertMutable: () => void,
     legend?: LayerLegend,
+    style?: LayerStyle,
   ) {
     this.currentTitle = title
     this.currentVisible = visible
     this.currentLegend = legend === undefined ? undefined : normalizeLayerLegend(legend, id)
+    this.currentStyle = style === undefined ? undefined : normalizeLayerStyle(style)
   }
 
   get title(): string | undefined { return this.currentTitle }
+  get style(): LayerStyle | undefined { return this.handle.getStyle?.() ?? this.currentStyle }
+  getFields() { return this.handle.getFields?.() ?? [] }
   get version(): number { return this.currentVersion }
   get status(): LayerInstance['status'] { return this.currentStatus }
   get visible(): boolean { return this.currentVisible }
@@ -110,10 +116,13 @@ class LayerInstanceImpl implements LayerInstance {
       throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Layer changed since editing began. Reload before applying.', stage: 'layer-update' })
     }
     const nextLegend = patch.legend === undefined ? this.currentLegend : patch.legend === null ? undefined : normalizeLayerLegend(patch.legend, this.id)
-    if (patch.options !== undefined && !this.handle.update) {
+    const nextStyle = patch.style === undefined ? this.currentStyle : normalizeLayerStyle(patch.style)
+    if (patch.options?.style !== undefined) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Move options.style to layer.style.', stage: 'layer-update' })
+    if ((patch.options !== undefined || patch.style !== undefined) && !this.handle.update) {
       throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: `Layer "${this.id}" does not support options updates.`, stage: 'layer-update' })
     }
-    const { legend: _legend, expectedVersion: _expectedVersion, ...enginePatch } = patch
+    const { expectedVersion: _expectedVersion, ...rest } = patch
+    const enginePatch = { ...rest, ...(patch.legend !== undefined ? { legend: nextLegend ?? null } : {}), ...(patch.style !== undefined ? { style: nextStyle } : {}) }
     if (Object.keys(enginePatch).length) await this.handle.update?.(enginePatch)
     this.assertActive()
     this.transact(() => {
@@ -121,6 +130,7 @@ class LayerInstanceImpl implements LayerInstance {
       if (patch.title !== undefined) this.currentTitle = patch.title
       if (patch.zIndex !== undefined) this.handle.setZIndex(patch.zIndex)
       this.currentLegend = nextLegend
+      this.currentStyle = nextStyle
       this.currentVersion++
       this.changed()
     })
@@ -211,6 +221,8 @@ export class LayerServiceImpl implements LayerService {
 
   private async createLayer(config: LayerConfig): Promise<LayerInstance> {
     if (config.legend !== undefined) normalizeLayerLegend(config.legend, config.id)
+    if (config.style !== undefined) normalizeLayerStyle(config.style)
+    if (config.options?.style !== undefined) throw new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Move options.style to layer.style.', stage: 'layer-create' })
     if (config.type === 'GROUP') return this.addGroup(config)
     const definition = this.definitions.get(config.type)
     if (!definition) {
@@ -253,6 +265,7 @@ export class LayerServiceImpl implements LayerService {
         operation => this.dependencies.state.batch(operation),
         () => this.assertCanMutate('update a layer'),
         config.legend,
+        config.style,
       )
       this.instances.set(config.id, instance)
       this.emit({ type: 'add', id: config.id })

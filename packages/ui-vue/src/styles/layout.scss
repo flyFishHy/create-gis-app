@@ -343,39 +343,43 @@
   .gis-ui-status-content { width: 100%; padding: 8px 12px; }
 }
 .gis-ui-overlay-controls {
-  --gis-ui-overlay-left-width: min(40%, var(--gis-ui-configured-left-width, var(--gis-ui-left-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
-  --gis-ui-overlay-right-width: min(40%, var(--gis-ui-configured-right-width, var(--gis-ui-right-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
+  --gis-ui-overlay-left-width: min(40cqw, var(--gis-ui-configured-left-width, var(--gis-ui-left-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
+  --gis-ui-overlay-right-width: min(28cqw, var(--gis-ui-configured-right-width, var(--gis-ui-right-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
+  --gis-ui-overlay-drawer-width: min(28cqw, var(--gis-ui-configured-drawer-width, var(--gis-ui-right-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
+  --gis-ui-overlay-rail-track: 0px;
+  --gis-ui-overlay-drawer-track: 0px;
   position: absolute;
   inset: 78px 14px 14px;
   z-index: 3;
   display: grid;
-  grid-template-columns: var(--gis-ui-overlay-left-width) minmax(0, 1fr) 50px;
+  grid-template-columns: 50px minmax(0, 1fr) var(--gis-ui-overlay-rail-track) var(--gis-ui-overlay-drawer-track);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas: "query query tools" "left . tools" "left status tools";
-  gap: 12px;
+  row-gap: 12px;
   pointer-events: none;
   min-height: 0;
   &:has(.gis-ui-overlay--right .gis-ui-panel-host) {
-    grid-template-columns: var(--gis-ui-overlay-left-width) minmax(0, 1fr) 50px var(--gis-ui-overlay-right-width);
-    // Keep the left region anchored to the same bottom edge when the drawer opens.
-    grid-template-areas: "query query tools right" "left . tools right" "left status tools right";
+    --gis-ui-overlay-rail-track: calc(var(--gis-ui-overlay-right-width) + 12px);
   }
+  &.has-drawer { --gis-ui-overlay-drawer-track: calc(var(--gis-ui-overlay-drawer-width) + 12px); }
   > * { min-width: 0; min-height: 0; }
   .gis-ui-panel-region { pointer-events: none; min-height: 0; }
   .gis-ui-panel-host, .gis-ui-toolbar-root, .gis-ui-status-content, .gis-ui-time-placeholder, .gis-ui-layer-time { pointer-events: auto; }
   .gis-ui-panel-host, .gis-ui-panel-shell { max-height: 100%; min-height: 0; }
-  .gis-ui-panel-body { overflow: auto; min-height: 0; }
+  .gis-ui-panel-body { overflow: hidden; min-height: 0; }
 }
-.gis-ui-overlay--top { grid-area: query; align-self: start; z-index: 4; }
-.gis-ui-overlay--toolbar { grid-area: tools; align-self: center; justify-self: end; max-height: 100%; display: flex; min-height: 0; }
-.gis-ui-overlay--left { grid-area: left; display: flex; min-height: 0; }
-.gis-ui-overlay--left > .gis-ui-panel-region { flex: 1; min-height: 0; }
-.gis-ui-overlay--left .gis-ui-panel-host { flex: 0 1 auto; max-height: calc(50% - 6px); }
-.gis-ui-overlay--left .gis-ui-panel-host--legend { margin-top: auto; }
-.gis-ui-overlay--right { grid-area: right; display: flex; flex-direction: column; min-height: 0; }
-.gis-ui-overlay--right:not(:has(.gis-ui-panel-host)) { display: none; }
-.gis-ui-overlay--right > .gis-ui-panel-region, .gis-ui-overlay--right .gis-ui-panel-host, .gis-ui-overlay--right .gis-ui-panel-shell { flex: 1; min-height: 0; }
-.gis-ui-overlay--bottom { grid-area: status; align-self: end; justify-self: center; width: 100%; max-width: 500px; }
+.gis-ui-overlay--top { grid-column: 1 / 3; grid-row: 1; align-self: start; z-index: 4; }
+.gis-ui-overlay--toolbar { grid-column: 1; grid-row: 1 / -1; align-self: center; justify-self: start; max-height: 100%; display: flex; min-height: 0; }
+.gis-ui-overlay--left { grid-column: 2; grid-row: 2; margin-left: 12px; width: min(var(--gis-ui-overlay-left-width), calc(100% - 12px)); }
+.gis-ui-overlay--left, .gis-ui-overlay--right { display: flex; flex-direction: column; min-height: 0; }
+.gis-ui-overlay--left > .gis-ui-panel-region, .gis-ui-overlay--right > .gis-ui-panel-region { flex: 1; min-height: 0; }
+.gis-ui-overlay--left .gis-ui-panel-host, .gis-ui-overlay--right .gis-ui-panel-host { flex: 0 1 auto; max-height: calc(50% - 6px); }
+.gis-ui-overlay--left .gis-ui-panel-host--legend, .gis-ui-overlay--right .gis-ui-panel-host--legend { margin-top: auto; }
+.gis-ui-overlay--right { grid-column: 3; grid-row: 1 / -1; padding-left: 12px; }
+.gis-ui-overlay--left:not(:has(.gis-ui-panel-host)), .gis-ui-overlay--right:not(:has(.gis-ui-panel-host)) { display: none; }
+.gis-ui-overlay--drawer { grid-column: 4; grid-row: 1 / -1; display: flex; overflow: hidden; }
+.has-drawer > .gis-ui-overlay--drawer { padding-left: 12px; }
+.gis-ui-overlay--drawer > .gis-ui-panel-host, .gis-ui-overlay--drawer .gis-ui-panel-shell { flex: 1; min-height: 0; }
+.gis-ui-overlay--bottom { grid-column: 2; grid-row: 3; margin-left: 12px; align-self: end; justify-self: center; width: calc(100% - 12px); max-width: 500px; }
 .gis-ui-overlay { position: absolute; z-index: 2; }
 .gis-ui-overlay--floating { inset: 0; pointer-events: none; }
 .gis-ui-overlay--floating > .gis-ui-panel-region { position: absolute; inset: 15% 20%; pointer-events: auto; }
@@ -383,21 +387,26 @@
 .gis-ui-overlay--floating > .gis-ui-feature-popup { pointer-events: auto; }
 
 @container gis-overlay (max-width: 1100px) {
-  .gis-ui-overlay-controls, .gis-ui-overlay-controls:has(.gis-ui-overlay--right .gis-ui-panel-host) { grid-template-areas: "query query tools" "left . tools" "status status status"; }
-  .gis-ui-overlay-controls:has(.gis-ui-overlay--right .gis-ui-panel-host) {
-    grid-template-columns: var(--gis-ui-overlay-left-width) minmax(0, 1fr) 50px var(--gis-ui-overlay-right-width);
-    grid-template-areas: "query query tools right" "left . tools right" "status status status status";
-  }
+  // The status keeps its own full-width row, independent of drawer visibility.
+  .gis-ui-overlay--right, .gis-ui-overlay--drawer { grid-row: 1 / 3; }
+  .gis-ui-overlay--bottom { grid-column: 2 / -1; }
 }
-@container gis-overlay (max-width: 800px) {
-  .gis-ui-overlay-controls, .gis-ui-overlay-controls:has(.gis-ui-overlay--right .gis-ui-panel-host) {
+@container gis-overlay (max-width: 900px) {
+  .gis-ui-overlay-controls {
+    --gis-ui-overlay-right-width: min(74cqw, var(--gis-ui-configured-right-width, var(--gis-ui-right-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
+    --gis-ui-overlay-drawer-width: min(82cqw, var(--gis-ui-configured-drawer-width, var(--gis-ui-right-width, var(--gis-ui-overlay-panel-width, var(--gis-ui-panel-width, 260px)))));
     inset: 78px 8px 8px;
-    gap: 8px;
-    grid-template-columns: var(--gis-ui-overlay-left-width) minmax(0, 1fr) 50px;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "query query query" "left . tools" "right right right" "status status status";
+    row-gap: 8px;
+    grid-template-columns: 50px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
-  .gis-ui-overlay--right { max-height: min(30vh, 240px); }
+  .gis-ui-overlay--toolbar { grid-row: 2; }
+  .gis-ui-overlay--right, .gis-ui-overlay--drawer { grid-column: 2; grid-row: 2; justify-self: end; width: min(100%, calc(var(--gis-ui-overlay-right-width) + 12px)); }
+  .gis-ui-overlay--drawer { z-index: 3; width: 0; }
+  .has-drawer > .gis-ui-overlay--drawer { width: min(100%, calc(var(--gis-ui-overlay-drawer-width) + 12px)); }
+  // Two right-side columns cannot fit on phones; restore the rail on close.
+  .has-drawer > .gis-ui-overlay--right { visibility: hidden; opacity: 0; transform: translateX(-16px); }
+  .gis-ui-overlay--bottom { grid-column: 1 / -1; margin-left: 0; width: 100%; }
   .gis-ui-overlay-controls .gis-ui-panel-header { padding-inline: 8px; }
   .gis-ui-overlay-controls .gis-ui-panel-body { padding: 8px; }
   .gis-ui-query-controls > .gis-ui-panel-region--top { flex-basis: 180px; max-width: none; }

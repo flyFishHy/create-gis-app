@@ -16,7 +16,7 @@ onBeforeUnmount(() => { stopped = true })
 function read() {
   const resolved = props.layer.legend
   const legend: LayerLegend | undefined = resolved ? (({ layerId: _layerId, ...rest }) => JSON.parse(JSON.stringify(rest)))(resolved) : undefined
-  const value = props.layer.getMetadata().style as Partial<UniformLayerStyle> | undefined
+  const value = props.layer.style
   const style = value && typeof value.fillColor === 'string' && typeof value.strokeColor === 'string' && typeof value.strokeWidth === 'number' && typeof value.pointRadius === 'number'
     ? { fillColor: value.fillColor, strokeColor: value.strokeColor, strokeWidth: value.strokeWidth, pointRadius: value.pointRadius } : undefined
   return { legend, style, version: props.layer.version }
@@ -24,14 +24,14 @@ function read() {
 const base = shallowRef(read())
 const alive = computed(() => { void snapshot.value; return app.layers.get(props.layer.id) === props.layer && props.layer.status !== 'disposed' })
 const conflict = computed(() => { void snapshot.value; return alive.value && JSON.stringify(read()) !== JSON.stringify(base.value) })
-const keys = ['style', 'fillColor', 'strokeColor', 'strokeWidth', 'pointRadius', 'enabled', 'title', 'item', 'color', 'follow', 'presentation', 'image', 'apply', 'cancel', 'invalid', 'up', 'down', 'noData']
-const labels = computed(() => Object.fromEntries(keys.map(key => [key, ui.locale.t(`editor.${key}`)])))
+const keys = ['title', 'item', 'color', 'category', 'interval', 'continuous', 'image', 'field', 'value', 'default', 'add', 'remove', 'reset', 'save', 'cancel', 'more', 'pending', 'invalid', 'min', 'max', 'valueType']
+const labels = computed(() => ({ ...Object.fromEntries(keys.map(key => [key, ui.locale.t(`editor.${key}`)])), cancel: ui.locale.t('editor.close') }))
 function reload() { base.value = read(); editorKey.value++; error.value = '' }
 async function submit(value: LegendEditValue) {
   if (saving.value || !alive.value || conflict.value) return
   saving.value = true; error.value = ''
   try {
-    await app.layers.update(props.layer.id, { expectedVersion: base.value.version, legend: value.legend, ...(value.style ? { options: { style: { ...value.style } } } : {}) })
+    await app.layers.update(props.layer.id, { expectedVersion: base.value.version, legend: value.legend, ...(value.style ? { style: { ...value.style } } : {}) })
     if (!stopped) emit('close')
   } catch (cause) {
     if (!stopped) error.value = cause instanceof Error ? cause.message : String(cause)
@@ -41,12 +41,12 @@ async function submit(value: LegendEditValue) {
 
 <template>
   <div class="gis-ui-layer-editor">
-    <div class="gis-ui-layer-editor-heading"><strong>{{ layer.title || layer.id }}</strong><button type="button" :disabled="saving" @click="emit('close')">{{ ui.locale.t('editor.back') }}</button></div>
-    <p v-if="!alive" class="gis-ui-error" role="alert">{{ ui.locale.t('editor.removed') }}</p>
+    <p v-if="!alive" class="gis-ui-error" role="alert">{{ ui.locale.t('editor.removed') }}<button type="button" @click="emit('close')">{{ ui.locale.t('editor.cancel') }}</button></p>
     <template v-else>
       <div v-if="conflict && !saving" class="gis-ui-editor-conflict" role="alert">{{ ui.locale.t('editor.conflict') }}<button type="button" @click="reload">{{ ui.locale.t('editor.reload') }}</button></div>
       <LegendEditor :key="editorKey" :legend="base.legend" :layer-style="base.style" :title="layer.title || layer.id"
-        :labels="labels" :saving="saving || conflict" :error="error" @submit="submit" @cancel="emit('close')" />
+        :fields="layer.getFields()" :symbol="/LineString$/.test(String(layer.getMetadata().geometryType)) ? 'line' : /Point$/.test(String(layer.getMetadata().geometryType)) ? 'circle' : 'fill'"
+        :labels="labels" :saving="saving" :blocked="conflict" :error="error" @submit="submit" @cancel="emit('close')" />
     </template>
   </div>
 </template>

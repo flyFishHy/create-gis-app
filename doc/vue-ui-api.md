@@ -86,7 +86,23 @@ createVueUI({ config }), not reapplied as reactive host props.
 ## Independent components
 
 PanelShell, Tooltip, SvgIcon, GisSwitch, KpiPanel and TimeController can be used
-through props/slots/events. `Legend` is a pure presentation component:
+through props/slots/events.
+
+`ScrollArea` uses native content scrolling with custom overlaid tracks/thumbs, independently usable with
+the shared style sheet and theme tokens: `<ScrollArea label="Details" style="max-height: 240px">…</ScrollArea>`.
+It forwards ordinary class/style attributes, preserves slots, and is keyboard
+focusable. PanelShell, search suggestions and layer options all use this component.
+The viewport hides the native bar; custom vertical/horizontal controls appear only
+for overflow and fade in on hover/focus/drag. Thumb size/position reflect native
+scroll dimensions; dragging, track clicks and Arrow/Page/Home/End keys update the
+native viewport. Wheel/touch/native programmatic scrolling remain unchanged.
+ResizeObserver and a frame-coalesced content observer refresh geometry after layout
+or content changes; unmount disconnects observers, cancels frames and ends drags.
+Expose viewport/refresh for programmatic access. The controls overlay content, so
+they do not change layout width. Touch keeps visible controls; forced colors uses
+the accessible native scrollbar. No scrolling state is added to Runtime.
+
+`Legend` is a pure presentation component:
 
 ```vue
 <Legend :definitions="legends" :titles="layerTitles" empty-text="暂无图例" />
@@ -126,6 +142,10 @@ Escape, outside pointer input, blur or result selection dismisses dropdown resul
 Caller AbortSignals isolate queries; stale UI responses cannot replace newer ones.
 Result selection calls app.map.locate. An explicit result projection is transformed
 by the map adapter; omission means current map projection, not implicit WGS84.
+Result suggestions and Select menus share an 88% elevated-theme glass surface with
+28px backdrop blur, highlight and border. This keeps glass translucency while
+blurring underlying text. Unsupported backdrop-filter falls back to opaque.
+Dropdown feedback owns the scroll; its list does not create a nested scrollbar.
 
 Configure `layers[].legend`; change it through `layers.update(id, { legend })`
 or remove with null. Hiding a layer hides its legend; removal removes it naturally.
@@ -137,10 +157,16 @@ colors are otherwise preserved. LegendPanel never reads OL style metadata.
 Docked: left Layers/Legend sidebar, three independent Search/time/toolbar surfaces
 above the map (Search and time left aligned, toolbar right aligned; narrow rows wrap),
 map and compact status, right properties region. Overlay: Search/time upper-left,
-Layers below, Legend lower-left, vertical toolbar right, status bottom-center,
-right drawer when a right panel is visible. Above 1100px, drawer visibility keeps
-the left bottom anchor stable. At 1100px and below status has its own row; at
-800px and below the drawer moves to a bottom row. Bodies/toolbar scroll internally.
+with the same left edge as the toolbar (no toolbar-width indentation),
+vertical toolbar centered on the left (tooltips open right), Layers upper-right,
+Legend lower-right, status bottom-center. Properties has a separate right drawer;
+opening it shifts the Layers/Legend rail left with a grid transition, preserving
+the Legend bottom anchor and mounted panel state. The rail and drawer widths are
+resolved independently. Explicit panel positions still override these defaults.
+At 1100px and below status has its own row. At 900px and below Properties stays
+on the right and temporarily hides the rail because both columns cannot fit;
+closing it restores the same rail, without changing panel visibility state.
+Bodies/toolbar scroll internally; reduced-motion preferences disable transitions.
 Only real controls receive pointer input; empty overlay space reaches the map.
 
 PanelService owns register/show/hide/toggle/collapse/expand/setOrder/getState.
@@ -214,6 +240,14 @@ root reorders whole subtrees, without reparenting children. Up/Down on a focused
 handle provides keyboard ordering. Group zIndex positions its leaf block while
 preserving relative child order; larger zIndex values appear higher in the list.
 An explicit move uses the existing Runtime setOrder and normalizes leaf zIndex.
+Keyed root rows use a TransitionGroup for 240ms position transitions after sorting;
+drag opacity and insertion highlights transition separately without changing row
+height. The system reduced-motion preference disables these movements.
+
+PropertiesPanel includes a content heading resolved from the selected runtime
+layer title (initially appConfig.layers[].title, including nested layers). Renaming
+updates it; external/tool selections fall back to layerId, and empty selection
+has no heading. This remains outside custom feature renderers.
 
 Each Legend group opens the connected LayerEditor within the legend panel.
 LayerManager has no legend/style editor entry. LayerEditor wraps the independent
@@ -228,3 +262,23 @@ External updates require reload, deletion or ID replacement blocks submission,
 and failures preserve the draft. The separate properties panel still shows features.
 Runtime edits do not automatically save appConfig.json. Classification/filtering
 and remote-style editing remain separate future capabilities.
+
+## Inline legend cards
+
+LegendPanel renders one card per visible layer legend. Each card displays its title,
+localized category/interval badge, geometry-appropriate swatches (line, fill, point)
+and the default color. Edit switches that card in place; other cards remain visible.
+The form edits title, type, field and category values/labels or interval boundaries.
+Colors use native color pickers; rows can be added/deleted. Save validates and submits
+top-level style and legend together; reset restores the current edit baseline; close
+cancels. In viewing mode reset restores the card's first loaded definition and close
+hides it locally; Show closed legends restores these cards without changing layers.
+
+LegendEditor accepts optional fields/symbol props. Bound categories expose typed
+matching values; intervals sort ascending on save and reject invalid/overlapping
+ranges. Default color edits the base layer style. A fieldless single category edits
+the uniform style; multiple categories require a field. More is a disabled placeholder
+for future polygon borders / line settings. No advanced dialog is implemented.
+External updates require reload; deletion or same-ID replacement cannot receive an
+old draft. Independent Legend adds styles/symbols/typeLabels/defaultText props;
+it renders ranges directly using their actual boundary notation.

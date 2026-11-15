@@ -18,7 +18,7 @@ async function setup() {
   const target = document.createElement('div'); document.body.append(target)
   await app.init({ map: { center: [0, 0], zoom: 3 }, layers: [
     { id: 'group', title: 'Group', type: 'GROUP', children: [
-      { id: 'a', title: 'Layer A', type: 'geojson', zIndex: 100, source, legend, options: { style: { fillColor: '#0000ff', strokeWidth: 2, pointRadius: 6 } } },
+      { id: 'a', title: 'Layer A', type: 'geojson', zIndex: 100, source, legend, style: { fillColor: '#0000ff', strokeWidth: 2, pointRadius: 6 } },
       { id: 'b', title: 'Layer B', type: 'geojson', zIndex: -10, source },
     ] }, { id: 'c', title: 'Layer C', type: 'geojson', zIndex: 50, source },
   ] }); await app.mount(target)
@@ -81,22 +81,23 @@ it('applies map styles and legend text together, cancels drafts and detects conf
     const manager = target.querySelector('.gis-ui-panel-host--legend')!
     expect(target.querySelector('.gis-ui-layer-manager .gis-ui-layer-edit')).toBeNull()
     await click(manager, '.gis-ui-legend-edit')
-    await fill(manager, 'fillColor', '#ff000080'); await fill(manager, 'strokeColor', '#113355')
-    await fill(manager, 'strokeWidth', '3'); await fill(manager, 'pointRadius', '7')
+    const color = manager.querySelector<HTMLInputElement>('input[type="color"]')!
+    color.value = '#ff0000'; color.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
     await fill(manager, 'legendTitle', 'Edited legend'); await fill(manager, 'itemLabel-0', 'Edited item')
     await apply(manager)
     expect(manager.querySelector('.gis-ui-layer-editor')).toBeNull()
-    expect(app.layers.get('a')!.getMetadata().style).toEqual({ fillColor: '#ff000080', strokeColor: '#113355', strokeWidth: 3, pointRadius: 7 })
+    expect(app.layers.get('a')!.style).toEqual({ fillColor: '#ff0000', strokeColor: '#3399cc', strokeWidth: 2, pointRadius: 6 })
     const olLayer = useOLMap(app).getLayers().getArray().find(layer => layer.get('gisLayerId') === 'a') as VectorLayer
-    expect((olLayer.getStyle() as Style).getFill()!.getColor()).toBe('#ff000080')
-    expect((olLayer.getStyle() as Style).getStroke()!.getWidth()).toBe(3)
-    expect(app.layers.get('a')!.legend).toMatchObject({ title: 'Edited legend', items: [{ label: 'Edited item', color: '#ff000080' }] })
+    expect((olLayer.getStyle() as Style).getFill()!.getColor()).toBe('#ff0000')
+    expect((olLayer.getStyle() as Style).getStroke()!.getWidth()).toBe(2)
+    expect(app.layers.get('a')!.legend).toMatchObject({ title: 'Edited legend', items: [{ label: 'Edited item', color: '#ff0000' }] })
     const legendPanel = target.querySelector('.gis-ui-panel-host--legend')!
     expect(legendPanel.textContent).toContain('Edited item')
     await click(legendPanel, '.gis-ui-legend-edit')
-    await fill(legendPanel, 'fillColor', '#00ff00')
-    await click(legendPanel, '.gis-ui-editor-actions button[type="button"]')
-    expect((app.layers.get('a')!.getMetadata().style as { fillColor: string }).fillColor).toBe('#ff000080')
+    const cancelColor = legendPanel.querySelector<HTMLInputElement>('input[type="color"]')!
+    cancelColor.value = '#00ff00'; cancelColor.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
+    await click(legendPanel, 'button[aria-label="关闭"]')
+    expect((app.layers.get('a')!.style as { fillColor: string }).fillColor).toBe('#ff0000')
     await click(legendPanel, '.gis-ui-legend-edit')
     await app.layers.update('a', { title: 'External title' }); await nextTick()
     expect(legendPanel.querySelector('[role="alert"]')!.textContent).toContain('其他操作')

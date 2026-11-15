@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, provide, shallowRef } from 'vue'
 import type { Component, CSSProperties } from 'vue'
 import { GISRuntimeError, type GISApp } from '@joinmap/gis-core'
 import type { GISUIContext } from './types.js'
-import { regionWidth } from './panels/panel-size.js'
+import { regionWidth, cssSize } from './panels/panel-size.js'
 import { GISAppKey } from './injection.js'
 import { GISUIContextKey, DockedPanelMotionKey } from './ui-context.js'
 import MapViewport from './components/MapViewport.vue'
@@ -26,7 +26,9 @@ provide(GISAppKey, props.runtime)
 provide(GISUIContextKey, props.ui)
 provide(DockedPanelMotionKey, computed(() => props.layout === 'docked-dashboard'))
 const hasRightPanels = computed(() => props.ui.panels.list('right').some(panel => props.ui.panels.getState(panel.id)?.visible))
-const layoutProps = computed(() => ({ ...props.appProps, ...(props.layout === 'docked-dashboard' ? { rightVisible: hasRightPanels.value } : {}) }))
+const drawerVisible = computed(() => props.ui.panels.list('right').some(panel => panel.id === 'properties' && props.ui.panels.getState(panel.id)?.visible))
+const layoutProps = computed(() => ({ ...props.appProps, ...(props.layout === 'docked-dashboard' ? { rightVisible: hasRightPanels.value }
+  : props.layout === 'overlay-dashboard' ? { drawerVisible: drawerVisible.value } : {}) }))
 
 const theme = shallowRef<Readonly<ThemeOptions>>(props.ui.theme.get())
 const unsubscribeTheme = props.ui.theme.subscribe((next) => { theme.value = next })
@@ -72,7 +74,8 @@ const themeStyle = computed<CSSProperties>(() => {
 })
 const regionStyle = computed(() => ({
   '--gis-ui-configured-left-width': regionWidth(props.ui.panels, 'left'),
-  '--gis-ui-configured-right-width': regionWidth(props.ui.panels, 'right'),
+  '--gis-ui-configured-right-width': regionWidth(props.ui.panels, 'right', props.layout === 'overlay-dashboard' ? ['properties'] : []),
+  '--gis-ui-configured-drawer-width': cssSize(props.ui.panels.getState('properties')?.width),
 }))
 const appTitle = computed(() => {
   const value = props.runtime.config?.title
@@ -149,7 +152,8 @@ function reportToolError(cause: unknown) {
       <PanelHost id="toolbar" />
     </template>
     <template #left><PanelRegion position="left" /></template>
-    <template #right><PanelRegion position="right" /></template>
+    <template #right><PanelRegion position="right" :exclude="layout === 'overlay-dashboard' ? ['properties'] : undefined" /></template>
+    <template #drawer><PanelHost v-if="layout === 'overlay-dashboard' && ui.panels.getState('properties')?.position === 'right'" id="properties" animate /></template>
     <template #bottom>
       <div class="gis-ui-bottom-content">
         <PanelRegion position="bottom" />
