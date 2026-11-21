@@ -40,19 +40,19 @@ it('expands layer settings and updates actual OL opacity, including a mixed grou
     expect(app.layers.get('b')!.visible).toBe(true)
     const locate = row.querySelector<HTMLButtonElement>('.gis-ui-layer-locate')!
     expect(locate.disabled).toBe(true)
-    expect(locate.querySelector('svg')).not.toBeNull()
+    expect(locate.querySelectorAll('svg circle')).toHaveLength(2)
     const slider = row.querySelector<HTMLInputElement>('input[type="range"]')!
-    expect(row.querySelector('output')!.textContent).toBe('混合')
+    expect(row.querySelector('output')!.textContent).toBe('—')
     slider.value = '42'; slider.dispatchEvent(new Event('input', { bubbles: true })); await flushPromises()
     expect(app.layers.get('a')!.getMetadata().opacity).toBe(0.42)
     expect(app.layers.get('b')!.getMetadata().opacity).toBe(0.42)
     expect(app.layers.get('c')!.getMetadata().opacity).toBe(0.42)
     expect(useOLMap(app).getLayers().getArray().find(layer => layer.get('gisLayerId') === 'a')!.getOpacity()).toBe(0.42)
+    expect(row.querySelector('output')!.textContent).toBe('42%')
     await app.layers.update('a', { options: { opacity: 0 } }); await nextTick()
-    expect(row.querySelector('output')!.textContent).toBe('混合')
     const group = target.querySelector<HTMLButtonElement>('button[aria-label="图层配置 Group"]')!
     const groupRow = group.closest('.gis-ui-layer-row')!
-    expect(groupRow.querySelector('output')!.textContent).toBe('混合')
+    expect(groupRow.querySelector('output')!.textContent).toBe('—')
     const groupSlider = groupRow.querySelector<HTMLInputElement>('input[type="range"]')!
     groupSlider.value = '50'; groupSlider.dispatchEvent(new Event('input', { bubbles: true })); await flushPromises()
     expect(app.layers.get('a')!.getMetadata().opacity).toBe(0.5)

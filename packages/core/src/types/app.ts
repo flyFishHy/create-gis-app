@@ -12,7 +12,7 @@ import type { EventService } from './events.js'
 
 export interface GISAppConfig {
   readonly version?: string
-  readonly title?: { readonly content: string; readonly icon?: string }
+  readonly title?: { readonly content: string; readonly icon?: string; readonly subtitle?: string }
   readonly map?: MapConfig
   readonly layers?: readonly LayerConfig[]
   readonly data?: Readonly<Record<string, DataSourceConfig>>

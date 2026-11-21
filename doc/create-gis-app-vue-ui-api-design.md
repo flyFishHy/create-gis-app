@@ -12,6 +12,14 @@
 
 ## 1. 定位与设计原则
 
+视觉表面修订：玻璃 mixin 按 -webkit-backdrop-filter、backdrop-filter 顺序声明，
+构建后验证两者都保留。Overlay 的 Header、搜索、时间、工具栏、面板共享玻璃背景和
+阴影，默认 16px 模糊、72% 背景占比。Docked 的连续外层和设置浮层共用参考页的材质，液态玻璃区分深浅主题。下拉浮层使用较实的底色。
+工具栏外层滚动容器统一承担背景、圆角与阴影；属性面板祖先
+允许阴影溢出，内容由 PanelShell 按圆角裁切。字体通过局部 .875rem 基础字号与派生变量缩放，采用系统中英文字体、
+400/500/600/700 字重，数字使用等宽字体；不更改宿主 html。控件最小高度统一为
+2.75rem，状态栏相应放宽列宽及换列阈值。保留已有面板位置与容器响应式布局。
+
 Core 内部模块整理不改变 Vue UI 接入 API：仍通过包根契约、`app.context` 与只读
 State 连接 Runtime。组件销毁须继续取消自己创建的订阅；Runtime 最终销毁也会释放
 事件/选择监听。保留的 MapView 代理在执行写操作时检查生命周期，UI 不应在 shutdown
@@ -200,9 +208,9 @@ panelDefinitions 注册 Vue 组件；layouts 将名字绑定到 Vue 组件，由
 
 ### 4.2 内置控件与独立引用
 
-插件注册 Search、LayerTimePanel、LayerManager、Legend、Toolbar 和 Popup。默认启用
-前五项，Popup 默认隐藏；ui.panels 显式覆盖预设。Toolbar 保留专用槽位，但可见性统一由
-PanelRegistry 控制。Toolbar/Time 支持 top，Popup 支持 floating；不兼容位置输出诊断并回退。
+插件通过 `ui.panels` 管理 Search、Time、LayerManager、Legend、Toolbar、Properties
+和 Status。Toolbar 保留专用槽位，可见性由 PanelRegistry 控制。Toolbar 和 Time 支持
+top，Status 支持 bottom。不兼容位置输出诊断并回退。要素候选选择器由地图区域内置。
 
 已初始化 Runtime 的宿主 Vue 项目可以渲染 `<GISWorkspace :app="app" />`，复用同一个
 UI Adapter、Context 和当前状态；组件通过 Runtime mount/unmount 协调生命周期，保留宿主
@@ -290,7 +298,7 @@ Docked 模式使用带外部留白的标题卡片，下方是三列 Grid 工作�
 
 - 标题卡片高约 52px；页面外部留白、标题与工作区间隔、区域间距统一使用
   `--gis-ui-gap`，默认 12px。标题采用与其他面板相同的边框、圆角和阴影。
-- 工作区为左侧栏、地图列、右侧属性栏三列，参考侧栏宽度为 300px / 320px；
+- 工作区为左侧栏、地图列、右侧属性栏三列，参考侧栏宽度为 320px / 320px；
   两侧栏贯穿操作行、地图和状态栏的完整高度，Layers 和 Legend 平分左侧高度。
 - 地图列从上至下为操作行、弹性地图、状态栏。操作行是独立容器，不覆盖地图；
   `top` 插槽左对齐，`toolbar` 插槽右对齐，不将具体业务组件绑定到布局。
@@ -313,26 +321,26 @@ Overlay 模式中，地图作为完整工作画布，搜索、图层、图例、
 ┌──────────────────────────────────────────────────────────┐
 │ Title                                                    │
 ├──────────────────────────────────────────────────────────┤
-│     Search + Layer time           Layers  Properties   │
-│ ┌──┐                              右上    按需抽屉     │
-│ │工│                                                   │
-│ │具│                  Map                              │
-│ │栏│                              Legend               │
-│ └──┘                              右下                 │
+│ Layers      Search + Layer time              Properties│
+│ 左上                                      按需抽屉    │
+│                                      ┌──┐             │
+│                  Map                 │工│             │
+│ Legend                               │具│             │
+│ 左下                                 └──┘             │
 │                Status: 上标题 / 下数据                  │
 └──────────────────────────────────────────────────────────┘
 ```
 
 - 标题栏约 60px；地图工作区填满剩余高度并作为浮层定位容器。
-- 搜索浮层位于地图左上，与左侧工具栏左边缘对齐，不预留工具栏宽度的缩进；时间控件跟随搜索右侧，空间不足换行。
-- 图层管理位于右上，图例位于右下；工具栏位于左侧正中，使用纵向图标组，提示向右展开。
+- 图层管理位于左上，图例位于左下；搜索浮层从图层列右侧开始，时间控件跟随搜索右侧，空间不足换行。
+- 工具栏位于剩余地图区域右侧正中，使用纵向图标组，提示自动避让视口边缘。
 - 属性面板为右侧按需抽屉，选中要素后打开；关闭只隐藏面板，不清除选择，下一次选择重新打开。
-  抽屉打开时图层/图例整列向左避让，保持面板实例及图例底部锚点不变。选择联动由内置 Vue UI 负责，不进入 Core 或 OL Adapter。
-- 图层、图例和属性默认同宽 260px，通过 --gis-ui-overlay-panel-width 统一覆盖。
+  左侧图层/图例保持原位，属性抽屉占用独立右侧轨道。选择联动由内置 Vue UI 负责，不进入 Core 或 OL Adapter。
+- 图层、图例和属性默认同宽 300px，通过 --gis-ui-overlay-panel-width 统一覆盖。
   - 状态栏位于底部中央，Overlay 每项上方为标题、下方为数据，经纬度合并后四项固定列宽排列；Docked 使用紧凑单行。
   地图级别由 AppState 提供，在状态栏显示，不再占据工具栏。
 - 搜索右侧使用 LayerTimePanel。它通过公开 LayerInstance 时间能力读取 GeoJSON 图层的离散
-  日期时间值，选择图层/字段、沿时间轴步进、设置单点时间过滤或恢复全部时间；无时间维度时显示禁用空状态。
+  独立的 TimeFilterPicker，可选小时、天、ISO 周、月、年和精确起止时间。组件输出标准化查询范围，由业务决定如何查询。
   默认启用，可通过 `ui.panels[id=time].visible` 覆盖。
 - 浮层使用统一 Grid，根据地图容器宽度避让：1100px 及以下状态栏独占底部行，
   900px 及以下属性仍位于右侧，打开时临时隐藏图层/图例列，关闭即恢复，不改写面板可见状态。
@@ -707,16 +715,16 @@ export interface ToolbarItemDefinition {
 
 Toolbar 不应把地图交互实现写在按钮组件里。
 
-### 7.5 Popup / Feature Info
+### 7.5 要素选择器与属性展示
 
-Popup 的内容来源可以是：
+`FeaturePicker.vue` 由 `GISUIRoot` 的地图槽统一挂载。Runtime 汇总一次点击的
+本地和图层查询结果后，只有多命中才在点击位置打开候选列表。列表显示要素名称和
+图层标题，靠近视口边缘时调整位置。用户选择一项后关闭列表，通过现有选中状态
+打开右侧 Properties。单命中直接进入 Properties。Escape 取消选择器并保留已有
+选中项。旧 `ui.panels` 中的 `popup` 配置被忽略。
 
--   默认属性展示器。
--   自定义 Vue Component。
--   业务插件提供的 Feature Detail Renderer。
-
-Popup UI 不拥有 Feature，也不负责命中检测。命中检测和选择由
-Adapter/InteractionService 提供，UI 订阅 `FeatureReference` 并展示。
+Properties 和独立导出的 `FeaturePopup` 继续共用默认字段展示、自定义组件和
+Feature Detail Renderer。候选选择器只展示当前点击对应的候选。
 
 建议 Renderer：
 
@@ -729,9 +737,9 @@ export interface FeatureRendererDefinition {
 }
 ```
 
-Popup 定位需要地图坐标到屏幕 Overlay 的能力。该能力应由 Map Adapter 或
-UI Overlay Bridge 提供，不能在 Core 中引用 Vue Teleport 或 OpenLayers
-Overlay。
+OpenLayers 的选择器通过 MapService 挂到原生 `Overlay`，以点击坐标为锚点。
+平移时跟随锚点，靠近边缘时调整弹框位置。缩放或旋转时关闭候选。其他适配器使用
+点击像素。
 
 ### 7.6 KpiPanel 与 TimeController
 
@@ -1446,11 +1454,11 @@ PanelDescriptor/PanelConfig。运行时可通过 `useGISUI().panels` 控制显�
 **验收：** 所有 GIS 操作经由 Runtime
 Services；面板不直接操作地图引擎实例。
 
-**当前实现基线：** 提供 LayerManager、Legend、Search、Toolbar 和选中要素信息浮层。
+**当前实现基线：** 提供 LayerManager、Legend、Search、Toolbar、Properties 和地图要素选择器。
 LayerManager 通过 LayerService 增删显隐图层；Legend 只呈现 Core LegendDefinition；
 Search Provider 通过 Vue UI 注册，结果定位通过 MapViewService；Toolbar 经
-InteractionService 切换工具；FeaturePopup 订阅 FeatureReference。当前 Popup 作为地图
-浮层展示，不按要素坐标定位，因为 Runtime 尚未提供屏幕坐标 Overlay 契约。
+InteractionService 切换工具。FeaturePicker 在地图点击位置展示多命中候选，Properties
+通过选中的 FeatureReference 展示详情。
 
 ### UI Phase 4：扩展与业务面板
 
@@ -1611,9 +1619,8 @@ ThemeService、LocaleService 仍负责自己的领域写入，并通过 extensio
   属于 `GISPlugin`，通过 `registerUIAdapter()` 完成登记。
 - 当前 `GISUIContext` 提供 `app`、`panels`、`search`、`toolbar`、`theme`、
   `featureRenderers`，没有 `OverlayService`。
-- FeaturePopup 当前呈现选中的 FeatureReference，并作为浮层区域内容渲染；不提供
-  地图坐标定位、通用 PopupHost 或 Overlay API。坐标锚定 Overlay 留待 Core 与
-  Map Adapter 先定义跨引擎定位契约后再评审。
+- `FeaturePicker.vue` 内置于地图区域，通过适配器浮层显示候选，并支持像素定位回退。`FeaturePopup` 继续作为
+  独立导出组件呈现选中的 FeatureReference，可在自定义布局中使用。
 - 公开入口见 `packages/ui-vue/src/index.ts`：包根入口和 `./style.css`。没有
   `/panels`、`/styles` 子路径，也没有 `useGISState`、`useMap`、`useLayers`、
   `useInteractions`、`usePanel` composable。此前文中的这些候选导出不属于当前 API。
@@ -1682,26 +1689,31 @@ Overlay 图层/图例默认位于右上/右下；属性抽屉从最右侧出现�
 
 Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操作及 OL 工具按钮/结果操作跟随语言切换；PanelShell 可通过 labels 覆盖操作文案，独立使用默认英文。
 
-LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 category 图例跟随统一图层样式。分类颜色不再自动被覆盖；continuous 按数值排序，色带按真实数值比例生成，interval 保持离散色块。图例交互过滤仍未实现。
+LegendDefinition.useLayerStyle 默认不启用。仅显式启用的单项 category 图例跟随统一图层样式。分类颜色保留自定义值。continuous 按真实数值比例生成色带，interval 保持离散色块。
+
+停靠和浮动布局切换时移动查询区和左侧面板实例，图例草稿和重置基准随面板保留。TimeFilterPicker 可独立挂载，也可通过 `ui.timePicker` 配置内置 `time` 面板。完整周期范围包含最后选中的周期，精确范围按输入边界提交。两种范围都以所选 IANA 时区计算并输出左闭右开的毫秒区间。图层版本变化时清理对应搜索的结果和在途请求。图例支持从字段值生成分类或等宽区间草稿，点击已保存的分类行切换对应筛选。
+
+工作台可选浏览器本地存储。应用在初始化前读取配置，Vue UI 保存外观、语言、布局和已配置图层的编辑结果。设置面板可导出 JSON 和导入后重载。工具栏可激活 Adapter 注册的结果编辑工具。
 
 ### 默认 GIS 能力收敛
 
-搜索结果和 Select 菜单统一使用 88% 主题色、28px 模糊的玻璃表面，兼顾通透与文字可读性；
-不支持 backdrop-filter 时回退实色。属性内容增加当前所选图层的 title
+搜索结果和 Select 菜单跟随当前面板材质，浮层底色至少保持 80% 不透明度以保证文字清晰。
+浏览器不支持 backdrop-filter 时采用不透明底色。属性内容增加当前所选图层的 title
 标题，订阅 Runtime（含 children），无对应图层时回退 layerId。图层根项使用 TransitionGroup
 实现排序后的 240ms 位移过渡，配合拖动透明度和插入高亮，不改变原排序数据流。
 ScrollArea 公开导出并接入 PanelShell 正文、搜索结果和 Select 菜单。保留原生内容滚动，
 自绘覆盖式轨道/滑块，不挤占布局宽度；支持拖动、轨道点击、方向/Page/Home/End 键，
 并同步滚轮、触摸、原生编程滚动。ResizeObserver 与合帧内容观察刷新几何，卸载释放观察器、
-帧与拖拽监听。仅溢出时生成控件，悬浮/聚焦/拖动时渐显；触屏显示控件，高对比回退原生。
+帧与拖拽监听。溢出时使用透明轨道与细滑块，高对比回退原生滚动条。图层与图例面板的
+滑块宽 3px，支持悬停的设备在鼠标移入对应面板时显示，拖拽或滑块获得键盘焦点时保持可见。
 
 图层管理职责修订：移除样式/图例入口，图例编辑统一放在 LegendPanel。GROUP 的 children
 随父节点展开并嵌入父层 gis-ui-layer-settings，子项只显示名称和显隐开关，不提供展开、
 拖拽、透明度或定位；支持嵌套，父层透明度统一作用于叶子层。按实际 zIndex 从高到低展示，
 最外层才有 grip-vertical 手柄，支持拖到目标行上/下方，整组移动不改变父子归属；手柄也支持
-上下方向键。透明度行仅图标、滑块、百分比横排，不显示文字，保留无障碍标签；滑块采用主题渐变进度、光晕滑块和百分比徽标。
+上下方向键。透明度行仅图标、滑块、无边框百分比横排，保留无障碍标签。
 
-图层/图例完善已实施：send 定位接入 Runtime，空/不支持数据禁用；展开区保留不透明度，
+图层/图例完善已实施：十字准星定位接入 Runtime，空/不支持数据禁用；展开区保留不透明度，
 增加兄弟层上移/下移和样式与图例入口。列表按前到后显示，组作为整体移动，子层只在组内
 排序；Runtime 仍接收后到前顺序。图例组使用纯 Legend 的 group-actions 插槽提供编辑入口。
 图例入口使用连接组件 LayerEditor 与纯表单 LegendEditor。表单通过初始 legend/layerStyle/
@@ -1710,8 +1722,8 @@ labels 和 submit/cancel 使用，独立使用不需要 Runtime；草稿不改�
 属于展示编辑，不隐含分类渲染。expectedVersion 防止队列内旧草稿覆盖，外部修改需重载，
 删除/同 ID 替换禁止提交，失败保留草稿；不占用要素属性面板，不自动写回 appConfig.json。
 
-Docked 属性面板默认显示、允许关闭，关闭/打开通过淡出平移及 Grid 侧栏尺寸过渡完成，遵循 reduced-motion；清空选择保留 Docked 面板，Overlay 仍按需隐藏。搜索、时间和工具栏为地图上方三个独立面板表面，搜索与时间靠左，工具栏靠右，宽度不足换行。
-图层行采用可展开卡片：每层显示显隐和 send 定位按钮，不显示状态或删除；展开配置只包含 opacity 图标及百分比滑块，不显示 ID/类型或图例入口。排序使用最外层 grip 手柄。滑块调用 LayerService.update，不直接操作 OL；已有分组统一应用到叶子图层，混合值单独标注。定位已接入当前数据范围，空数据禁用，详见 layer-location-design.md。
+Docked 左侧固定常显，属性面板默认显示、允许关闭，右列显隐直接更新 Grid 占位；清空选择保留 Docked 面板，Overlay 仍按需隐藏。搜索、时间和工具栏为地图上方三个独立面板表面，搜索与时间靠左，工具栏靠右，宽度不足换行。
+图层行采用可展开卡片，根图层显示显隐、拖动、十字准星定位和展开按钮。透明度滑块调用 LayerService.update，并统一应用到分组的所有叶子图层。百分比使用无边框文本，子层数值不同时显示短横线。定位使用当前数据范围，空数据禁用，详见 layer-location-design.md。
 
 搜索将主题化 GisSelect 与 input 放在同一表面，名称来自 Runtime 图层 title（初始为 appConfig.layers.title），
 按 Provider.layerIds 排除不支持搜索的图层及 GROUP。选择通过 SearchQuery.layerId 传给 Runtime；
@@ -1720,10 +1732,10 @@ Docked 属性面板默认显示、允许关闭，关闭/打开通过淡出平移
 GisSelect 是 ui-vue 内部的受控组件，下拉使用主题变量、选中/活动态、圆角与阴影；支持
 方向键、Home/End、Enter/Space、按文字跳转和 Escape/Tab/外部关闭，保留 combobox/listbox
 语义。搜索结果只由输入框焦点恢复；打开图层下拉关闭搜索结果，两种浮层互斥。
-标题栏只显示浅色/深色；配置仍兼容 system。Overlay 工具栏复用其他面板的玻璃透明背景。
+标题栏使用 `title.subtitle` 渲染主标题右侧的胶囊副标题。透明齿轮旋转并展开非模态设置浮层，外观组包含主题、材质、主色和内置布局，语言单独成组。内置布局共用稳定的标题栏和设置浮层，切换后把现有地图挂到新的工作区，地图视图和业务状态继续由 Runtime 管理。选中的分段按钮统一使用白字，深色主题的两个主题标签均为白色，配置仍兼容 system。用户启用减少动态效果时关闭设置动效。
 状态栏顺序为级别、比例尺、投影、经纬度；固定列宽、数字等宽、溢出截断。
-Overlay 列宽为 72/116/104/156px，最大面板宽度 500px；内部宽度不超过 460px 时按
-“级别/比例尺、投影/经纬度”改为两列等宽网格。四项使用 scan、scale、global、location
+Overlay 列宽为 76/128/116/184px，最大面板宽度 560px；内部宽度不超过 520px 时，
+级别、比例尺和投影在首行，经纬度独占下一行。四项使用 scan、scale、global、location
 图标（含无障碍标题）；两种布局均显示图标与文字，Overlay 上标题下数据，Docked 坐标左对齐。坐标以五位小数的单个文本
 `139.12550,26.25500` 显示，不加度数和独立分隔元素。初始化显示 `--`，离开地图保留最后位置；
 面板重挂载复用按应用隔离的 WeakMap 展示缓存，不新增 AppState 或隐藏期间的订阅。
@@ -1736,15 +1748,43 @@ MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时�
 
 ### 图例卡片查看态与原位编辑修订
 
-图例面板默认直接展示每层图例卡片：标题、枚举/区间标识、编辑/重置/关闭，
+图例面板默认直接展示每层图例卡片：标题、编辑/重置，
 条目为颜色符号与名称或实际区间。线使用横条、面使用方形、点使用圆点。
-编辑态保持卡片位置，标题始终是不可编辑的图层标题；枚举/区间只使用 SVG 和 Tooltip
-标识，不提供类型切换。指标行位于标题下方，查看态为普通文本，编辑态使用字段选择器。
+编辑态保持卡片位置，标题始终是不可编辑的图层标题；枚举/区间为字段行右侧文字，
+不提供类型切换。字段行不显示“指标”题目，查看态为普通文本，编辑态原位换为字段选择器。
 枚举每组为颜色、多选匹配值、显示名称、删除；区间显式展示 [min,max) 并可编辑是否
-包含上限。操作统一 SVG/Tooltip，默认色及新增入口弱化，不显示无功能的“更多”。
+包含上限。预览指标使用次级文字色，条目小于标题，字段分类的末行用“未匹配值”表示回退色。
+统一样式只展示常规色块，编辑字段选择器使用“不按字段分类”。
 Grid 分配规则列，窄卡片内部换行。独立 GisMultiSelect 保留标量类型，支持搜索、连续
 多选、清空、键盘，其他分组占用的值禁选；当前数据缺少的已选值保留并提示。
 弹层在同主题根节点下定位，避免被面板滚动区裁剪，靠近底部向上展开，卸载清理监听。
-保存一次提交顶层 style 和 legend，地图同步分类着色；重置恢复本次编辑基线，
-关闭取消草稿。查看态重置恢复卡片初次加载定义，关闭只隐藏卡片并提供恢复入口。
-其他卡片仍显示。属性面板不参与图例编辑。高级符号弹窗暂不实现。
+编辑动作保留保存和关闭，保存按钮仅改变图标颜色。卡片底部“更多”打开图层级样式弹窗，
+按面、线、点显示填充不透明度、描边、线型、端点或半径设置。应用更新当前草稿，
+保存一次提交顶层 style 和 legend。关闭取消草稿，查看态重置恢复卡片初次加载定义。
+
+
+Docked workbench revision: Header spans the full width. Layers and Legend share one continuous left aside with a divider and independent scrolling; Properties occupies the right aside. Search/time and icon+text tools share a single center action row, with status below the center map. Docked regions use continuous surfaces with square corners. Overlay uses separate floating surfaces. The left rail stays presented without collapse/restore controls. Properties is initially visible, can be closed without clearing selection, and reopens on a new selection through PanelService. There is no separate sidebar collapse state. Toolbar overflow is measured with ResizeObserver and localized labels; trailing actions move into a keyboard-operable More menu using the same tool definitions. At 800px and below, panels stack below the map in a scrollable workspace without covering it.
+
+Docked alignment: layer and property headers track the measured action-row height (minimum 48px). Built-in headers use SVG icons; Properties provides a close button; Layers and Legend have no sidebar collapse control. Centered icon/title/description empty states are shared by Properties, Layers and Legend. Toolbar and Search share the small typography token and 16px icons. Map grid backgrounds remain intact.
+
+Docked surface polish: action-row horizontal padding is 16px (10px on narrow screens); Search/time controls use 10px corners and toolbar buttons 8px. More uses a three-dot SVG and localized label, hidden visually on narrow screens while retaining its accessible name. Overflow reserves the measured More-button width. The Legend title icon follows the primary color. The empty-state illustration keeps its symbol colors.
+
+
+### 地图交互期间的 UI 更新
+
+useAppState 支持 selector，使用 Object.is 比较选择结果，仍在卸载时清理订阅。
+图层、图例、时间、搜索和属性组件订阅所需冻结分支/标量；地图平移缩放不触发图层树
+重排或时间维度重扫。全量订阅保持兼容，地图状态栏仍读取视图更新。
+
+### 图层与图例面板参考稿调整
+
+两面板共用标题栏视觉：主题色 SVG、数量徽标、右侧刷新。徽标分别为可见根图层数/
+根图层总数与可见图例总数，不随搜索减少。PanelHost 提供局部注入，内容注册 computed
+数量和刷新回调，卸载自动清理，不添加 Core 状态。刷新仅重读 Runtime 当前数据；
+图层面板同时清空搜索，不重置显隐、顺序或样式，图例面板保留未保存草稿。
+图层搜索按名称忽略大小写，子层命中保留祖先，父层命中保留完整子树，自动展开搜索结果；
+排序仍使用完整 Runtime 树。根行顺序为 eye、标题、drag、定位、展开。隐藏分组沿用 Core
+递归显隐。子层可独立开启；全部子层隐藏时，父层切为 eye-off。两面板使用 4px 窄轨道
+和对称的 10px body 留白。图层列表只在根图层重新排序时应用位移动画，
+展开或收起时直接更新行位置，避免动画期间旧位置暂时撑大可滚动区域。
+样式依赖 gis-ui 主题变量，同时适配 Docked 和 Overlay。

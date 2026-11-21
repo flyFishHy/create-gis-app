@@ -2,31 +2,42 @@
 // Light values are the defaults; dark and system variants follow.
 
 $dark-tokens: (
-  --gis-ui-background: #050b16,
-  --gis-ui-surface: #0b1728,
-  --gis-ui-surface-elevated: #102139,
-  --gis-ui-surface-translucent: #0b1728d9,
-  --gis-ui-panel-header-bg: #101f35,
-  --gis-ui-text: #e6f2ff,
-  --gis-ui-text-muted: #8ca0b8,
-  --gis-ui-text-disabled: #4d6178,
-  --gis-ui-border: #24364d,
-  --gis-ui-primary: #38bdf8,
-  --gis-ui-primary-strong: #7dd3fc,
-  --gis-ui-accent-secondary: #8b5cf6,
-  --gis-ui-on-primary: #02131d,
-  --gis-ui-hover: #142a45,
+  --gis-ui-background: #090d16,
+  --gis-ui-workspace-background: var(--gis-ui-background),
+  --gis-ui-map-background: #080d1a,
+  --gis-ui-surface: #0f172a,
+  --gis-ui-surface-elevated: #1e293b,
+  --gis-ui-surface-translucent: #0f172ad9,
+  --gis-ui-panel-header-bg: var(--gis-ui-surface),
+  --gis-ui-text: #f1f5f9,
+  --gis-ui-text-muted: #94a3b8,
+  --gis-ui-text-disabled: #64748b,
+  --gis-ui-border: #334155,
+  --gis-ui-theme-switch-ink: #fff,
+  --gis-ui-hover: #28364a,
+  --gis-ui-layer-hidden: #88909e,
   --gis-ui-success: #34d399,
   --gis-ui-danger: #fb7185,
   --gis-ui-danger-surface: #3f1d2b,
-  --gis-ui-glass-border: #8edcff2e,
-  --gis-ui-glass-highlight: #ffffff12,
-  --gis-ui-overlay-shadow: (0 14px 36px #0206175c, 0 2px 8px #02061752, inset 0 1px 0 #ffffff0f),
-  --gis-ui-focus-ring: #38bdf84a,
-  --gis-ui-grid-line: #8edcff0a,
-  --gis-ui-accent-glow: (0 0 0 1px #38bdf82e, 0 0 28px #0ea5e933),
+  --gis-ui-glass-border: rgb(255 255 255 / 14%),
+  --gis-ui-glass-highlight: #ffffff0a,
+  --gis-ui-overlay-shadow: 0 10px 30px -5px rgb(0 0 0 / 35%),
+  --gis-ui-liquid-border: rgb(255 255 255 / calc(18% + var(--gis-ui-liquid-specular) * .45)),
+  --gis-ui-liquid-shadow: (
+    0 14px 36px -6px rgb(0 0 0 / 38%),
+    inset 0 1.5px 1px 0 rgb(255 255 255 / calc(25% + var(--gis-ui-liquid-specular) * .55)),
+    inset 0 -2px 6px 0 color-mix(in srgb, var(--gis-ui-primary) calc(8% + var(--gis-ui-liquid-specular) * .22), transparent),
+    inset 1px 0 2px 0 rgb(255 255 255 / calc(12% + var(--gis-ui-liquid-specular) * .25))
+  ),
+  --gis-ui-liquid-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / calc(6% + var(--gis-ui-liquid-specular) * .16)) 0%,
+    rgb(255 255 255 / 0%) 45%,
+    color-mix(in srgb, var(--gis-ui-primary) calc(4% + var(--gis-ui-liquid-specular) * .12), transparent) 100%
+  ),
+  --gis-ui-grid-line: #94a3b817,
   --gis-ui-shadow-sm: (0 2px 8px #02061773, 0 1px 2px #0206178c),
-  --gis-ui-shadow-md: (0 12px 30px #0206178c, 0 3px 10px #02061770),
+  --gis-ui-shadow-md: (0 8px 24px #02061759, 0 2px 6px #02061733),
   --gis-ui-shadow-lg: (0 24px 70px #020617bf, 0 8px 24px #0206178c),
 );
 
@@ -40,7 +51,7 @@ $dark-tokens: (
   // Layout metrics and radii are theme-independent.
   --gis-ui-title-height: 52px;
   --gis-ui-toolbar-height: 56px;
-  --gis-ui-default-left-width: 300px;
+  --gis-ui-default-left-width: 320px;
   --gis-ui-default-right-width: 320px;
   --gis-ui-gap: 12px;
 
@@ -50,37 +61,76 @@ $dark-tokens: (
   --gis-ui-panel-radius: var(--gis-ui-radius-md);
 
   // Light palette and elevation scale.
-  --gis-ui-background: #eef3f8;
+  --gis-ui-background: #f1f5f9;
   --gis-ui-surface: #ffffff;
-  --gis-ui-surface-elevated: #fbfdff;
+  --gis-ui-surface-elevated: #f8fafc;
   --gis-ui-surface-translucent: #ffffffe8;
-  --gis-ui-panel-header-bg: #f3f7fb;
-  --gis-ui-text: #142033;
+  --gis-ui-panel-header-bg: #f1f5f9;
+  --gis-ui-text: #1e293b;
   --gis-ui-text-muted: #64748b;
   --gis-ui-text-disabled: #c4cbd4;
-  --gis-ui-border: #dbe4ef;
-  --gis-ui-primary: #087ea4;
-  --gis-ui-primary-strong: #036584;
-  --gis-ui-accent-secondary: #7c3aed;
-  --gis-ui-on-primary: #ffffff;
-  --gis-ui-hover: #e8f6fb;
+  --gis-ui-border: #e2e8f0;
+  --gis-ui-primary: #3b82f6;
+  --gis-ui-on-primary: #000;
+  --gis-ui-primary-hover-tint: #fff;
+  --gis-ui-primary-strong: color-mix(in srgb, var(--gis-ui-primary) 84%, var(--gis-ui-primary-hover-tint));
+  --gis-ui-primary-text: color-mix(in srgb, var(--gis-ui-primary) 74%, var(--gis-ui-text));
+  --gis-ui-toolbar-active-bg: color-mix(in srgb, var(--gis-ui-primary) 29%, var(--gis-ui-surface));
+  --gis-ui-toolbar-active-border: color-mix(in srgb, var(--gis-ui-primary) 68%, var(--gis-ui-surface));
+  --gis-ui-accent-secondary: color-mix(in srgb, var(--gis-ui-primary) 68%, var(--gis-ui-surface));
+  --gis-ui-hover: #f1f5f9;
+  --gis-ui-layer-hidden: #6b7280;
   --gis-ui-success: #22a06b;
   --gis-ui-danger: #b42318;
   --gis-ui-danger-surface: #fef3f2;
-  --gis-ui-glass-border: #ffffffb8;
-  --gis-ui-glass-highlight: #ffffffa6;
-  --gis-ui-overlay-shadow: 0 14px 36px #10233b24, 0 2px 8px #10233b14, inset 0 1px 0 #ffffffb8;
-  --gis-ui-focus-ring: #0ea5e933;
-  --gis-ui-grid-line: #087ea40a;
-  --gis-ui-accent-glow: 0 0 0 1px #0ea5e926, 0 12px 32px #0ea5e91f;
+  --gis-ui-glass-border: rgb(15 23 42 / 12%);
+  --gis-ui-glass-highlight: #ffffff1f;
+  --gis-ui-overlay-shadow: 0 10px 30px -5px rgb(15 23 42 / 12%);
+  --gis-ui-liquid-border: rgb(255 255 255 / 85%);
+  --gis-ui-liquid-shadow:
+    0 14px 34px -6px rgb(15 23 42 / 14%),
+    inset 0 2px 2px 0 rgb(255 255 255 / 95%),
+    inset 0 -2px 8px 0 color-mix(in srgb, var(--gis-ui-primary) calc(8% + var(--gis-ui-liquid-specular) * .2), transparent),
+    0 0 0 1px rgb(15 23 42 / 6%);
+  --gis-ui-liquid-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / calc(35% + var(--gis-ui-liquid-specular) * .4)) 0%,
+    rgb(255 255 255 / 5%) 55%,
+    color-mix(in srgb, var(--gis-ui-primary) calc(5% + var(--gis-ui-liquid-specular) * .15), transparent) 100%
+  );
+  --gis-ui-focus-ring: color-mix(in srgb, var(--gis-ui-primary) 26%, transparent);
+  --gis-ui-grid-line: #64748b17;
+  --gis-ui-accent-glow: 0 0 0 1px color-mix(in srgb, var(--gis-ui-primary) 15%, transparent), 0 12px 32px color-mix(in srgb, var(--gis-ui-primary) 14%, transparent);
 
   --gis-ui-shadow-sm: 0 2px 8px #10233b12, 0 1px 2px #10233b12;
-  --gis-ui-shadow-md: 0 12px 30px #10233b1a, 0 3px 10px #10233b12;
+  --gis-ui-shadow-md: 0 8px 24px #10233b12, 0 2px 6px #10233b0d;
   --gis-ui-shadow-lg: 0 24px 70px #10233b2e, 0 8px 24px #10233b1f;
-  --gis-ui-panel-shadow: var(--gis-ui-shadow-md);
+  --gis-ui-panel-shadow: var(--gis-ui-material-shadow, var(--gis-ui-overlay-shadow));
 
-  --gis-ui-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  --gis-ui-font-size: 14px;
+  --gis-ui-font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --gis-ui-font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --gis-ui-font-size: .875rem;
+  --gis-ui-font-micro: calc(var(--gis-ui-font-size) * .785714);
+  --gis-ui-font-xs: calc(var(--gis-ui-font-size) * .857143);
+  --gis-ui-font-sm: calc(var(--gis-ui-font-size) * .928571);
+  --gis-ui-font-lg: calc(var(--gis-ui-font-size) * 1.142857);
+  --gis-ui-font-xl: calc(var(--gis-ui-font-size) * 1.285714);
+  --gis-ui-control-height: 2.75rem;
+  --gis-ui-glass-blur: 16px;
+  // Surface opacity: smaller values reveal more of the backdrop.
+  --gis-ui-glass-opacity: 72%;
+  --gis-ui-liquid-specular: 35%;
+
+  &[data-gis-ui-panel-style='liquid'] {
+    --gis-ui-material-image: var(--gis-ui-liquid-image);
+    --gis-ui-material-border: var(--gis-ui-liquid-border);
+    --gis-ui-material-shadow: var(--gis-ui-liquid-shadow);
+  }
+
+  &[data-gis-ui-panel-style='solid'] {
+    --gis-ui-material-opacity: max(94%, var(--gis-ui-glass-opacity));
+    --gis-ui-material-filter: none;
+  }
 
   &.gis-ui-theme-dark {
     @include dark-tokens;

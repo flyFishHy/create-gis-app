@@ -23,6 +23,9 @@ function validateGISShape(config: Record<string, unknown>): void {
     if (!isPlainObject(config.title) || typeof config.title.content !== 'string' || (config.title.icon !== undefined && typeof config.title.icon !== 'string')) {
       throw configError('title must contain string content and an optional string icon.', 'title')
     }
+    if (config.title.subtitle !== undefined && typeof config.title.subtitle !== 'string') {
+      throw configError('title.subtitle must be a string.', 'title.subtitle')
+    }
   }
 
   if (config.map !== undefined) {
@@ -162,6 +165,12 @@ export function normalizeLayerStyle(value: LayerStyle, path = 'style'): LayerSty
       if (typeof item !== 'string' || !item.trim()) throw configError('Style color must not be empty.', `${path}.${key}`)
     } else if (key === 'strokeWidth' || key === 'pointRadius') {
       if (typeof item !== 'number' || !Number.isFinite(item) || item <= 0) throw configError('Style sizes must be positive.', `${path}.${key}`)
+    } else if (key === 'fillOpacity') {
+      if (typeof item !== 'number' || item < 0 || item > 1) throw configError('Fill opacity must be between 0 and 1.', `${path}.${key}`)
+    } else if (key === 'lineDash') {
+      if (item !== 'solid' && item !== 'dashed' && item !== 'dotted') throw configError('Invalid line dash.', `${path}.${key}`)
+    } else if (key === 'lineCap') {
+      if (item !== 'round' && item !== 'butt' && item !== 'square') throw configError('Invalid line cap.', `${path}.${key}`)
     } else throw configError('Unknown layer style property.', `${path}.${key}`)
   }
   return deepFreeze(JSON.parse(JSON.stringify(value)) as LayerStyle)

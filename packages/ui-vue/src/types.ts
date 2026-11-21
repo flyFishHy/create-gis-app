@@ -78,6 +78,10 @@ export interface ThemeTokens {
   colorDanger: string
   panelRadius: string
   panelShadow: string
+  panelStyle?: 'frosted' | 'liquid' | 'solid'
+  panelOpacity?: string
+  panelBlur?: string
+  panelSpecular?: string
   panelWidth: string
   leftPanelWidth: string
   rightPanelWidth: string
@@ -154,6 +158,7 @@ export interface GISUIContext {
 }
 
 export interface VueUIOptions {
+  workspaceStorageKey?: string
   config?: UIConfig
   layouts?: Readonly<Record<string, Component>>
   panelDefinitions?: readonly VuePanelDefinition[]

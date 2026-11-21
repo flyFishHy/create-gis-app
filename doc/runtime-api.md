@@ -23,6 +23,9 @@ dispose is terminal/idempotent. Failed init cleans up and cannot be retried.
 Registrations belong to their ResourceScope and clean up in reverse order.
 Never put engine objects, Vue components or functions into JSON configuration.
 
+The optional `title.subtitle` string supplies the Vue dashboard header badge.
+Existing title configurations with `content` and `icon` remain valid.
+
 Selection and map-view writes reject once shutdown starts; retained view facades
 check lifecycle on every call. During cleanup, map reads, clearing selection and
 detaching the target remain available until their resources are released. Final
@@ -151,6 +154,10 @@ moves sibling layers or entire group blocks, and never reparents a child.
 Domain observer failures report app:error without undoing commits.
 For GROUP, an explicit initial/update zIndex places its current leaf descendants
 in a contiguous interval [zIndex, zIndex+1), preserving their relative order.
+Group visibility is derived from its current descendants. Changing group visibility
+updates all descendants. Changing one child can make its ancestors visible
+without changing siblings. A group with no visible descendants is hidden.
+
 Without an explicit group zIndex, child zIndex values are retained. Group metadata
 reports the highest current leaf zIndex. Root drag ordering normalizes all leaves
 through setOrder; Core does not store a second UI tree or drag state.
@@ -198,9 +205,15 @@ layer.setTimeFilter(undefined) // clear
 `LayerTimeDimension.values` and `LayerTimeFilter.start/end` are epoch milliseconds.
 The OL GeoJSON adapter derives dimensions from ISO date/date-time strings and from
 year/Unix timestamp values in date/time-named properties. Its filter affects map
-rendering, hit detection and the built-in local search provider. Layer metadata
+rendering, hit detection and the built-in local search provider. Replacing the data
+clears a filter when its time field disappears. Layer metadata
 contains only dimension summaries and the active filter; raw values remain owned by
 the layer capability so large timelines do not inflate AppState.
+
+The standalone Vue time picker reports its own half-open query range through
+`extensions['vue-ui'].timeSelection` or its component events. Layer filtering
+uses this public Runtime capability explicitly when an application chooses to
+apply a filter. Layer filter bounds are inclusive.
 
 ## Context and state
 
@@ -236,6 +249,44 @@ there is no public createOLTools factory. Use createOLAdapter({ tools: false }) 
 omit tool capability. Interactions and result layers are attached lazily as used.
 useOLTools still exposes the OL-specific programmatic result controller.
 
+### Map click picking
+
+OpenLayers sends a single click to `interactions.pickFeatures` with local hits,
+the viewport pixel, and the eligible layer IDs in front-to-back order. The
+click location uses the map projection and the resolution at the time of the
+click. Custom layer types may implement `MapLayerHandle.identify(query)` to
+return zero or more `LayerIdentifyHit` values synchronously or asynchronously.
+`LayerService` supplies each result's `layerId`. An identify-capable layer
+supplies its own candidates for that click, including when it returns an empty
+result. Layers without `identify` participate through their native hits.
+
+OpenLayers plugins can call `createOLLayerHandle(context, olLayer, config)` in
+their layer type factory and add `handle.identify` before returning the handle.
+For example, a WMS handler can use the query's coordinate, resolution and
+projection to build its feature info request, pass `query.signal` to `fetch`,
+and return parsed attributes. A hit may include an ID, `title`, and geometry
+type, and can represent a raster value with properties alone.
+
+Identify requests run concurrently and have a two-second deadline for each click.
+A newer click, view or layer changes, tool activation, and picker unmount discard
+the pending result and abort its signal. Completed coordinate-anchored choices
+stay open through a pan. Zoom, rotation, projection and layer changes dismiss them.
+Successful queries contribute results
+even when other queries fail or time out. A successful empty pick clears selection.
+An empty pick with a failed query preserves selection and reports failure to the
+picker. With one candidate the Runtime selects directly. With multiple candidates,
+the callback registered through `interactions.registerFeaturePicker` receives a
+choice state without changing the committed selection. Without that callback,
+the Runtime selects the first result. Picker states are transient and excluded
+from `AppState` and workspace configuration.
+
+`app.map.addPopupOverlay(element, { coordinate, projection })` attaches a popup
+on adapters that support it and returns an idempotent cleanup function. The
+projection defaults to the current map projection. OpenLayers uses a native
+`Overlay`, keeps the popup inside the viewport, and leaves the camera in place.
+The anchor follows panning. The popup is hidden while its anchor is outside the
+viewport. Adapters without this capability return `undefined`.
+
 InteractionService.hasTool/canActivateTool support a known basic toolbar without
 a new metadata registry. ToolDefinition.mode='action' executes once and never
 becomes active; delete-result and clear-results use it. Switching to an action
@@ -249,9 +300,11 @@ listeners are owned by consumers. Default status uses the 0.28 mm nominal pixel
 for scale; OL supplies the projection-specific resolution calculation.
 
 OL built-ins are xyz/geojson; Core supplies GROUP. `options` supports opacity.
-`style` is a top-level layer field with fillColor/strokeColor/strokeWidth/pointRadius;
-`options.style` is rejected with a migration message. Interactive Modify/Snap and
-automatic thematic legend generation remain future work.
+`style` is a top-level layer field with fillColor/fillOpacity/strokeColor/strokeWidth,
+lineDash/lineCap and pointRadius.
+`options.style` is rejected with a migration message. The `modify-result` tool
+edits the selected drawing or measurement and recalculates its measurements.
+Drawing and editing can snap to existing drawing and measurement results.
 
 ## Layer style and classification
 
@@ -259,6 +312,9 @@ LayerConfig/LayerUpdate.style sits alongside legend. It is a complete style
 replacement; omitted style properties use adapter defaults. LayerInstance.style and
 snapshot.layers[].style expose the effective style; the adapter owns its rendering.
 MapLayerHandle.getStyle is optional. Unsupported style updates fail explicitly.
+Fill opacity is a 0–1 multiplier over the color's alpha. Line dash supports solid,
+dashed and dotted. Line caps support round, butt and square. A classification
+rule replaces the applicable color and inherits these base style properties.
 
 ```ts
 await app.layers.update('population', {
@@ -287,6 +343,12 @@ an optional noData color overrides null values. Rule colors replace strokeColor 
 line features and fillColor for polygon/point features; other style fields inherit
 the base style. Time filtering composes with classification.
 
+`layer.supportsLegendFilter()` reports whether class filtering is available.
+`layer.setLegendFilter(ruleId)` restricts rendering, hit detection and local
+search to the chosen category or interval. Pass `undefined` to clear it and read
+its current value with `layer.getLegendFilter()`. Rule filtering composes with
+the time filter. Removing the selected rule clears its filter.
+
 LayerInstance.getFields() reads current scalar GeoJSON properties through the
 optional handle.getFields hook, returning name/type descriptors, not raw features.
 LayerInstance.getFieldValues(field) delegates to an optional handle capability and
@@ -299,3 +361,19 @@ Fieldless legacy legends remain presentation definitions; single useLayerStyle
 category entries derive their color from the base style. Continuous/image legends
 retain their presentation behavior. Classification is implemented for category and
 interval only. UI applies legend and style together in one version-checked update.
+
+## Map interaction performance
+
+OL creates default interactions explicitly with onFocusOnly=false. Pointer pan and
+wheel zoom work while another control has focus; the map target retains tabindex
+for keyboard accessibility. interactions:false still disables all defaults.
+OL view-change notifications are coalesced once per animation frame and cancelled
+on unsubscribe/disposal; direct OL view writes appear in AppState on the next frame.
+Public MapService view setters still refresh snapshots synchronously.
+
+GeoJSON temporal dimensions and geometry/data summaries are cached until Source
+change (including feature edits and DataSet replacement), not until map movement.
+AppState sanitizes branch values and reuses unchanged deeply frozen branches.
+Identity is retained for equal layers/data/interactions/extensions, while revision
+and changed map values advance. Mutable adapter/plugin inputs are still compared by
+value, so in-place changes are not silently ignored; historical snapshots stay frozen.

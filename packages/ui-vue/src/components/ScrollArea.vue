@@ -27,6 +27,13 @@ function refresh() {
   }
 }
 function schedule() { if (!frame && !disposed) frame = requestAnimationFrame(() => { frame = 0; refresh() }) }
+function contentChanged() {
+  // Child removal changes native scroll dimensions before the next paint. Refresh
+  // immediately so a focused collapse control cannot expose stale scroll tracks,
+  // then verify again on the next frame for image/style-driven layout changes.
+  refresh()
+  schedule()
+}
 function setScroll(axis: Axis, value: number) {
   if (!viewport.value) return
   const next = Math.max(0, Math.min(metrics.value[axis].range, value))
@@ -83,7 +90,7 @@ onMounted(() => {
     resize.observe(viewport.value!); resize.observe(content.value!); resize.observe(root.value!)
   }
   if (typeof MutationObserver !== 'undefined') {
-    mutation = new MutationObserver(schedule)
+    mutation = new MutationObserver(contentChanged)
     mutation.observe(content.value!, { subtree: true, childList: true, characterData: true, attributes: true })
   }
   window.addEventListener('resize', schedule); content.value?.addEventListener('load', schedule, true)

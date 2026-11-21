@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, provide, shallowRef } from 'vue'
 import { useGISUI } from '../use-gis-ui.js'
 import PanelShell from './PanelShell.vue'
 import { cssSize } from '../panels/panel-size.js'
-import { DockedPanelMotionKey } from '../ui-context.js'
+import { PanelHeaderKey } from '../ui-context.js'
+import SvgIcon from './SvgIcon.vue'
 
 const props = defineProps<{ id: string; animate?: boolean }>()
 const ui = useGISUI()
-const dockedMotion = inject(DockedPanelMotionKey, computed(() => false))
+const badge = shallowRef(''), refresh = shallowRef<() => void>()
+provide(PanelHeaderKey, { badge, refresh })
+const hasManagerHeader = computed(() => ['layer-manager', 'legend'].includes(props.id))
 const definition = computed(() => ui.panels.get(props.id))
 const state = computed(() => ui.panels.getState(props.id))
 const displayTitle = computed(() => {
@@ -30,7 +33,7 @@ const panelStyle = computed(() => {
 </script>
 
 <template>
-  <Transition name="gis-ui-panel" :css="id === 'properties' && (dockedMotion || animate)">
+  <Transition name="gis-ui-panel" :css="id === 'properties' && animate">
   <div v-if="definition && state?.visible" class="gis-ui-panel-host" :style="panelStyle" :class="[`gis-ui-panel-host--${id}`, { 'is-unframed': definition.unframed }]">
     <div v-if="definition.unframed" v-show="!state.collapsed" class="gis-ui-panel-content">
       <component :is="definition.component" v-bind="definition.props" />
@@ -46,6 +49,8 @@ const panelStyle = computed(() => {
       @collapse="state.collapsed ? ui.panels.expand(id) : ui.panels.collapse(id)"
       @close="ui.panels.hide(id)"
     >
+      <template v-if="hasManagerHeader || id === 'properties'" #title><SvgIcon :name="id === 'layer-manager' ? 'layers' : id === 'legend' ? 'legend' : 'sliders-horizontal'" :size="16" />{{ displayTitle }}<span v-if="hasManagerHeader" class="gis-ui-panel-count" :aria-label="ui.locale.t(id === 'layer-manager' ? 'layer.count' : 'legend.count')">{{ badge }}</span></template>
+      <template v-if="hasManagerHeader" #actions><button type="button" class="gis-ui-panel-refresh" :disabled="!refresh" :aria-label="ui.locale.t(id === 'layer-manager' ? 'layer.refresh' : 'legend.refresh')" :title="ui.locale.t(id === 'layer-manager' ? 'layer.refresh' : 'legend.refresh')" @click="refresh?.()"><SvgIcon name="refresh" :size="16" /></button></template>
       <component :is="definition.component" v-bind="definition.props" />
     </PanelShell>
   </div>

@@ -6,11 +6,12 @@ import ScrollArea from './ScrollArea.vue'
 
 const props = defineProps<{
   modelValue: string
-  options: readonly { value: string; label: string }[]
+  options: readonly { value: string; label: string; disabled?: boolean }[]
   label: string
   placeholder?: string
   disabled?: boolean
   floating?: boolean
+  appendTo?: HTMLElement
 }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -24,15 +25,17 @@ const active = ref(-1)
 const listId = `gis-select-${useId()}`
 const selectedIndex = computed(() => props.options.findIndex(option => option.value === props.modelValue))
 const selectedLabel = computed(() => props.options[selectedIndex.value]?.label ?? props.placeholder ?? '')
+const enabledIndexes = computed(() => props.options.flatMap((option, index) => option.disabled ? [] : [index]))
 let typed = ''
 let lastTyped = 0
 
 function close() { open.value = false; typed = '' }
 function show(fromEnd = false) {
-  if (props.disabled || !props.options.length) return
-  active.value = selectedIndex.value >= 0 ? selectedIndex.value : fromEnd ? props.options.length - 1 : 0
+  if (props.disabled || !enabledIndexes.value.length) return
+  active.value = enabledIndexes.value.includes(selectedIndex.value)
+    ? selectedIndex.value : (fromEnd ? enabledIndexes.value.at(-1) : enabledIndexes.value[0]) ?? -1
   if (props.floating && trigger.value) {
-    target.value = root.value?.closest<HTMLElement>('.gis-ui-root') ?? document.body
+    target.value = props.appendTo ?? root.value?.closest<HTMLElement>('.gis-ui-root') ?? document.body
     const anchor = trigger.value.getBoundingClientRect(), width = Math.min(Math.max(anchor.width, 200), window.innerWidth - 16)
     const below = window.innerHeight - anchor.bottom - 14, above = anchor.top - 14, upward = below < 180 && above > below
     const css = getComputedStyle(trigger.value)
@@ -46,7 +49,7 @@ function show(fromEnd = false) {
 }
 function choose(index: number) {
   const option = props.options[index]
-  if (!option) return
+  if (!option || option.disabled) return
   emit('update:modelValue', option.value)
   close()
   trigger.value?.focus()
@@ -72,19 +75,24 @@ function keydown(event: KeyboardEvent) {
     event.stopPropagation()
     if (key === 'Enter' || key === ' ') {
       if (open.value) choose(active.value); else show()
-    } else if (!open.value) {
-      show(key === 'ArrowUp' || key === 'End')
-      if (key === 'Home') active.value = 0
-      if (key === 'End') active.value = props.options.length - 1
-    } else if (key === 'Home') active.value = 0
-    else if (key === 'End') active.value = props.options.length - 1
-    else active.value = (active.value + (key === 'ArrowDown' ? 1 : -1) + props.options.length) % props.options.length
+    } else {
+      const indexes = enabledIndexes.value
+      if (!indexes.length) return
+      const wasOpen = open.value
+      if (!wasOpen) show(key === 'ArrowUp' || key === 'End')
+      if (key === 'Home') active.value = indexes[0]!
+      else if (key === 'End') active.value = indexes.at(-1)!
+      else if (wasOpen) {
+        const direction = key === 'ArrowDown' ? 1 : -1
+        active.value = indexes[(indexes.indexOf(active.value) + direction + indexes.length) % indexes.length]!
+      }
+    }
   } else if (key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
     if (!open.value) show()
     const now = Date.now()
     typed = (now - lastTyped < 600 ? typed : '') + key.toLocaleLowerCase()
     lastTyped = now
-    const index = props.options.findIndex(option => option.label.toLocaleLowerCase().startsWith(typed))
+    const index = props.options.findIndex(option => !option.disabled && option.label.toLocaleLowerCase().startsWith(typed))
     if (index >= 0) active.value = index
   }
 }
@@ -108,7 +116,7 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', outside); wi
     <button ref="trigger" class="gis-ui-select-trigger" type="button" role="combobox"
       :aria-label="label" :aria-expanded="open" aria-haspopup="listbox" :aria-controls="open ? listId : undefined"
       :aria-activedescendant="open && active >= 0 ? `${listId}-option-${active}` : undefined"
-      :disabled="disabled || !options.length" :title="selectedLabel"
+      :disabled="disabled || !enabledIndexes.length" :title="selectedLabel"
       @click="open ? close() : show()" @keydown.stop="keydown">
       <span class="gis-ui-select-value">{{ selectedLabel }}</span>
       <SvgIcon name="chevron-down" :size="14" />
@@ -118,8 +126,8 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', outside); wi
     <ul ref="optionsList" :id="listId" class="gis-ui-select-options" role="listbox" :aria-label="label">
       <li v-for="(option, index) in options" :id="`${listId}-option-${index}`" :key="option.value"
         class="gis-ui-select-option" :class="{ 'is-selected': option.value === modelValue, 'is-active': index === active }"
-        role="option" :aria-selected="option.value === modelValue" :title="option.label"
-        @pointermove="active = index" @mousedown.prevent @click="choose(index)">
+        role="option" :aria-selected="option.value === modelValue" :aria-disabled="option.disabled || undefined" :title="option.label"
+        @pointermove="!option.disabled && (active = index)" @mousedown.prevent @click="choose(index)">
         <span>{{ option.label }}</span><span class="gis-ui-select-check" aria-hidden="true"><SvgIcon v-if="option.value === modelValue" name="check" :size="13" /></span>
       </li>
     </ul>

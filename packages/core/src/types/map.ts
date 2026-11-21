@@ -22,6 +22,7 @@ export interface MapAdapter {
   /** Pointer longitude/latitude (EPSG:4326); undefined when leaving the viewport. */
   onPointerMove?(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe
   locate?(location: MapLocation): void
+  addPopupOverlay?(element: HTMLElement, anchor: MapOverlayAnchor): Unsubscribe
   readonly name: string
   create(config: MapConfig): void | Promise<void>
   destroy(): void | Promise<void>
@@ -39,12 +40,19 @@ export interface MapAdapter {
 export interface MapService {
   onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe
   locate(location: MapLocation): void
+  addPopupOverlay(element: HTMLElement, anchor: MapOverlayAnchor): Unsubscribe | undefined
   readonly isReady: boolean
   getView(): MapViewService
   getSize(): [number, number] | undefined
   updateSize(): void
   setTarget(target: HTMLElement | string | undefined): void
   getAdapter(): MapAdapter
+}
+
+export interface MapOverlayAnchor {
+  readonly coordinate: readonly [number, number]
+  /** Defaults to the current map projection. */
+  readonly projection?: string
 }
 
 /** Omitted projection means the current map projection. */

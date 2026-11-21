@@ -20,13 +20,13 @@ const props = withDefaults(defineProps<{
 
 const app = useGISApp()
 const ui = useGISUI()
-const snapshot = useAppState()
+const snapshot = useAppState(state => state.layers)
 const providers = shallowRef(app.search.listProviders())
 const providerCount = computed(() => providers.value.length)
 const selectedLayer = ref('')
-const searchableLayers = computed(() => snapshot.value.layers.filter(layer => layer.type !== 'GROUP'
+const searchableLayers = computed(() => snapshot.value.filter(layer => layer.type !== 'GROUP'
   && providers.value.some(provider => !provider.layerIds || provider.layerIds.includes(layer.id))))
-const generalSearch = computed(() => snapshot.value.layers.length === 0 && providers.value.some(provider => !provider.layerIds))
+const generalSearch = computed(() => snapshot.value.length === 0 && providers.value.some(provider => !provider.layerIds))
 const layerOptions = computed(() => searchableLayers.value.map(layer => ({ value: layer.id, label: layer.title || layer.id })))
 const canSearch = computed(() => !!selectedLayer.value || generalSearch.value)
 const placeholderText = computed(() => props.placeholder ?? ui.locale.t('search.placeholder'))
@@ -51,6 +51,7 @@ watch(searchableLayers, layers => {
   if (!layers.some(layer => layer.id === selectedLayer.value)) selectedLayer.value = layers[0]?.id ?? ''
 }, { immediate: true, flush: 'sync' })
 watch(selectedLayer, resetSearch, { flush: 'sync' })
+watch(() => snapshot.value.find(layer => layer.id === selectedLayer.value)?.version, resetSearch, { flush: 'sync' })
 
 function dismiss() { dropdownOpen.value = false }
 function outsidePointer(event: PointerEvent) {
@@ -112,7 +113,7 @@ function selectResult(result: SearchResult) {
       <input v-model="keyword" :placeholder="placeholderText" aria-label="Search" type="search"
         :aria-controls="dropdown && dropdownOpen ? feedbackId : undefined" @focus="focus">
       <button type="submit" :disabled="loading || !keyword.trim() || !canSearch" :aria-label="loading ? 'Searching' : 'Search'">
-        <SvgIcon name="search" :size="17" />
+        <SvgIcon name="search" :size="16" />
       </button>
     </form>
     <ScrollArea v-if="!dropdown || dropdownOpen" :id="feedbackId" class="gis-ui-search-feedback" :label="ui.locale.t('panel.search')">

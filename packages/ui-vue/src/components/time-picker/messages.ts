@@ -1,0 +1,28 @@
+export const timePickerMessages = {
+  'zh-CN': {
+    title: '时间选择', granularity: '时间粒度', mode: '选择方式',
+    hour: '小时', day: '天', week: '周', month: '月', year: '年',
+    single: '单周期', range: '周期范围', 'custom-range': '精确范围',
+    start: '开始', end: '结束', clock: '时间', offset: '选择 UTC 偏移',
+    gap: '该当地时间不存在。请选择其他时间。',
+    invalid: '请选择完整且顺序正确的时间。',
+    limits: '所选时间超出允许范围。',
+    zone: '时区', clear: '清空', cancel: '取消', apply: '确定', shortcuts: '快捷选择',
+    today: '今天', yesterday: '昨天', 'this-week': '本周', 'last-week': '上周',
+    'this-month': '本月', 'last-month': '上月', 'this-year': '今年', 'last-year': '去年',
+    'last-7-days': '最近 7 天', 'last-30-days': '最近 30 天',
+  },
+  en: {
+    title: 'Choose time', granularity: 'Granularity', mode: 'Selection mode',
+    hour: 'Hour', day: 'Day', week: 'Week', month: 'Month', year: 'Year',
+    single: 'Single period', range: 'Period range', 'custom-range': 'Custom range',
+    start: 'Start', end: 'End', clock: 'Time', offset: 'Choose UTC offset',
+    gap: 'This local time does not exist. Choose another time.',
+    invalid: 'Choose a complete selection in chronological order.',
+    limits: 'The selection exceeds the allowed time range.',
+    zone: 'Time zone', clear: 'Clear', cancel: 'Cancel', apply: 'Apply', shortcuts: 'Shortcuts',
+    today: 'Today', yesterday: 'Yesterday', 'this-week': 'This week', 'last-week': 'Last week',
+    'this-month': 'This month', 'last-month': 'Last month', 'this-year': 'This year', 'last-year': 'Last year',
+    'last-7-days': 'Last 7 days', 'last-30-days': 'Last 30 days',
+  },
+} as const

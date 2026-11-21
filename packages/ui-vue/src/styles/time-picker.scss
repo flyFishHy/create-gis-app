@@ -1,0 +1,154 @@
+@use 'glass' as glass;
+
+.gis-ui-time-picker {
+  min-width: 0;
+  color: var(--gis-ui-text, #0f172a);
+  font: var(--gis-ui-font-sm, 13px)/1.4 var(--gis-ui-font-family, system-ui, sans-serif);
+}
+
+.gis-ui-time-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid var(--gis-ui-border, #cbd5e1);
+  border-radius: 8px;
+  background: var(--gis-ui-surface, white);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:disabled { opacity: .6; cursor: not-allowed; }
+  &:hover:not(:disabled) { color: var(--gis-ui-primary-text, #2563eb); }
+  .gis-ui-svg-icon { flex: 0 0 auto; color: var(--gis-ui-primary, #3b82f6); }
+  span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.gis-ui-time-picker-popup {
+  --el-color-primary: var(--gis-ui-primary, #3b82f6);
+  --el-bg-color: var(--gis-ui-surface, #fff);
+  --el-bg-color-overlay: transparent;
+  --el-fill-color-light: var(--gis-ui-hover, #eff6ff);
+  --el-border-color: var(--gis-ui-border, #cbd5e1);
+  --el-border-color-light: var(--gis-ui-border, #cbd5e1);
+  --el-border-color-lighter: var(--gis-ui-border, #cbd5e1);
+  --el-text-color-primary: var(--gis-ui-text, #0f172a);
+  --el-text-color-regular: var(--gis-ui-text, #0f172a);
+  --el-text-color-secondary: var(--gis-ui-text-muted, #475569);
+  --el-text-color-placeholder: var(--gis-ui-text-muted, #475569);
+  --el-mask-color: var(--gis-ui-hover, #eff6ff);
+  --el-datepicker-hover-text-color: var(--gis-ui-primary-text, #2563eb);
+  --el-box-shadow-light: var(--gis-ui-panel-shadow, 0 12px 40px #0f172a28);
+  position: fixed;
+  inset: auto;
+  z-index: 20;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+
+  &::backdrop { background: transparent; }
+  :where(button, input, select):focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
+  :where(button):disabled { opacity: .55; cursor: not-allowed; }
+}
+
+.gis-ui-time-picker-form {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  max-height: inherit;
+  overflow: auto;
+  border: 1px solid var(--gis-ui-border, #cbd5e1);
+  border-radius: inherit;
+  background: var(--gis-ui-surface-elevated, white);
+  box-shadow: var(--el-box-shadow-light);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 35%) transparent;
+
+  header, footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  header { justify-content: space-between; }
+  header span { color: var(--gis-ui-text-muted, #475569); font-size: 11px; overflow-wrap: anywhere; }
+  footer { justify-content: flex-end; }
+  :where(footer, .gis-ui-time-picker-shortcuts) button {
+    padding: 4px 8px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 6px;
+    @include glass.inset-surface;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .gis-ui-time-picker-clear { margin-inline-end: auto; }
+  .gis-ui-time-picker-apply { background: var(--el-color-primary); border-color: var(--el-color-primary); color: var(--gis-ui-on-primary, #fff); }
+  p { margin: 0; }
+}
+
+// The calendar hosts sit outside the scrolling form and its backdrop filter.
+.gis-ui-time-picker-calendar-host { display: contents; }
+.gis-ui-root .gis-ui-time-picker-form { @include glass.panel-surface; }
+
+.gis-ui-time-picker-popup .el-picker__popper.el-popper {
+  @include glass.menu-surface;
+  .el-popper__arrow::before {
+    background-color: var(--gis-ui-surface-elevated, white);
+    border-color: var(--gis-ui-material-border, var(--gis-ui-glass-border, #cbd5e1));
+  }
+}
+
+.gis-ui-time-picker-popup .gis-ui-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 7px;
+  @include glass.inset-surface;
+
+  button { flex: 1 1 auto; min-height: 26px; padding: 3px 7px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  button:not(.is-active):hover { background: var(--gis-ui-hover, #eff6ff); }
+  button.is-active { background: var(--el-color-primary); color: #fff; }
+}
+
+.gis-ui-time-picker-shortcuts { display: flex; flex-wrap: wrap; gap: 5px; }
+.gis-ui-time-picker-endpoint {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  legend { margin-bottom: 4px; }
+  p { color: var(--gis-ui-text-muted, #475569); font-size: 11px; }
+}
+
+.gis-ui-time-picker-fields {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  .el-date-editor { flex: 1 1 132px; min-width: 0; width: auto; }
+  .el-input__wrapper {
+    --el-input-border-color: var(--gis-ui-material-border, var(--gis-ui-border, #cbd5e1));
+    @include glass.inset-surface;
+  }
+  > input, .gis-ui-select-trigger {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 32px;
+    padding: 3px 6px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 4px;
+    @include glass.inset-surface;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+@media (max-width: 360px) {
+  .gis-ui-time-picker-popup .el-date-picker { max-width: calc(100vw - 26px); }
+  .gis-ui-time-picker-popup .el-picker-panel__content { width: auto; margin-inline: 8px; }
+}

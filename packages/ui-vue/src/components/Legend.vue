@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LegendDefinition, LayerStyle } from '@joinmap/gis-core'
-import LegendKind from './LegendKind.vue'
+import LegendSwatch from './LegendSwatch.vue'
 const props = withDefaults(defineProps<{
   definitions?: readonly LegendDefinition[]
   titles?: Readonly<Record<string, string>>
@@ -12,7 +12,11 @@ const props = withDefaults(defineProps<{
   typeLabels?: Readonly<Record<string, string>>
   fieldLabel?: string
   uniformText?: string
+  layerColorText?: string
+  filterable?: boolean
+  activeRule?: string
 }>(), { emptyText: 'No legend definitions' })
+const emit = defineEmits<{ filter: [id: string] }>()
 const groups = computed(() => {
   const result = new Map<string, { id: string; title: string; definitions: LegendDefinition[] }>()
   for (const definition of props.definitions ?? []) {
@@ -38,9 +42,12 @@ function gradient(legend: LegendDefinition) {
   <div class="gis-ui-legend">
     <p v-if="groups.length === 0" class="gis-ui-empty">{{ emptyText }}</p>
     <section v-for="group in groups" :key="group.id" class="gis-ui-legend-group">
-      <div class="gis-ui-legend-heading"><h3 :title="group.title">{{ group.title }}</h3><LegendKind :type="group.definitions[0]!.type" :label="typeLabels?.[group.definitions[0]!.type] ?? group.definitions[0]!.type" /><slot name="group-actions" :layer-id="group.id" /></div>
+      <div class="gis-ui-legend-heading"><h3 :title="group.title">{{ group.title }}</h3><slot name="group-actions" :layer-id="group.id" /></div>
       <div v-for="legend in group.definitions" :key="legend.id" class="gis-ui-legend-definition">
-        <div class="gis-ui-legend-metric"><span>{{ fieldLabel ?? 'Metric' }}</span><span class="gis-ui-legend-metric-value" :title="legend.field">{{ legend.field || uniformText || 'Uniform style' }}</span></div>
+        <div v-if="legend.field || legend.type !== 'category'" class="gis-ui-legend-metric">
+          <span class="gis-ui-legend-metric-value" :title="legend.field">{{ legend.field }}</span>
+          <span class="gis-ui-legend-mode">{{ typeLabels?.[legend.type] ?? legend.type }}</span>
+        </div>
         <img v-if="legend.type === 'image' && legend.imageUrl" class="gis-ui-legend-image" :src="legend.imageUrl" :alt="legend.title ?? group.title">
         <div v-else-if="legend.type === 'continuous' && continuousStops(legend).length > 1" class="gis-ui-legend-continuous">
           <div class="gis-ui-legend-gradient" :style="{ background: gradient(legend) }" role="img" :aria-label="legend.title ?? group.title" />
@@ -49,7 +56,13 @@ function gradient(legend: LegendDefinition) {
           </div>
         </div>
         <ul v-else-if="legend.type === 'interval' && legend.ranges" class="gis-ui-legend-items">
-          <li v-for="range in legend.ranges" :key="range.id"><i :class="`symbol-${symbols?.[group.id] ?? 'fill'}`" :style="{ backgroundColor: range.color, borderColor: range.color }" /><span class="gis-ui-legend-range-text">{{ `[${range.min}, ${range.max}${range.includeMax ? ']' : ')'}` }}</span><small v-if="range.label">{{ range.label }}</small></li>
+          <li v-for="range in legend.ranges" :key="range.id">
+            <component :is="filterable ? 'button' : 'span'" class="gis-ui-legend-rule" :type="filterable ? 'button' : undefined" :aria-pressed="filterable ? activeRule === range.id : undefined" @click="filterable && emit('filter', range.id)">
+            <LegendSwatch :color="range.color" :symbol="symbols?.[group.id]" :layer-style="styles?.[group.id]" />
+            <span class="gis-ui-legend-range-text">{{ `[${range.min}, ${range.max}${range.includeMax ? ']' : ')'}` }}</span>
+            <small v-if="range.label">{{ range.label }}</small>
+            </component>
+          </li>
         </ul>
         <div v-else-if="legend.stops?.length" class="gis-ui-legend-stops">
           <span v-for="stop in legend.stops" :key="`${stop.value}-${stop.color}`" class="gis-ui-legend-stop">
@@ -58,15 +71,23 @@ function gradient(legend: LegendDefinition) {
         </div>
         <ul v-if="legend.items?.length" class="gis-ui-legend-items">
           <li v-for="item in legend.items" :key="item.id" :class="{ 'is-disabled': item.visible === false }" :title="item.values?.map(String).join(', ')">
-            <i :class="`symbol-${symbols?.[group.id] ?? item.symbol ?? 'fill'}`" :style="item.color ? { backgroundColor: item.color, borderColor: item.color } : undefined" />
+            <component :is="filterable && legend.type === 'category' ? 'button' : 'span'" class="gis-ui-legend-rule" :type="filterable && legend.type === 'category' ? 'button' : undefined" :aria-pressed="filterable && legend.type === 'category' ? activeRule === item.id : undefined" @click="filterable && legend.type === 'category' && emit('filter', item.id)">
+            <LegendSwatch :color="item.color" :symbol="symbols?.[group.id] ?? item.symbol" :layer-style="styles?.[group.id]" />
             <span>{{ item.label || item.values?.map(String).join(', ') || item.value }}</span>
+            </component>
           </li>
         </ul>
         <div v-if="legend.noData" class="gis-ui-legend-no-data">
           <i :style="legend.noData.color ? { backgroundColor: legend.noData.color } : undefined" />
           {{ legend.noData.label }}
         </div>
-        <ul v-if="styles?.[group.id] && legend.type !== 'image' && (legend.field || !legend.items?.length)" class="gis-ui-legend-items gis-ui-legend-default-display"><li><i :class="`symbol-${symbols?.[group.id] ?? 'fill'}`" :style="{ backgroundColor: symbols?.[group.id] === 'line' ? styles[group.id]!.strokeColor : styles[group.id]!.fillColor }" /><span>{{ defaultText ?? 'Other values' }}</span></li></ul>
+        <ul v-if="styles?.[group.id] && ((legend.type === 'category' && (legend.field || !legend.items?.length)) || (legend.type === 'interval' && legend.field))"
+          class="gis-ui-legend-items" :class="{ 'gis-ui-legend-default-display': legend.field }">
+          <li>
+            <LegendSwatch :symbol="symbols?.[group.id]" :layer-style="styles[group.id]" />
+            <span>{{ legend.field ? (defaultText ?? 'Unmatched values') : (layerColorText ?? 'Layer color') }}</span>
+          </li>
+        </ul>
       </div>
     </section>
   </div>

@@ -76,7 +76,7 @@ describe('Dashboard controls', () => {
       expect(app.layers.get('sample')?.visible).toBe(true)
 
       const tool = target.querySelector<HTMLButtonElement>('button[aria-label="Save"]')!
-      expect(tool.textContent?.trim()).toBe('')
+      expect(tool.textContent?.trim()).toBe('Save')
       expect(tool.getAttribute('aria-label')).toBe('Save')
       expect(tool.querySelector('svg')).not.toBeNull()
       tool.click()

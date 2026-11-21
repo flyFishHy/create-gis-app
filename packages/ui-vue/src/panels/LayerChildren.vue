@@ -11,7 +11,7 @@ const ui = useGISUI()
 
 <template>
   <ul class="gis-ui-layer-children">
-    <li v-for="node in nodes" :key="node.layer.id" class="gis-ui-layer-child">
+    <li v-for="node in nodes" :key="node.layer.id" class="gis-ui-layer-child" :class="{ 'is-hidden': !node.layer.visible }">
       <div class="gis-ui-layer-child-heading">
         <button type="button" class="gis-ui-layer-visibility"
           :aria-label="`${ui.locale.t('action.toggleLayer')} ${node.layer.title || node.layer.id}`"

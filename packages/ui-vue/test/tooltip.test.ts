@@ -24,10 +24,12 @@ describe('Tooltip', () => {
     const wrapper = mountTooltip()
     try {
       await wrapper.setProps({ placement: 'bottom' })
+      wrapper.get<HTMLElement>('.gis-ui-tooltip-trigger').element.style.setProperty('--gis-ui-font-size', '16px')
       wrapper.get('button').element.focus()
       await nextTick()
       await nextTick()
       const tip = document.querySelector<HTMLElement>('[role="tooltip"]')!
+      expect(tip.style.getPropertyValue('--gis-ui-font-size')).toBe('16px')
       expect(parseFloat(tip.style.left)).toBe(56)
       expect(parseFloat(tip.style.top)).toBe(window.innerHeight - 80)
     } finally {

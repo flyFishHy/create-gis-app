@@ -38,7 +38,7 @@ it('keeps the overlay rail and drawer widths independent and honors explicit pan
   const app = createGISApp()
   let ui!: GISUIContext
   app.use(createFakeMapPlugin())
-  app.use(createVueUI({ config: { layout: 'overlay-dashboard', panels: [{ id: 'legend', position: 'left' }] },
+  app.use(createVueUI({ config: { layout: 'overlay-dashboard', panels: [{ id: 'legend', position: 'left' }, { id: 'layer-manager', position: 'right' }] },
     extensions: [{ name: 'capture', install: context => { ui = context } }],
   }))
   const target = document.createElement('div'); document.body.append(target)

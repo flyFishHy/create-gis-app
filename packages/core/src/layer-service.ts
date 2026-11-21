@@ -4,7 +4,9 @@ import type { LayerLegend, LegendDefinition, MapLocation } from './types.js'
 import type { ServiceDependencies } from './context/service-dependencies.js'
 import type {
   AppContext,
+  FeaturePickCandidate,
   LayerConfig,
+  LayerIdentifyQuery,
   LayerStyle,
   LayerInstance,
   LayerService,
@@ -42,6 +44,7 @@ class LayerInstanceImpl implements LayerInstance {
     private readonly assertMutable: () => void,
     legend?: LayerLegend,
     style?: LayerStyle,
+    private readonly readVisibility?: () => boolean,
   ) {
     this.currentTitle = title
     this.currentVisible = visible
@@ -59,7 +62,7 @@ class LayerInstanceImpl implements LayerInstance {
   }
   get version(): number { return this.currentVersion }
   get status(): LayerInstance['status'] { return this.currentStatus }
-  get visible(): boolean { return this.currentVisible }
+  get visible(): boolean { return this.readVisibility?.() ?? this.currentVisible }
   get legend(): LegendDefinition | undefined {
     const legend = this.currentLegend
     return legend && this.handle.resolveLegend ? normalizeLayerLegend(this.handle.resolveLegend(legend), this.id) : legend
@@ -84,6 +87,26 @@ class LayerInstanceImpl implements LayerInstance {
   getTimeFilter(): LayerTimeFilter | undefined {
     if (this.currentStatus === 'disposed') return undefined
     return this.handle.getTimeFilter?.()
+  }
+
+  supportsLegendFilter(): boolean {
+    return this.currentStatus !== 'disposed' && this.handle.supportsLegendFilter?.() === true
+  }
+
+  getLegendFilter(): string | undefined {
+    return this.currentStatus === 'disposed' ? undefined : this.handle.getLegendFilter?.()
+  }
+
+  setLegendFilter(ruleId: string | undefined): void {
+    this.assertActive()
+    if (!this.handle.setLegendFilter || !this.supportsLegendFilter()) throw new GISRuntimeError({
+      code: 'CONFIG_INVALID', message: `Layer "${this.id}" does not support legend filtering.`, stage: 'layer-operation',
+    })
+    this.transact(() => {
+      this.handle.setLegendFilter!(ruleId)
+      this.currentVersion++
+      this.changed()
+    })
   }
 
   setTimeFilter(filter: LayerTimeFilter | undefined): void {
@@ -300,6 +323,19 @@ export class LayerServiceImpl implements LayerService {
   has(id: string): boolean { return this.instances.has(id) }
   list(): LayerInstance[] { return [...this.instances.values()] }
 
+  identify(id: string, query: LayerIdentifyQuery): Promise<readonly FeaturePickCandidate[]> | undefined {
+    const layer = this.instances.get(id)
+    if (!layer?.visible || layer.status !== 'ready') return
+    const handle = layer.getInternalHandle()
+    const identify = handle.identify
+    if (!identify) return
+    return Promise.resolve().then(async () => {
+      query.signal.throwIfAborted()
+      const hits = await identify.call(handle, query)
+      return hits.map(({ id: featureId, title, properties, geometryType }) => ({ layerId: id, id: featureId, title, properties, geometryType }))
+    })
+  }
+
   getDataLocation(id: string): MapLocation | undefined {
     const instance = this.instances.get(id)
     if (!instance) throw this.layerNotFound(id)
@@ -402,7 +438,7 @@ export class LayerServiceImpl implements LayerService {
       throw cause
     }
 
-    let visible = config.visible ?? true
+    const visible = config.visible ?? true
     const groupLeaves = (): LayerInstanceImpl[] => {
       const collect = (items: LayerInstance[]): LayerInstanceImpl[] => items.flatMap(child => {
         if (this.get(child.id) !== child) return []
@@ -425,7 +461,6 @@ export class LayerServiceImpl implements LayerService {
         return { extent: [Math.min(...bounds.map(b => b[0]!)), Math.min(...bounds.map(b => b[1]!)), Math.max(...bounds.map(b => b[2]!)), Math.max(...bounds.map(b => b[3]!))], projection }
       },
       setVisible: (next) => {
-        visible = next
         for (const child of children) if (this.get(child.id) === child) this.setVisibility(child.id, next)
       },
       setZIndex: value => {
@@ -465,6 +500,8 @@ export class LayerServiceImpl implements LayerService {
       operation => this.dependencies.state.batch(operation),
       () => this.assertCanMutate('update a group layer'),
       config.legend,
+      undefined,
+      () => children.some(child => this.get(child.id) === child && child.status !== 'disposed' && child.visible),
     )
     if (!visible) handle.setVisible(false)
     if (config.zIndex !== undefined) handle.setZIndex(config.zIndex)

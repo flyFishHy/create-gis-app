@@ -443,6 +443,10 @@ disposed
 
 ## 6. GISApp 公共接口
 
+UI 表面和字体整理仅涉及 ui-vue：两种布局共享可调玻璃背景、玻璃属性构建兼容、局部字体缩放、统一控件高度及
+状态栏避让均不改变 Runtime API、AppState 或 OL 能力。配置仍使用现有 theme token，
+其余细分样式由 CSS 变量覆盖，不新增展示状态或服务。
+
 当前 Core 内部实现按职责整理：`runtime/gis-app.ts` 保留服务装配及生命周期协调，
 插件依赖排序提取为纯函数；`state/` 独立快照投影与 JSON 清洗，`data/` 分离 DataSet，
 `config/` 分离 JSON/UI 校验，`types/` 按领域保存公共契约，`errors.ts` 保存错误模型。
@@ -916,12 +920,32 @@ v1
 InteractionService 负责管理 Runtime 级地图交互能力，不负责 Popup
 的视觉实现。
 
+OpenLayers 每个地图实例监听一次 `singleclick`，收集本地候选以及点击时的
+像素、坐标、投影、分辨率和可查询图层顺序，然后调用 `pickFeatures`。
+业务图层通过 `MapLayerHandle.identify` 提供定位查询，`LayerService` 补齐
+图层 ID。Runtime 并发汇总本地命中和图层查询，为一次点击设定两秒期限。
+自定义查询负责该图层的候选，单层失败时保留其他图层的结果。
+
+`registerFeaturePicker` 提供一个可注销的 UI 回调。零个有效命中时清空选中，
+单命中直接选中，多命中发送候选并保留当前选中。查询失败且无候选时报告失败，
+保留当前选中。没有 UI 回调时多命中取首项。候选和查询状态只存在于本次交互，
+仍用 `FeatureReference` 保存最终选中项。图层变化、后续点击、工具切换或组件卸载
+会中断旧查询。视图变化中断进行中的查询。支持坐标浮层的 Adapter 可以在平移时
+保留已完成的候选，缩放、旋转或切换投影时关闭候选。
+
+`MapService.addPopupOverlay` 通过可选的 Adapter 能力挂载坐标浮层并返回清理函数。
+OpenLayers 使用原生 `Overlay` 跟踪位置，靠近边缘时调整弹框位置，地图范围外时隐藏。
+适配器负责浮层及监听器的释放。
+
 ``` ts
 export interface InteractionService {
   select(options?: SelectOptions): void
   clearSelection(): void
   getSelection(): FeatureReference | undefined
   onSelect(listener: (feature: FeatureReference | undefined) => void): Unsubscribe
+  pickFeatures(pick: MapFeaturePick): Promise<void>
+  registerFeaturePicker(listener: (pick: FeaturePickState | undefined) => void): Unsubscribe
+  cancelFeaturePick(options?: { readonly preserveAnchoredChoices?: boolean }): void
   registerTool(id: string, definition: ToolDefinition): void
   activateTool(id: string): Promise<void>
   deactivateTool(): Promise<void>
@@ -1663,13 +1687,20 @@ ui-vue 公开 FeatureDetails 和 PropertiesPanel，属性面板与 FeaturePopup 
 
 Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操作及 OL 工具按钮/结果操作跟随语言切换；PanelShell 可通过 labels 覆盖操作文案，独立使用默认英文。
 
-LegendDefinition.useLayerStyle 默认不启用；仅显式启用的单项 category 图例跟随统一图层样式。分类颜色不再自动被覆盖；continuous 按数值排序，色带按真实数值比例生成，interval 保持离散色块。图例交互过滤仍未实现。
+外观设置复用 `ui.theme.tokens` 的字符串映射。材质、主色和当前内置布局由 Vue UI 管理，交互更新通过现有 `vue-ui` 状态片段暴露。布局切换复用 Runtime 和地图实例。`title.subtitle` 是可选的配置字符串，由 Core 校验，Vue UI 在标题栏渲染。
+
+LegendDefinition.useLayerStyle 默认不启用。仅显式启用的单项 category 图例跟随统一图层样式。分类颜色保留自定义值。continuous 按真实数值比例生成色带，interval 保持离散色块。
+
+GeoJSON 图层公开分类规则筛选和当前规则 ID。渲染、拾取和本地搜索同时判断时间和分类条件。替换数据后清除已不存在的时间字段条件，编辑图例后清除已不存在的规则条件。结果编辑由 OL 工具提供。Modify 编辑选中的绘制或测量结果，Snap 吸附到其他结果，修改完成后校验并重算测量值。
+
+Vue UI 的 TimeFilterPicker 根据选定的 IANA 时区计算左闭右开的 Unix 毫秒区间。已提交的值通过 Vue UI 状态片段暴露。业务可订阅并使用公开的 Runtime 接口执行更新。
 
 ### 默认 GIS 能力收敛
 
 属性内容标题直接从只读图层快照解析；搜索结果不透明度、图层排序动画及 ScrollArea
-均由 Vue UI 管理。ScrollArea 复用浏览器 overflow，通过组件内部观察器同步自绘滑块，
-卸载释放观察器及拖拽资源，不向 Core 增加 DOM、滚动或动画状态。
+均由 Vue UI 管理。ScrollArea 复用浏览器 overflow，通过组件内部观察器同步透明轨道上的细滑块，
+图层与图例面板的悬停显隐也由 Vue UI 处理。卸载释放观察器及拖拽资源，不向 Core 增加
+DOM、滚动或动画状态。
 
 GROUP 显式 zIndex 将当前叶子按原有相对顺序布置到 [zIndex,zIndex+1)；未配置则保持
 子层自身 zIndex。UI 仅对最外层做整块拖拽，调用原有 setOrder 更新实际绘制顺序和 zIndex，
@@ -1719,3 +1750,33 @@ LayerInstance.getFieldValues(field) 通过可选 handle 能力按需读取当前
 返回冻结副本；不随地图视野、图层显隐或渲染过滤减少，不写入 AppState。数据更新后
 下次读取使用新数据。OL 在规则变化时建立多值查找表，绘制时按严格类型匹配。
 上述契约取代历史 options.style 与“分类渲染未实现”的描述。
+
+Docked workbench, sidebar collapse and toolbar overflow remain presentation responsibilities in ui-vue; no Runtime or adapter API changes.
+
+Action-row spacing, icon assets and measured More-button sizing are local ui-vue presentation changes; Runtime contracts remain unchanged.
+
+Sidebar motion remains in ui-vue: final map geometry is committed once; independently positioned sidebars animate with transform. No per-frame map resizing, temporary map target geometry or target reattachment is introduced; Core and adapter contracts remain unchanged.
+
+### 地图交互性能修订
+
+OL 默认交互显式设置 onFocusOnly=false，保留 tabindex 键盘可访问性，鼠标拖动与滚轮
+无需预先点击；interactions:false 语义不变。视图通知按动画帧合并，销毁/退订取消待发帧。
+直接 OL View 写入在下一帧进入快照，MapService 显式写入仍同步刷新。
+GeoJSON 时间维度和数据摘要按 Source change 失效缓存，覆盖要素属性/几何修改及数据替换。
+AppState 按分支比较 JSON 值，复用未变的深度冻结分支，保持历史快照与可变输入隔离。
+
+Left-sidebar position smoothing is a ui-vue compositor effect; no additional map target sizing or Runtime/adapter API is introduced.
+
+### Docked 面板显隐约定
+
+Docked 左侧图层/图例固定呈现，不提供整列收起；右侧属性默认显示，关闭保留选择，
+再次选中要素可打开，清空选择保持已打开面板为空状态。显隐统一由 Vue UI PanelService
+管理，布局仅消费 rightVisible，不增加 Core 侧栏状态。窄屏采用地图下方堆叠布局。
+
+图层/图例面板的数量徽标、名称搜索、刷新和卡片样式归 ui-vue。搜索不修改图层集合或顺序；
+刷新不请求数据源或重置 style/legend，数量派生自现有 Runtime 数据。分组隐藏继续沿用
+LayerService 的递归显隐能力。分组自身的 visible 由当前子图层派生，任意后代可见时显示为可见，
+切换单个子图层不会修改兄弟层。AppState 与 UI 读取同一可见值。
+
+图层 style 增加 fillOpacity、lineDash 和 lineCap。Core 校验数值范围和枚举，OpenLayers
+在基础样式和分类样式中应用填充 alpha 乘数、线型和端点。

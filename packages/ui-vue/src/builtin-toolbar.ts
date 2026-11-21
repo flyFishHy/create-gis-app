@@ -14,7 +14,7 @@ export function registerBuiltinToolbar(app: GISApp, toolbar: ToolbarService, vis
   const tools = [
     ['measure-area', 'area'], ['measure-angle', 'angle'], ['measure-distance', 'distance'],
     ['draw-point', 'pin'], ['draw-line', 'edit'], ['draw-polygon', 'polygon'],
-    ['delete-result', 'clear'], ['clear-results', 'layers'],
+    ['modify-result', 'edit'], ['delete-result', 'clear'], ['clear-results', 'layers'],
   ] as const
   tools.forEach(([id, icon], index) => {
     if (visible(id)) toolbar.register({ id, icon, toolId: id, title: `tool.${id}`, group: index < 6 ? 'draw' : 'edit', order: 10 + index,

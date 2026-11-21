@@ -1,8 +1,14 @@
 // Motion and high-contrast preferences.
 
 @media (prefers-reduced-motion: no-preference) {
+  .gis-ui-brand-subtitle::before { animation: gis-ui-subtitle-pulse 1.8s ease-out infinite; }
+  .gis-ui-appearance-trigger > .gis-ui-svg-icon { transition: transform .3s ease; }
+  .gis-ui-appearance-trigger[aria-expanded='true'] > .gis-ui-svg-icon { transform: rotate(90deg); }
+  .gis-ui-appearance:popover-open {
+    transform-origin: top right;
+    animation: gis-ui-appearance-open .22s cubic-bezier(.16, 1, .3, 1) both;
+  }
   .gis-ui-layer-sort-move { transition: transform .24s cubic-bezier(.22, 1, .36, 1); }
-  .gis-ui-layout--docked .gis-ui-workspace { transition: grid-template-columns .22s ease, grid-template-rows .22s ease; }
   .gis-ui-layout--docked .gis-ui-panel-enter-active,
   .gis-ui-layout--docked .gis-ui-panel-leave-active,
   .gis-ui-overlay--drawer .gis-ui-panel-enter-active,
@@ -14,16 +20,25 @@
   .gis-ui-overlay-controls { transition: grid-template-columns .24s cubic-bezier(.22, 1, .36, 1); }
   .gis-ui-overlay--right { transition: opacity .18s ease, transform .24s ease, visibility .18s; }
   .gis-ui-layout--overlay {
+    // Leave the query and layer containers unanimated so their glass surfaces can sample the map.
     > .gis-ui-title,
-    .gis-ui-overlay--top,
-    .gis-ui-overlay--left,
     .gis-ui-overlay--bottom {
       animation: gis-ui-fade-up .32s cubic-bezier(.22, 1, .36, 1) both;
     }
 
-    .gis-ui-overlay--left { animation-delay: .04s; }
     .gis-ui-overlay--bottom { animation-delay: .12s; }
   }
+}
+
+@keyframes gis-ui-subtitle-pulse {
+  from { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 48%, transparent); }
+  65% { opacity: .55; box-shadow: 0 0 0 5px transparent; }
+  to { opacity: 1; box-shadow: 0 0 0 5px transparent; }
+}
+
+@keyframes gis-ui-appearance-open {
+  from { opacity: 0; transform: scale(.95) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes gis-ui-fade-up {

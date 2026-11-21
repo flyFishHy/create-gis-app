@@ -16,6 +16,9 @@
         },
         "icon": {
           "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
         }
       },
       "required": [
@@ -121,6 +124,30 @@
             "en"
           ]
         },
+        "timePicker": {
+          "type": "object",
+          "properties": {
+            "granularities": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/timeGranularity" },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "defaultGranularity": { "$ref": "#/$defs/timeGranularity" },
+            "defaultMode": { "enum": ["single", "range", "custom-range"] },
+            "defaultTimeZone": { "type": "string", "minLength": 1 },
+            "showGranularitySwitch": { "type": "boolean" },
+            "showModeSwitch": { "type": "boolean" },
+            "showShortcuts": { "type": "boolean" },
+            "confirmable": { "type": "boolean" },
+            "clearable": { "type": "boolean" },
+            "disabled": { "type": "boolean" },
+            "minTime": { "$ref": "#/$defs/timeTimestamp" },
+            "maxTime": { "$ref": "#/$defs/timeTimestamp" },
+            "maxRangeDurationMs": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+          },
+          "additionalProperties": false
+        },
         "tools": {
           "type": "array",
           "items": {
@@ -134,6 +161,8 @@
     }
   },
   "$defs": {
+    "timeGranularity": { "enum": ["hour", "day", "week", "month", "year"] },
+    "timeTimestamp": { "type": "integer", "minimum": -8640000000000000, "maximum": 8640000000000000 },
     "jsonValue": {
       "oneOf": [
         {
@@ -571,6 +600,17 @@
         "strokeColor": {
           "type": "string",
           "minLength": 1
+        },
+        "fillOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lineDash": {
+          "enum": ["solid", "dashed", "dotted"]
+        },
+        "lineCap": {
+          "enum": ["round", "butt", "square"]
         },
         "strokeWidth": {
           "type": "number",

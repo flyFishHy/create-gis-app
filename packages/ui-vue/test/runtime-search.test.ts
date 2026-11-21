@@ -24,7 +24,7 @@ it('selects searchable layer titles, scopes queries and clears pending results w
     select.click(); await nextTick()
     expect([...target.querySelectorAll('[role="option"] > span:first-child')].map(option => option.textContent)).toEqual(['Layer A', 'Layer B'])
     select.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await nextTick()
-    const input = target.querySelector<HTMLInputElement>('input[type="search"]')!
+    const input = target.querySelector<HTMLInputElement>('.gis-ui-search-form input[type="search"]')!
     input.value = 'match'; input.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
     const form = target.querySelector('form')!
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await flushPromises()
@@ -59,7 +59,7 @@ it('observes provider registration and removal, cancels old UI queries and prese
   let oldResult!: (value: SearchResult[]) => void
   try {
     await app.init({}); await app.mount(target)
-    const input = target.querySelector<HTMLInputElement>('input[type="search"]')!
+    const input = target.querySelector<HTMLInputElement>('.gis-ui-search-form input[type="search"]')!
     const submit = target.querySelector<HTMLButtonElement>('button[type="submit"]')!
     input.value = 'first'; input.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
     expect(submit.disabled).toBe(true)
@@ -76,7 +76,7 @@ it('observes provider registration and removal, cancels old UI queries and prese
     await app.unmount(); await app.mount(target)
     expect(app.search.listProviders()).toHaveLength(1)
     remove(); await nextTick()
-    const remountedInput = target.querySelector<HTMLInputElement>('input[type="search"]')!
+    const remountedInput = target.querySelector<HTMLInputElement>('.gis-ui-search-form input[type="search"]')!
     remountedInput.value = 'again'; remountedInput.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
     expect(target.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true)
   } finally { await app.dispose(); target.remove() }

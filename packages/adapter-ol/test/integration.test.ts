@@ -2,15 +2,87 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Feature from 'ol/Feature.js'
 import LineString from 'ol/geom/LineString.js'
 import Draw from 'ol/interaction/Draw.js'
+import Modify from 'ol/interaction/Modify.js'
+import Snap from 'ol/interaction/Snap.js'
+import Point from 'ol/geom/Point.js'
 import View from 'ol/View.js'
 import VectorLayer from 'ol/layer/Vector.js'
 import VectorSource from 'ol/source/Vector.js'
+import TileLayer from 'ol/layer/Tile.js'
 import { createGISApp } from '@joinmap/gis-core'
-import { createOLAdapter, useOLMap, useOLTools } from '../src/index.js'
+import { createOLAdapter, createOLLayerHandle, useOLMap, useOLTools } from '../src/index.js'
 
 beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }))
 afterEach(() => vi.unstubAllGlobals())
 const collection = { type: 'FeatureCollection', features: [] }
+
+it('hosts a coordinate popup in an OL overlay and keeps it inside the viewport without panning', async () => {
+  const app = createGISApp().use(createOLAdapter({ tools: false }))
+  await app.init({ map: { center: [0, 0], zoom: 5 } })
+  try {
+    const map = useOLMap(app)
+    const container = map.getOverlayContainerStopEvent()!
+    const element = document.createElement('div')
+    Object.defineProperties(element, { offsetWidth: { value: 100 }, offsetHeight: { value: 60 } })
+    vi.spyOn(map, 'getSize').mockReturnValue([300, 200])
+    const pixel = vi.spyOn(map, 'getPixelFromCoordinate').mockReturnValue([290, 190])
+    const release = app.map.addPopupOverlay(element, { coordinate: [10, 15] })!
+    const overlay = map.getOverlays().item(0)!
+    expect(overlay.getPosition()).toEqual([10, 15])
+    expect(overlay.getOffset()).toEqual([-98, -70])
+    expect(container.contains(element)).toBe(true)
+    expect(map.getView().getCenter()).toEqual([0, 0])
+
+    pixel.mockReturnValue([20, 20])
+    map.dispatchEvent('postrender')
+    expect(overlay.getOffset()).toEqual([-12, 10])
+    pixel.mockReturnValue([-2, 20])
+    map.dispatchEvent('postrender')
+    expect(element.style.visibility).toBe('hidden')
+    release(); release()
+    expect(map.getOverlays().getLength()).toBe(0)
+    expect(container.contains(element)).toBe(false)
+  } finally { await app.dispose() }
+})
+
+it('collects map hits once and queries a custom tile layer in the same click', async () => {
+  const app = createGISApp()
+  const identify = vi.fn(async () => [{ id: 'height', properties: { height: 132 } }])
+  app.use(createOLAdapter({ tools: false }))
+  app.use({ name: 'identify-tile', install(runtime, _options, scope) {
+    runtime.registerLayerType('identify-tile', { create(context, config) {
+      const handle = createOLLayerHandle(context, new TileLayer(), config)
+      handle.identify = identify
+      return handle
+    } }, scope)
+  } })
+  await app.init({ map: { center: [0, 0], zoom: 5, projection: 'EPSG:3857' }, layers: [
+    { id: 'points', type: 'geojson', source: { type: 'inline', data: { ...collection, features: [
+      { type: 'Feature', id: 'station', geometry: { type: 'Point', coordinates: [0, 0] }, properties: { name: 'Station' } },
+    ] } } },
+    { id: 'terrain', type: 'identify-tile', zIndex: 1 },
+    { id: 'hidden', type: 'identify-tile', visible: false, zIndex: 2 },
+  ] })
+  try {
+    const map = useOLMap(app)
+    const layer = map.getLayers().item(0) as VectorLayer<VectorSource>
+    const feature = layer.getSource()!.getFeatures()[0]!
+    const geometry = feature.getGeometry() as Point
+    const hit = vi.spyOn(map, 'forEachFeatureAtPixel').mockImplementation((_pixel, callback) => {
+      callback(feature, layer, geometry)
+      callback(feature, layer, geometry)
+    })
+    const renderer = vi.fn()
+    app.interactions.registerFeaturePicker(renderer)
+    map.dispatchEvent({ type: 'singleclick', pixel: [12, 20], coordinate: [0, 0] } as never)
+    await vi.waitFor(() => expect(renderer).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'choices',
+      candidates: [expect.objectContaining({ layerId: 'terrain', id: 'height' }), expect.objectContaining({ layerId: 'points', id: 'station' })],
+    })))
+    expect(hit).toHaveBeenCalledOnce()
+    expect(identify).toHaveBeenCalledOnce()
+    expect(identify).toHaveBeenCalledWith(expect.objectContaining({ pixel: [12, 20], coordinate: [0, 0], projection: 'EPSG:3857' }))
+  } finally { await app.dispose() }
+})
 
 it('renders typed categories and half-open intervals from the same legend rules as the UI', async () => {
   const app = createGISApp()
@@ -26,10 +98,11 @@ it('renders typed categories and half-open intervals from the same legend rules 
   try {
     const layer = useOLMap(app).getLayers().item(0) as VectorLayer<VectorSource>
     const features = layer.getSource()!.getFeatures()
-    const color = (index: number) => {
+    const style = (index: number) => {
       const result = layer.getStyleFunction()!(features[index]!, 1)
-      return (Array.isArray(result) ? result[0]! : result as import('ol/style/Style.js').default).getStroke()!.getColor()
+      return Array.isArray(result) ? result[0]! : result as import('ol/style/Style.js').default
     }
+    const color = (index: number) => style(index).getStroke()!.getColor()
     expect(features.map((_, index) => color(index))).toEqual(['#ff0000', '#00ff00', '#888888', '#888888', '#888888'])
     await app.layers.update('rules', { legend: { type: 'category', field: 'value', items: [
       { id: 'number', values: [100, 200], label: 'Number', color: '#0000ff' }, { id: 'string', value: '100', label: 'String', color: '#ffff00' },
@@ -37,8 +110,11 @@ it('renders typed categories and half-open intervals from the same legend rules 
     expect(color(1)).toBe('#0000ff'); expect(color(2)).toBe('#0000ff'); expect(color(4)).toBe('#ffff00')
     expect(app.layers.get('rules')!.getFieldValues('value')).toEqual([0, 100, 200, '100'])
     expect(Object.isFrozen(app.layers.get('rules')!.getFieldValues('value'))).toBe(true)
-    await app.layers.update('rules', { style: { strokeColor: '#111111', strokeWidth: 5 } })
+    await app.layers.update('rules', { style: { fillColor: '#ff00ff', fillOpacity: 0.5, strokeColor: '#111111', strokeWidth: 5, lineDash: 'dashed', lineCap: 'butt' } })
     expect(color(0)).toBe('#111111'); expect(color(1)).toBe('#0000ff')
+    expect(style(1).getStroke()!.getLineDash()).toEqual([8, 5])
+    expect(style(1).getStroke()!.getLineCap()).toBe('butt')
+    expect(style(1).getFill()!.getColor()).toEqual([255, 0, 255, 0.5])
     const before = app.layers.get('rules')!.version
     await expect(app.layers.update('rules', { options: { opacity: 0.2 }, style: { strokeWidth: -1 } })).rejects.toThrow()
     expect(layer.getOpacity()).toBe(1); expect(app.layers.get('rules')!.version).toBe(before)
@@ -150,6 +226,66 @@ it('derives date/time dimensions from GeoJSON properties and filters rendered an
     expect(instance.getMetadata().time).toMatchObject({ filter: { field: 'observed_at', start: current, end: current } })
     instance.setTimeFilter(undefined)
     expect(await app.search.search({ keyword: 'event', layerId: 'events' })).toHaveLength(2)
+    instance.setTimeFilter({ field: 'observed_at', start: current, end: current })
+    const errors = vi.fn()
+    app.events.on('app:error', errors)
+    app.data.get('layer:events')!.update({ ...data, features: data.features.map(feature => ({ ...feature, properties: { name: feature.properties.name } })) })
+    expect(instance.getTimeFilter()).toBeUndefined()
+    expect(app.context.state.snapshot().layers[0]?.metadata.time).toMatchObject({ dimensions: [], filter: null })
+    expect(await app.search.search({ keyword: 'event', layerId: 'events' })).toHaveLength(2)
+    expect(errors).not.toHaveBeenCalled()
+  } finally { await app.dispose() }
+})
+
+it('composes legend rules with time filtering and removes a stale rule on legend replacement', async () => {
+  const app = createGISApp().use(createOLAdapter({ tools: false, controls: false, interactions: false }))
+  const data = { type: 'FeatureCollection', features: [1, 2, 3].map(value => ({ type: 'Feature', id: value,
+    properties: { name: `Site ${value}`, population: value, observed_at: `2024-01-0${value}` },
+    geometry: { type: 'Point', coordinates: [value, value] },
+  })) }
+  await app.init({ layers: [{ id: 'sites', type: 'geojson', source: { type: 'inline', data },
+    legend: { type: 'interval', field: 'population', ranges: [{ id: 'low', min: 0, max: 2, color: '#111111' }, { id: 'high', min: 2, max: 3, includeMax: true, color: '#333333' }] },
+  }] })
+  try {
+    const layer = app.layers.get('sites')!
+    expect(layer.supportsLegendFilter()).toBe(true)
+    layer.setLegendFilter('high')
+    const vector = useOLMap(app).getLayers().item(0) as VectorLayer<VectorSource>
+    const [low, high] = vector.getSource()!.getFeatures()
+    expect(vector.getStyleFunction()!(low!, 1)).toBeUndefined()
+    expect(vector.getStyleFunction()!(high!, 1)).toBeDefined()
+    expect(await app.search.search({ keyword: 'site' })).toHaveLength(2)
+    const time = layer.getTimeDimensions()[0]!.values[1]!
+    layer.setTimeFilter({ field: 'observed_at', start: time, end: time })
+    expect(await app.search.search({ keyword: 'site' })).toMatchObject([{ title: 'Site 2' }])
+    await app.layers.update('sites', { legend: null })
+    expect(layer.getLegendFilter()).toBeUndefined()
+    expect(layer.supportsLegendFilter()).toBe(false)
+  } finally { await app.dispose() }
+})
+
+it('edits only the selected result, keeps snapping active and commits the new geometry', async () => {
+  const app = createGISApp().use(createOLAdapter())
+  await app.init({})
+  try {
+    const tools = useOLTools(app), map = useOLMap(app)
+    tools.importResults(['one', 'two'].map((id, index) => ({ id, toolId: 'draw-point', projection: 'EPSG:3857',
+      geometry: { type: 'Point', coordinates: [index, index] },
+    })))
+    tools.select('one')
+    await app.interactions.activateTool('modify-result')
+    const interactions = map.getInteractions().getArray()
+    const modify = interactions.find(interaction => interaction instanceof Modify)!
+    expect(interactions.at(-1)).toBeInstanceOf(Snap)
+    const source = (map.getLayers().getArray().at(-1) as VectorLayer<VectorSource>).getSource()!
+    const one = source.getFeatureById('one')!
+    modify.dispatchEvent('modifystart')
+    ;(one.getGeometry() as Point).setCoordinates([3, 4])
+    modify.dispatchEvent('modifyend')
+    expect(tools.get('one')?.geometry.coordinates).toEqual([3, 4])
+    expect(tools.get('two')?.geometry.coordinates).toEqual([1, 1])
+    await app.interactions.deactivateTool()
+    expect(interactions.some(interaction => interaction instanceof Snap || interaction instanceof Modify)).toBe(false)
   } finally { await app.dispose() }
 })
 
@@ -208,9 +344,11 @@ it('refreshes GeoJSON data, bridges picks, invalidates hidden selections, and di
     map.getView().setCenter([100, 200])
     map.getView().setZoom(5)
     map.getView().setRotation(0.5)
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
     expect(app.context.state.snapshot().map).toMatchObject({ ready: true, projection: 'EPSG:3857', center: [100, 200], zoom: 5, rotation: 0.5 })
     expect(app.context.state.snapshot().revision).toBeGreaterThan(original.revision)
     map.setView(new View({ projection: 'EPSG:4326', center: [10, 20], zoom: 4 }))
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
     expect(app.context.state.snapshot().map).toMatchObject({ projection: 'EPSG:4326', center: [10, 20], zoom: 4 })
     const layer = map.getLayers().item(0) as VectorLayer<VectorSource>
     app.data.get('layer:vector')!.update({ type: 'FeatureCollection', features: [{ type: 'Feature', id: 'one', geometry: { type: 'Point', coordinates: [0, 0] }, properties: { title: 'One' } }] })

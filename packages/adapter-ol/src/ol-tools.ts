@@ -1,4 +1,7 @@
 import Draw from 'ol/interaction/Draw.js'
+import Modify from 'ol/interaction/Modify.js'
+import Snap from 'ol/interaction/Snap.js'
+import Collection from 'ol/Collection.js'
 import VectorLayer from 'ol/layer/Vector.js'
 import VectorSource from 'ol/source/Vector.js'
 import GeoJSON from 'ol/format/GeoJSON.js'
@@ -61,6 +64,9 @@ export function installOLTools(app: GISApp, resources: ResourceScope): void {
     const layer = new VectorLayer({ source, zIndex: 10000 })
     let map: OlMap | undefined
     let draw: Draw | undefined
+    let modify: Modify | undefined
+    let snap: Snap | undefined
+    let editingId: string | undefined
     let sequence = 0
     let results: OLToolResult[] = []
     let selectedId: string | undefined
@@ -98,7 +104,12 @@ export function installOLTools(app: GISApp, resources: ResourceScope): void {
       return { value, unit }
     }
     const ensureLayer = () => { map = useOLMap(app); if (!map.getLayers().getArray().includes(layer)) map.addLayer(layer) }
-    const stop = () => { if (draw) map?.removeInteraction(draw); draw = undefined }
+    const stop = () => {
+      if (snap) map?.removeInteraction(snap)
+      if (modify) map?.removeInteraction(modify)
+      if (draw) map?.removeInteraction(draw)
+      snap = undefined; modify = undefined; draw = undefined; editingId = undefined
+    }
     const reference = (id: string) => {
       const result = results.find(item => item.id === id)
       return result ? { source: 'ol-tools', layerId: 'ol-tools', id,
@@ -116,6 +127,7 @@ export function installOLTools(app: GISApp, resources: ResourceScope): void {
       notify()
     }))
     const clearResults = () => {
+      if (editingId) stop()
       source.clear(); results = []
       if (app.interactions.getSelection()?.source === 'ol-tools') app.interactions.clearSelection()
       selectedId = undefined; notify()
@@ -134,6 +146,7 @@ export function installOLTools(app: GISApp, resources: ResourceScope): void {
         assertActive()
         const feature = source.getFeatureById(id)
         if (!feature) throw new Error(`Result "${id}" not found.`)
+        if (editingId === id) stop()
         source.removeFeature(feature); results = results.filter(result => result.id !== id)
         if (selectedId === id) app.interactions.clearSelection()
         notify()
@@ -201,7 +214,36 @@ export function installOLTools(app: GISApp, resources: ResourceScope): void {
           notify()
         })
         map!.addInteraction(draw)
+        snap = new Snap({ source })
+        map!.addInteraction(snap)
       }, deactivate: stop,
+    }, resources)
+    app.registerTool('modify-result', {
+      id: 'modify-result', canActivate: () => !!selectedId,
+      activate() {
+        const feature = selectedId && source.getFeatureById(selectedId)
+        if (!(feature instanceof Feature)) return
+        ensureLayer()
+        const id = String(feature.getId())
+        editingId = id
+        modify = new Modify({ features: new Collection([feature]) })
+        let previous: Geometry | undefined
+        modify.on('modifystart', () => { previous = feature.getGeometry()?.clone() })
+        modify.on('modifyend', () => {
+          const geometry = feature.getGeometry()
+          if (!geometry) return
+          try {
+            controller.updateGeometry(id, format.writeGeometryObject(geometry) as unknown as Record<string, unknown>)
+          } catch (cause) {
+            feature.setGeometry(previous)
+            app.events.emit('app:error', { error: new GISRuntimeError({ code: 'CONFIG_INVALID', message: 'Invalid edited geometry.', cause }) })
+          }
+        })
+        map!.addInteraction(modify)
+        snap = new Snap({ features: new Collection(source.getFeatures().filter(item => item !== feature)) })
+        map!.addInteraction(snap)
+      },
+      deactivate: stop,
     }, resources)
     app.registerTool('delete-result', { id: 'delete-result', mode: 'action',
       canActivate: () => !!selectedId, activate: () => { if (selectedId) controller.remove(selectedId) },

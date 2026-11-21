@@ -5,6 +5,7 @@ import { createGISApp } from '@joinmap/gis-core'
 import { createOLAdapter, useOLMap } from '../../adapter-ol/src/index.js'
 import { createVueUI } from '../../ui-vue/src/vue-ui.js'
 import VectorLayer from 'ol/layer/Vector.js'
+import CircleStyle from 'ol/style/Circle.js'
 import Style from 'ol/style/Style.js'
 
 beforeEach(() => vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }))
@@ -80,18 +81,29 @@ it('applies map styles and legend text together, cancels drafts and detects conf
   try {
     const manager = target.querySelector('.gis-ui-panel-host--legend')!
     expect(target.querySelector('.gis-ui-layer-manager .gis-ui-layer-edit')).toBeNull()
+    expect(manager.querySelector('.gis-ui-legend-metric')).toBeNull()
+    expect(manager.querySelector('.gis-ui-legend-default-display')).toBeNull()
     await click(manager, '.gis-ui-legend-edit')
     const color = manager.querySelector<HTMLInputElement>('input[type="color"]')!
     color.value = '#ff0000'; color.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
     expect(manager.querySelector('input[name="legendTitle"]')).toBeNull()
     expect(manager.querySelector('.gis-ui-legend-card-header h3')?.textContent).toBe('Layer A')
     await fill(manager, 'itemLabel-0', 'Edited item')
+    await click(manager, '.gis-ui-legend-more')
+    const dialog = manager.querySelector('dialog[open]')!
+    expect(dialog.textContent).toContain('点半径')
+    const radius = dialog.querySelectorAll<HTMLInputElement>('input[type="number"]')[1]!
+    radius.value = '9'; radius.dispatchEvent(new Event('input', { bubbles: true })); await nextTick()
+    await apply(dialog)
+    expect(manager.querySelector('dialog')).toBeNull()
+    expect(app.layers.get('a')!.style?.pointRadius).toBe(6)
     await apply(manager)
     expect(manager.querySelector('.gis-ui-layer-editor')).toBeNull()
-    expect(app.layers.get('a')!.style).toEqual({ fillColor: '#ff0000', strokeColor: '#3399cc', strokeWidth: 2, pointRadius: 6 })
+    expect(app.layers.get('a')!.style).toEqual({ fillColor: '#ff0000', strokeColor: '#3399cc', strokeWidth: 2, pointRadius: 9 })
     const olLayer = useOLMap(app).getLayers().getArray().find(layer => layer.get('gisLayerId') === 'a') as VectorLayer
     expect((olLayer.getStyle() as Style).getFill()!.getColor()).toBe('#ff0000')
     expect((olLayer.getStyle() as Style).getStroke()!.getWidth()).toBe(2)
+    expect(((olLayer.getStyle() as Style).getImage() as CircleStyle).getRadius()).toBe(9)
     expect(app.layers.get('a')!.legend).toMatchObject({ items: [{ label: 'Edited item', color: '#ff0000' }] })
     expect(app.layers.get('a')!.legend?.title).toBeUndefined()
     const legendPanel = target.querySelector('.gis-ui-panel-host--legend')!

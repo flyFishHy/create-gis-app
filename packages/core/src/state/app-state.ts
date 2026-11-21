@@ -11,6 +11,7 @@ export class AppStateImpl {
   private read?: () => Pick<AppStateSnapshot, 'map' | 'layers' | 'data'>
   private cached?: DeepReadonly<AppStateSnapshot>
   private signature = ''
+  private readonly branches = new Map<string, { signature: string; value: JsonValue }>()
   private revision = -1
   private depth = 0
   private notifying = false
@@ -61,8 +62,22 @@ export class AppStateImpl {
     for (const [name, slice] of this.slices) {
       try { extensions[name] = stateValue(slice.snapshot()) } catch (cause) { this.report(cause) }
     }
-    const value = stateValue({ status: this.statusValue, ...base, interactions: this.interactionValue, extensions })
-    const signature = JSON.stringify(value)
+    // Compare each branch by value, retaining immutable references for unchanged
+    // domains. Never trust identity of mutable adapter/plugin inputs.
+    const value: Record<string, JsonValue> = { status: this.statusValue }
+    const signatures: string[] = [this.statusValue]
+    for (const [key, input] of Object.entries({ ...base, interactions: this.interactionValue, extensions })) {
+      const json = stateValue(input)
+      const signature = JSON.stringify(json)
+      let branch = this.branches.get(key)
+      if (!branch || branch.signature !== signature) {
+        branch = { signature, value: freeze(json) }
+        this.branches.set(key, branch)
+      }
+      value[key] = branch.value
+      signatures.push(signature)
+    }
+    const signature = JSON.stringify(signatures)
     if (signature !== this.signature) {
       this.signature = signature
       this.cached = freeze({ ...(value as object), revision: ++this.revision }) as unknown as DeepReadonly<AppStateSnapshot>
@@ -78,6 +93,6 @@ export class AppStateImpl {
       }
     } finally { this.notifying = false }
   }
-  close(): void { this.closed = true; this.listeners.clear(); this.slices.clear() }
+  close(): void { this.closed = true; this.listeners.clear(); this.slices.clear(); this.branches.clear() }
   private report(cause: unknown): void { this.events.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', stage: 'state-observer', message: 'State observer failed.', cause }) }) }
 }

@@ -1,4 +1,5 @@
 export { createVueUI } from './vue-ui.js'
+export { captureWorkspaceConfig, loadWorkspaceConfig } from './workspace-config.js'
 export type { BuiltinLayoutName, VueUIOptions } from './types.js'
 export { GISAppKey } from './injection.js'
 export { useGISApp } from './use-gis-app.js'
@@ -32,7 +33,11 @@ export { default as FeatureDetails } from './components/FeatureDetails.vue'
 export { default as PropertiesPanel } from './panels/PropertiesPanel.vue'
 export { default as KpiPanel } from './panels/KpiPanel.vue'
 export { default as TimeController } from './panels/TimeController.vue'
-export { default as LayerTimePanel } from './panels/LayerTimePanel.vue'
+export { default as TimeFilterPicker, default as TimePicker } from './components/time-picker/TimeFilterPicker.vue'
+export type { TimeFilterPickerProps, TimeFilterPickerEmits, TimeGranularity, TimeSelectionMode, TimeSelection, TimeRange } from './components/time-picker/types.js'
+export { startOfPeriod, addPeriod, normalizeTimeSelection } from './components/time-picker/time-period.js'
+export { formatTimeSelection, resolveShortcut } from './components/time-picker/time-display.js'
+export type { TimeShortcut } from './components/time-picker/time-display.js'
 export type {
   UIConfig,
   FeatureRendererDefinition,

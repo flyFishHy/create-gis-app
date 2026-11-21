@@ -12,14 +12,14 @@
   display: grid;
   overflow: hidden;
   color: var(--gis-ui-text);
-  background:
+  background: var(--gis-ui-workspace-background,
     radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--gis-ui-primary) 12%, transparent), transparent 32rem),
     radial-gradient(circle at 92% 100%, color-mix(in srgb, var(--gis-ui-accent-secondary) 9%, transparent), transparent 28rem),
-    var(--gis-ui-background);
+    var(--gis-ui-background));
   font-family: var(--gis-ui-font-family);
   font-size: var(--gis-ui-font-size);
   line-height: 1.45;
-  letter-spacing: -0.005em;
+  letter-spacing: normal;
 
   &,
   & *,
@@ -40,14 +40,14 @@
 .gis-ui-empty {
   margin: 2px 0;
   color: var(--gis-ui-text-muted);
-  font-size: 12px;
+  font-size: var(--gis-ui-font-sm);
   line-height: 1.5;
 }
 
 .gis-ui-error {
   margin: 7px 0 0;
   color: var(--gis-ui-danger);
-  font-size: 12px;
+  font-size: var(--gis-ui-font-sm);
 }
 
 .gis-ui-svg-icon {
@@ -82,7 +82,7 @@
   background: #182230;
   box-shadow: 0 4px 12px #10182826;
   color: #f9fafb;
-  font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+  font: var(--gis-ui-font-sm, .8125rem)/1.4 var(--gis-ui-font-family, system-ui, sans-serif);
   text-align: left;
   overflow-wrap: anywhere;
   pointer-events: none;

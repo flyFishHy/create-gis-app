@@ -51,18 +51,29 @@ Custom layouts are registered as `layouts: { custom: CustomLayout }` and selecte
 by name through UIConfig.layout; Vue components never enter JSON.
 
 Built-in panels are registered automatically. Search, layer time controller, Layers,
-Legend, toolbar and status are visible by default; popup starts hidden. Properties
+Legend, toolbar and status are visible by default. Properties
 is initially visible in Docked and hidden in Overlay. Properties opens on selection;
 deselection keeps the Docked panel visible with its empty state and hides Overlay.
-Closing preserves selection. Docked close/open fades and slides the panel while
-the sidebar grid resizes, respecting reduced-motion preferences.
+Closing preserves selection. Docked keeps its left rail fixed and always presented;
+Properties has a close button and its visibility alone controls the right grid track.
 Explicit properties.visible=false disables automatic opening, while visible=true
 displays it initially. A subsequent selection can reopen a manually closed panel. Use
 `ui.panels: [{ id: 'time', visible: false }]` to disable the time controller.
 The toolbar definition renders in a dedicated layout slot, while its visibility
-uses the same PanelRegistry state. Toolbar/time support top; popup supports floating; status supports bottom.
+uses the same PanelRegistry state. Toolbar and time support top. Status supports bottom.
 Unsupported positions for those controls warn and fall back; unknown panel IDs
 warn after extensions install.
+
+The built-in `FeaturePicker.vue` lives in the map slot in both dashboard layouts.
+A single hit opens Properties through the existing selection policy. Multiple hits
+open a picker beside the click with a feature name and layer title for each option.
+With OpenLayers, the picker uses a native coordinate-anchored overlay. It follows
+panning and is adjusted at the viewport edges without moving the map. A zoom or
+rotation closes the picker. Other adapters can use the click pixel.
+Choosing an option opens its Properties. Closing the picker or pressing Escape
+preserves the existing selection. The previous built-in `ui.panels` entry with
+ID `popup` is ignored. The exported `FeaturePopup` component remains available
+for custom UIs that display committed selection in a floating details view.
 
 ## Embed in an existing Vue application
 
@@ -92,14 +103,17 @@ through props/slots/events.
 the shared style sheet and theme tokens: `<ScrollArea label="Details" style="max-height: 240px">…</ScrollArea>`.
 It forwards ordinary class/style attributes, preserves slots, and is keyboard
 focusable. PanelShell, search suggestions and layer options all use this component.
-The viewport hides the native bar; custom vertical/horizontal controls appear only
-for overflow and fade in on hover/focus/drag. Thumb size/position reflect native
+The viewport hides the native bar. For each overflowing axis it displays a thumb
+on a transparent track. Thumb size and position reflect native
 scroll dimensions; dragging, track clicks and Arrow/Page/Home/End keys update the
 native viewport. Wheel/touch/native programmatic scrolling remain unchanged.
-ResizeObserver and a frame-coalesced content observer refresh geometry after layout
-or content changes; unmount disconnects observers, cancels frames and ends drags.
+The Layers and Legend panels use 3px thumbs. On devices with hover, each panel
+reveals its scrollbar on hover. Dragging or keyboard focus keeps the thumb visible.
+ResizeObserver and a content observer refresh geometry after layout or content changes.
+Content mutations refresh immediately before paint and schedule one frame verification.
+Unmount disconnects observers, cancels frames and ends drags.
 Expose viewport/refresh for programmatic access. The controls overlay content, so
-they do not change layout width. Touch keeps visible controls; forced colors uses
+they do not change layout width. Forced colors uses
 the accessible native scrollbar. No scrolling state is added to Runtime.
 
 `Legend` is a pure presentation component:
@@ -142,9 +156,9 @@ Escape, outside pointer input, blur or result selection dismisses dropdown resul
 Caller AbortSignals isolate queries; stale UI responses cannot replace newer ones.
 Result selection calls app.map.locate. An explicit result projection is transformed
 by the map adapter; omission means current map projection, not implicit WGS84.
-Result suggestions and Select menus share an 88% elevated-theme glass surface with
-28px backdrop blur, highlight and border. This keeps glass translucency while
-blurring underlying text. Unsupported backdrop-filter falls back to opaque.
+Result suggestions and Select menus follow the dashboard panel material. They
+use the elevated surface with at least 80% opacity for legibility. Browsers
+without backdrop filtering use an opaque surface.
 Dropdown feedback owns the scroll; its list does not create a nested scrollbar.
 
 Configure `layers[].legend`; change it through `layers.update(id, { legend })`
@@ -154,15 +168,13 @@ colors are otherwise preserved. LegendPanel never reads OL style metadata.
 
 ## Layout and state
 
-Docked: left Layers/Legend sidebar, three independent Search/time/toolbar surfaces
+Docked: 320px left Layers/Legend sidebar, three independent Search/time/toolbar surfaces
 above the map (Search and time left aligned, toolbar right aligned; narrow rows wrap),
-map and compact status, right properties region. Overlay: Search/time upper-left,
-with the same left edge as the toolbar (no toolbar-width indentation),
-vertical toolbar centered on the left (tooltips open right), Layers upper-right,
-Legend lower-right, status bottom-center. Properties has a separate right drawer;
-opening it shifts the Layers/Legend rail left with a grid transition, preserving
-the Legend bottom anchor and mounted panel state. The rail and drawer widths are
-resolved independently. Explicit panel positions still override these defaults.
+map and compact status, right properties region. Overlay keeps 300px Layers upper-left
+and Legend lower-left; Search/time start immediately to their right, while the vertical
+toolbar is centered at the right edge of the remaining map workspace. Status remains
+bottom-center. Properties has a separate right drawer. The left rail and drawer widths
+are resolved independently. Explicit panel positions still override these defaults.
 At 1100px and below status has its own row. At 900px and below Properties stays
 on the right and temporarily hides the rail because both columns cannot fit;
 closing it restores the same rail, without changing panel visibility state.
@@ -184,9 +196,10 @@ coordinate/scale props still override its values. Hiding status or unmounting re
 the pointer subscription; high-frequency pointer data never enters AppState.
 Longitude/latitude share one cell. The order is level, scale, projection, coordinates.
 Docked is a compact row with left-aligned coordinates; Overlay uses four fixed
-columns (72/116/104/156px) with icon/text titles above values, subtle dividers and
-tabular numbers. The bar is capped at 500px and uses two equal columns when its
-content width is at most 460px. Coordinates are one text
+columns (76/128/116/184px) with icon/text titles above values, subtle dividers and
+tabular monospace numbers. The bar is capped at 560px. When its content width is at most
+520px, level, scale and projection share the first row; coordinates span the second row.
+Coordinates are one text
 value (`139.12550,26.25500`, five decimals, no degree signs or separator element).
 Initially they display `--`; leaving the map preserves the last finite position,
 including across status-panel remounts. The per-app UI cache uses weak references;
@@ -194,20 +207,78 @@ it adds no AppState slice or background subscriptions while the panel is hidden.
 Coordinates/level/scale/projection use location/scan/scale/global SVG titles with
 accessible names/tooltips. Both layouts display icons and text. All columns have bounded
 overflow so pointer movement cannot resize the bar. Toolbar and panels share the
-same Overlay glass mixin; later background shorthands must not override it.
-The header offers Light/Dark only; theme.mode=system remains supported in config.
-The built-in LayerTimePanel reads optional date/time dimensions from public layer
-capabilities. It selects the latest value initially, lets users choose among
-layer/field dimensions, move along discrete values, and applies an exact-time layer
-filter or restore all times. With no capable layer it shows a disabled empty state. The independent
-TimeController remains usable with numeric min/max props or a discrete `values`
-array; it has no OpenLayers dependency.
+same outer panel material alongside the Header and Settings popover.
+The mixin emits the prefixed property first and standard backdrop-filter last,
+preserving both through the production optimizer. Overlay Header/Search/time/tools/
+panels default to a 16px blur and 72% surface opacity. Frosted and solid panels
+share the reference border and shadow. Liquid panels use separate light and dark
+gradients, borders and shadows. Dropdowns use a more opaque surface for readability.
+Docked applies the same panel finishes to its continuous outer regions. Toolbar paint belongs to the outer
+scroll container; property-panel ancestors allow shadows to overflow while PanelShell
+clips content to its rounded border. Control surfaces share a 2.75rem
+minimum height. Typography uses the local .875rem base and derived size variables,
+with system CJK fallbacks and standard 400/500/600/700 weights, without changing html.
+The header settings icon opens a non-modal popover below the header. Appearance
+contains theme mode, panel material, theme color and built-in layout selection.
+Display language has its own group. Changes apply immediately. Built-in layout
+switching keeps the header, open popover, query controls, and left panels mounted.
+It reattaches the existing map and retains the Runtime view, selection, time
+filter, and legend drafts and reset baseline. `ui.layout`
+sets the initial layout, and `extensions['vue-ui'].layout` reports the current one.
+Custom layouts keep the component registered in code.
+
+Selected switch labels use white. Both theme mode labels use white in dark mode.
+`theme.mode=system` remains supported in config. Theme color controls `colorPrimary`
+and its derived accents. Overlay defaults to frosted glass. Docked defaults to
+solid surfaces and applies glass to its outer regions when selected. A non-empty
+`title.subtitle` displays beside `title.content` as a badge with a pulsing dot on
+wider viewports. The dot stays still when reduced motion is requested.
+The built-in `time` panel uses `TimeFilterPicker`. It accepts any calendar hour,
+day, ISO week, month or year, including on workspaces with no map layers.
+The expanded panel follows the dashboard's frosted, liquid, or solid surface.
+`ui.timePicker` configures its available granularities, default mode and time zone,
+time limits, and visible controls. Hide it with `ui.panels: [{ id: 'time', visible: false }]`.
+Subscribe to Runtime state and read `extensions['vue-ui'].timeSelection` for the
+panel's confirmed selection. Standalone usage receives the same value through
+`v-model` and `@apply`. The time selection is independent of map and layer state.
+The separately exported `TimeController` accepts numeric or discrete values.
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { TimePicker, type TimeSelection } from '@joinmap/ui-vue'
+import '@joinmap/ui-vue/style.css'
+
+const range = ref<TimeSelection | null>(null)
+</script>
+
+<template>
+  <TimePicker v-model="range" default-mode="range" default-granularity="hour"
+    default-time-zone="Asia/Shanghai" />
+</template>
+```
+
+`TimePicker` and `TimeFilterPicker` are aliases. Modes are `single`, `range`,
+and `custom-range`. The value includes the mode, granularity, IANA zone and
+`range: { start, endExclusive }` in Unix milliseconds. The period range includes
+the whole last selected unit. An exact range uses the literal end instant.
+See [the time picker design and public API](timepicker.md).
+
+Set `createVueUI({ workspaceStorageKey })` and pass
+`loadWorkspaceConfig(workspaceStorageKey, defaults)` to `app.init()` to enable
+browser-local saving. Settings adds JSON export and import. Import validates the
+configuration and reloads the workspace. `captureWorkspaceConfig(app)` captures
+theme, language, layout and the current title, visibility, opacity, order, legend
+and style of layers declared in the initial configuration. The restored
+configuration becomes the baseline for the new session.
 
 Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It uses
 InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
 Missing capabilities hide buttons; unavailable actions are disabled. UIConfig.tools
 optionally lists visible built-in IDs (including zoom-in/zoom-out); [] hides all
-built-ins. Custom toolbarItems are separate. Escape cancels and Backspace undoes
+built-ins. Activating a known drawing or measurement tool shows a non-interactive map
+hint with the click/double-click workflow and Esc shortcut; the hint follows public
+AppState and disappears when the tool deactivates. Custom toolbarItems are separate. Escape cancels and Backspace undoes
 inside the workspace; text inputs/contenteditable and modified keys are ignored.
 Status uses the dedicated id=status panel slot and respects visible=false.
 No createOLToolsUI/createPropertiesUI/OLMapStatus is needed for basic applications.
@@ -217,13 +288,21 @@ Tooltip has no header; hover delay is 180ms, focus opens immediately. right/left
 bottom placement flips at viewport edges, and Escape/click/blur/resize/scroll closes
 it. Timers/listeners are cleaned up at unmount.
 
-LayerManager renders expandable cards with visibility and a send-icon location
-button. Status, removal and ID/type are not shown. Settings contain an opacity
+LayerManager renders expandable cards ordered as visibility, title, drag handle,
+crosshair location and expand button. The header shows visible root layers / total
+root layers and a refresh action. Case-insensitive name filtering includes child
+layers and retains their ancestors; a matching parent retains its subtree. Search
+expands matching roots without changing saved expansion state or Runtime order.
+Refresh clears the filter and re-reads current Runtime data, preserving visibility,
+styles and order. Toggling a group applies visibility to all descendants. Child
+toggles remain available when a group is hidden. A group is visible whenever any
+descendant is visible. Settings contain an opacity
 slider only; style/legend editing belongs to LegendPanel. 0–100% maps to LayerService.update
 options.opacity 0–1 (100% is opaque).
 Rapid input coalesces pending slider values; committed values are read from layer
-metadata. A group slider applies a uniform value to leaf children and shows Mixed
-when children differ; unsupported layers disable the slider. Existing groups keep
+metadata. A group slider applies a uniform value to leaf children. The unframed
+readout shows a percentage for a common value and a dash when children differ.
+Unsupported layers disable the slider. Existing groups keep
 children inside their parent's gis-ui-layer-settings when expanded. Child rows
 show only visibility and name, with no settings/opacity/location/drag controls.
 Nested groups follow the same visibility-only presentation. The parent's opacity
@@ -254,36 +333,43 @@ LayerManager has no legend/style editor entry. LayerEditor wraps the independent
 LegendEditor, submitting complete base style and legend together in one
 version-checked update. Cancelling changes no Runtime state. Titles and legend
 type are fixed in this editor. Category/interval colors drive map classification;
-fieldless single-category swatches edit the uniform base color. Detailed symbol
-sizes and remote/image-style editing are not exposed by this compact form.
+fieldless single-category swatches edit the uniform base color. More opens a
+layer style dialog for vector symbols. Applying the dialog updates the draft.
 External updates require reload, deletion or ID replacement blocks submission,
 and failures preserve the draft. The separate properties panel still shows features.
-Runtime edits do not automatically save appConfig.json. Feature filtering and
-remote-style editing remain separate capabilities.
+With local workspace storage enabled, committed edits are included in the saved
+workspace configuration. A click on a supported classification rule filters the
+layer to that rule. Clicking it again shows all classes. The rule combines with
+the time filter and applies to the map and local search.
 
 ## Inline legend cards
 
 LegendPanel renders one card per visible layer legend. The header uses the layer
-title in both modes, fixed type SVG with localized Tooltip, and SVG actions.
-A compact Metric row below displays legend.field as text; editing replaces only
-that value with a field selector. Fieldless legends display Uniform style.
-Geometry-appropriate swatches (line, fill, point) and default colors remain.
+title in both modes. Viewing headers offer only Edit and Reset actions; the panel
+header shows the visible legend count and Refresh. Refresh re-reads current Runtime
+data while preserving unsaved edits and styles. The field row has no Metric label:
+it displays legend.field as text and the localized type as plain text on the right;
+editing replaces the field value with a selector. A fieldless category shows its
+swatch directly. Only field-based classification shows an unmatched-values swatch.
 Edit switches that card in place; other cards remain visible.
 The form edits metric, grouped category values/labels or explicit interval boundaries.
 Colors use native color pickers; rows can be added/deleted. Save validates and submits
-top-level style and legend together; reset restores the current edit baseline; close
-cancels. In viewing mode reset restores the card's first loaded definition and close
-hides it locally; Show closed legends restores these cards without changing layers.
+top-level style and legend together. Close cancels the draft. Viewing mode offers
+Reset to restore the card's first loaded definition.
 
 LegendEditor accepts optional fields/symbol/getFieldValues props. The latter is a
 lazy synchronous callback, provided by LayerEditor from the public layer capability;
 standalone users can supply their own candidates. Bound categories expose typed
 matching values; intervals sort ascending on save and reject invalid/overlapping
-ranges. Default color edits the base layer style. A fieldless single category edits
-the uniform style; multiple categories require a field. No unused More control or
-advanced symbol dialog is displayed.
-External updates require reload; deletion or same-ID replacement cannot receive an
-old draft. Independent Legend adds styles/symbols/typeLabels/defaultText/fieldLabel/
+ranges. The unmatched-values color edits the base layer style. Selecting no
+classification on a field-based category saves a single uniform swatch. The More
+dialog offers fill opacity and outline styling for areas, width/dash/cap for lines,
+and radius plus outline styling for points.
+Visible layers with scalar fields can create a legend from their card. Auto
+generation populates the draft with up to 12 distinct categories or up to five
+equal-width numeric intervals. Save commits the generated rules. External updates
+require reload; deletion or same-ID replacement cannot receive an old draft.
+Independent Legend adds styles/symbols/typeLabels/defaultText/fieldLabel/
 uniformText props;
 it renders ranges directly using their actual boundary notation.
 
@@ -296,3 +382,20 @@ covers all supplied candidates. LegendEditor disables values assigned to other
 groups. Menus escape scroll clipping, inherit theme variables, open upward when
 needed, and remove global listeners on close/unmount. GisSelect's opt-in floating
 mode is used by the metric selector; existing single-select behavior remains.
+
+
+Docked workbench revision: Header spans the full width. Layers and Legend share one continuous left aside with a divider and independent scrolling; Properties occupies the right aside. Search/time and icon+text tools share a single center action row, with status below the center map. Docked regions use continuous surfaces with square corners. Overlay uses separate floating surfaces. The left rail stays presented without collapse/restore controls. Properties is initially visible, can be closed without clearing selection, and reopens on a new selection through PanelService. There is no separate sidebar collapse state. Toolbar overflow is measured with ResizeObserver and localized labels; trailing actions move into a keyboard-operable More menu using the same tool definitions. At 800px and below, panels stack below the map in a scrollable workspace without covering it.
+
+Docked alignment: layer and property headers track the measured action-row height (minimum 48px). Built-in headers use SVG icons; Properties provides a close button; Layers and Legend have no sidebar collapse control. Centered icon/title/description empty states are shared by Properties, Layers and Legend. Toolbar and Search share the small typography token and 16px icons. Map grid backgrounds remain intact.
+
+Docked surface polish: action-row horizontal padding is 16px (10px on narrow screens); Search/time controls use 10px corners and toolbar buttons 8px. More uses a three-dot SVG and localized label, hidden visually on narrow screens while retaining its accessible name. Overflow reserves the measured More-button width. The Legend title icon follows the primary color. The empty-state illustration keeps its symbol colors.
+
+
+## Selective state subscriptions
+
+useAppState() retains its whole-snapshot behavior. useAppState(snapshot => snapshot.layers)
+returns a readonly computed projection and notifies Vue only when Object.is detects
+a changed selected value. Prefer existing immutable branches/scalars over newly
+allocated projection objects. Layer, legend, search, temporal and properties panels
+select their relevant branches so a view-only change does not rebuild their content.
+Map status still follows live view updates. Selectors unsubscribe at unmount.

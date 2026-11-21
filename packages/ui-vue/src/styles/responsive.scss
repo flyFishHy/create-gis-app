@@ -37,8 +37,6 @@
 
 }
 
-@media (max-width: 680px) {
-  .gis-ui-switch--theme button > span:not(.gis-ui-svg-icon) {
-    display: none;
-  }
+@media (max-width: 767px) {
+  .gis-ui-brand-subtitle { display: none; }
 }

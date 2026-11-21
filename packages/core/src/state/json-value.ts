@@ -12,6 +12,6 @@ export function stateValue(value: unknown, ancestors = new Set<object>()): JsonV
 }
 
 export function freezeStateValue<T>(value: T): T {
-  if (value && typeof value === 'object') { Object.values(value).forEach(freezeStateValue); Object.freeze(value) }
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.values(value).forEach(freezeStateValue); Object.freeze(value) }
   return value
 }

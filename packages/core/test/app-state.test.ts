@@ -36,6 +36,9 @@ describe('Context and app snapshots', () => {
       expect(() => { (one.layers as unknown as unknown[]).push({}) }).toThrow()
       expect(context.state.snapshot()).toBe(one)
       app.map.getView().setZoom(8)
+      expect(context.state.snapshot().layers).toBe(one.layers)
+      expect(context.state.snapshot().data).toBe(one.data)
+      expect(context.state.snapshot().interactions).toBe(one.interactions)
       expect(context.state.snapshot().map.zoom).toBe(8)
       expect(one.map.zoom).toBe(3)
     } finally { await app.dispose(); await other.dispose() }

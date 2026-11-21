@@ -1,11 +1,14 @@
-import Feature from 'ol/Feature.js'
-import { transform, transformExtent, toLonLat, getPointResolution } from 'ol/proj.js'
+import Feature, { type FeatureLike } from 'ol/Feature.js'
+import { fromUserCoordinate, toUserCoordinate, transform, transformExtent, toLonLat, getPointResolution } from 'ol/proj.js'
 import { installOLTools } from './ol-tools.js'
 import type { MapLocation } from '@joinmap/gis-core'
 import { featureReferenceKey, type FeatureReferenceResolver } from './feature-reference.js'
 import OlMap from 'ol/Map.js'
+import Overlay from 'ol/Overlay.js'
 import View from 'ol/View.js'
 import BaseLayer from 'ol/layer/Base.js'
+import { inView } from 'ol/layer/Layer.js'
+import { containsCoordinate } from 'ol/extent.js'
 import TileLayer from 'ol/layer/Tile.js'
 import VectorLayer from 'ol/layer/Vector.js'
 import XYZ from 'ol/source/XYZ.js'
@@ -21,16 +24,19 @@ import { asArray as parseColor } from 'ol/color.js'
 import type { SearchResult } from '@joinmap/gis-core'
 import type { MapStateSnapshot, Unsubscribe } from '@joinmap/gis-core'
 import { defaults as defaultControls } from 'ol/control/defaults.js'
+import { defaults as defaultInteractions } from 'ol/interaction/defaults.js'
 import type {
   GISApp,
   GISPlugin,
   AppContext,
+  FeaturePickCandidate,
   LayerConfig,
   LayerTimeDimension,
   LayerTimeFilter,
   MapAdapter,
   MapConfig,
   MapLayerHandle,
+  MapOverlayAnchor,
   MapViewService,
   ResourceScope,
 } from '@joinmap/gis-core'
@@ -57,11 +63,20 @@ export function createOLAdapter(options: OLAdapterOptions = {}): GISPlugin {
 }
 
 export function useOLMap(app: GISApp): OlMap {
-  const adapter = app.map.getAdapter()
+  return getOLAdapter(app).getMap()
+}
+
+/** Create a handle for a custom OL layer registered through LayerService. */
+export function createOLLayerHandle(context: Pick<AppContext, 'map'>, layer: BaseLayer, config: LayerConfig): MapLayerHandle {
+  return getOLAdapter(context).createHandle(layer, config)
+}
+
+function getOLAdapter(context: Pick<AppContext, 'map'>): OLMapAdapter {
+  const adapter = context.map.getAdapter()
   if (!(adapter instanceof OLMapAdapter)) {
     throw new Error('The registered Map Adapter is not OpenLayers.')
   }
-  return adapter.getMap()
+  return adapter
 }
 
 class OLMapAdapter implements MapAdapter {
@@ -76,7 +91,9 @@ class OLMapAdapter implements MapAdapter {
   private map?: OlMap
   private readonly layerByHandle = new WeakMap<MapLayerHandle, BaseLayer>()
   private readonly featureFilterByHandle = new WeakMap<MapLayerHandle, (filter: ((feature: Feature) => boolean) | undefined) => void>()
+  private readonly matchesLegendByHandle = new WeakMap<MapLayerHandle, (feature: Feature) => boolean>()
   private readonly handles = new Set<MapLayerHandle>()
+  private readonly popupCleanups = new Set<Unsubscribe>()
 
   constructor(private readonly options: OLAdapterOptions, private readonly app: GISApp) {}
 
@@ -92,30 +109,63 @@ class OLMapAdapter implements MapAdapter {
     this.map = new OlMap({
       view,
       controls: this.options.controls === false ? [] : defaultControls({ zoom: this.options.zoomControl ?? true }),
-      interactions: this.options.interactions === false ? [] : undefined,
+      interactions: this.options.interactions === false ? [] : defaultInteractions({ onFocusOnly: false }),
     })
-    this.map.on('singleclick', event => {
+    const map = this.map
+    map.on('singleclick', event => {
       if (this.app.interactions.getActiveTool()) return
-      const hit = this.map!.forEachFeatureAtPixel(event.pixel, (feature, layer) => {
-        if (!(feature instanceof Feature)) return undefined
-        const resolve = layer?.get(featureReferenceKey) as FeatureReferenceResolver | undefined
-        if (resolve) return resolve(feature)
-        const layerId = layer?.get('gisLayerId') as string | undefined
-        if (!(feature instanceof Feature) || !layerId || !this.app.layers.has(layerId)) return undefined
-        const properties = { ...feature.getProperties() }; delete properties[feature.getGeometryName()]
-        return { layerId, id: feature.getId(), geometryType: feature.getGeometry()?.getType(), properties }
+      const candidates: FeaturePickCandidate[] = []
+      const seen = new Map<string, Set<FeatureLike | string | number>>()
+      const hitLayerIds = new Map<BaseLayer, string>()
+      map.forEachFeatureAtPixel(event.pixel, (feature, layer) => {
+        if (!layer) return
+        const candidate = this.resolveHit(feature, layer)
+        if (!candidate) return
+        let features = seen.get(candidate.layerId)
+        if (!features) { features = new Set(); seen.set(candidate.layerId, features) }
+        const key = candidate.id ?? feature
+        if (features.has(key)) return
+        features.add(key)
+        hitLayerIds.set(layer, candidate.layerId)
+        candidates.push(candidate)
       })
-      if (hit) this.app.interactions.select({ feature: hit }); else this.app.interactions.clearSelection()
+
+      const view = map.getView(), projection = view.getProjection(), resolution = view.getResolution()
+      const coordinate = event.coordinate && fromUserCoordinate(event.coordinate, projection)
+      const location = coordinate && resolution !== undefined
+        ? { coordinate: [coordinate[0]!, coordinate[1]!] as [number, number], projection: projection.getCode(), resolution }
+        : undefined
+      const viewState = location && view.getState()
+      const layerIds = location ? map.getLayerGroup().getLayerStatesArray()
+        .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).reverse()
+        .flatMap(state => {
+          const id = hitLayerIds.get(state.layer) ?? state.layer.get('gisLayerId') as string | undefined
+          return id && viewState && inView(state, viewState) && (!state.extent || containsCoordinate(state.extent, location.coordinate)) ? [id] : []
+        }) : []
+      void this.app.interactions.pickFeatures({ pixel: [event.pixel[0]!, event.pixel[1]!], location, layerIds, candidates })
     })
+    map.on(['pointerdrag', 'movestart', 'change:size'], () => this.app.interactions.cancelFeaturePick({ preserveAnchoredChoices: true }))
+    map.on('change:view', () => this.app.interactions.cancelFeaturePick())
     this.unsubscribeLayers = this.app.layers.subscribe(() => {
       const selection = this.app.interactions.getSelection()
       if (selection && (!selection.source || selection.source === 'layer') && !this.app.layers.get(selection.layerId)?.visible) this.app.interactions.clearSelection()
     })
   }
 
+  private resolveHit(feature: FeatureLike, layer: BaseLayer): FeaturePickCandidate | undefined {
+    const resolve = layer.get(featureReferenceKey) as FeatureReferenceResolver | undefined
+    if (resolve && feature instanceof Feature) return resolve(feature)
+    const layerId = layer.get('gisLayerId') as string | undefined
+    if (!layerId || !this.app.layers.get(layerId)?.visible) return
+    const properties = { ...feature.getProperties() }
+    if (feature instanceof Feature) delete properties[feature.getGeometryName()]
+    return { layerId, id: feature.getId(), geometryType: feature instanceof Feature ? feature.getGeometry()?.getType() : feature.getType(), properties }
+  }
+
   destroy(): void {
     if (!this.map) return
     this.unsubscribeLayers?.()
+    for (const cleanup of this.popupCleanups) cleanup()
     this.map.setTarget(undefined)
     this.map.setLayers([])
     this.map.dispose()
@@ -147,19 +197,76 @@ class OLMapAdapter implements MapAdapter {
   }
   onViewChange(listener: () => void): Unsubscribe {
     const map = this.requireMap()
-    let keys = map.getView().on(['change:center', 'change:resolution', 'change:rotation'], listener)
+    let frame: number | undefined
+    const schedule = () => {
+      if (frame !== undefined) return
+      frame = requestAnimationFrame(() => { frame = undefined; listener() })
+    }
+    let keys = map.getView().on(['change:center', 'change:resolution', 'change:rotation'], schedule)
     const replacement = map.on('change:view', () => {
       unByKey(keys)
-      keys = map.getView().on(['change:center', 'change:resolution', 'change:rotation'], listener)
-      listener()
+      keys = map.getView().on(['change:center', 'change:resolution', 'change:rotation'], schedule)
+      schedule()
     })
-    return () => { unByKey(keys); unByKey(replacement) }
+    return () => { if (frame !== undefined) cancelAnimationFrame(frame); unByKey(keys); unByKey(replacement) }
   }
 
   getSize(): [number, number] | undefined {
     const size = this.requireMap().getSize()
     return size ? [size[0], size[1]] : undefined
   }
+
+  addPopupOverlay(element: HTMLElement, anchor: MapOverlayAnchor): Unsubscribe {
+    const map = this.requireMap()
+    const projection = map.getView().getProjection()
+    const position = toUserCoordinate(transform([...anchor.coordinate], anchor.projection ?? projection, projection), projection)
+    const overlay = new Overlay({ element, autoPan: false, stopEvent: true, insertFirst: false })
+    map.addOverlay(overlay)
+    overlay.setPosition(position)
+
+    const margin = 8, gap = 10
+    const clamp = (value: number, available: number, length: number) => Math.max(margin, Math.min(value, available - margin - length))
+    let lastSize: number[] | undefined
+    const place = () => {
+      const size = map.getSize()
+      if (!size) return
+      const [width, height] = size as [number, number]
+      if (width !== lastSize?.[0] || height !== lastSize[1]) {
+        element.style.setProperty('--gis-map-popup-max-width', `${Math.max(0, width - 2 * margin)}px`)
+        element.style.setProperty('--gis-map-popup-max-height', `${Math.max(0, height - 2 * margin)}px`)
+        lastSize = [width, height]
+      }
+      const pixel = map.getPixelFromCoordinate(position, { wrapX: true })
+      if (!pixel) return
+      const [x, y] = pixel as [number, number]
+      const visible = x >= 0 && x <= width && y >= 0 && y <= height
+      element.style.visibility = visible ? '' : 'hidden'
+      if (!visible) return
+
+      const { offsetWidth, offsetHeight } = element
+      const above = y - gap - offsetHeight
+      const top = (above >= margin || y > height / 2) ? above : y + gap
+      const dx = Math.round(clamp(x - offsetWidth / 2, width, offsetWidth) - x)
+      const dy = Math.round(clamp(top, height, offsetHeight) - y)
+      const [lastX, lastY] = overlay.getOffset()
+      if (dx !== lastX || dy !== lastY) overlay.setOffset([dx, dy])
+    }
+    const key = map.on('postrender', place)
+    const observer = new ResizeObserver(place)
+    observer.observe(element)
+    place()
+
+    const cleanup = () => {
+      if (!this.popupCleanups.delete(cleanup)) return
+      observer.disconnect()
+      unByKey(key)
+      map.removeOverlay(overlay)
+      overlay.setElement(undefined)
+    }
+    this.popupCleanups.add(cleanup)
+    return cleanup
+  }
+
   onPointerMove(listener: (coordinate: readonly [number, number] | undefined) => void): Unsubscribe {
     const map = this.requireMap()
     const key = map.on('pointermove', event => {
@@ -176,6 +283,7 @@ class OLMapAdapter implements MapAdapter {
   updateSize(): void { this.requireMap().updateSize() }
 
   setTarget(target: HTMLElement | string | undefined): void {
+    this.app.interactions.cancelFeaturePick()
     this.requireMap().setTarget(target)
   }
 
@@ -236,7 +344,11 @@ class OLMapAdapter implements MapAdapter {
       const vectorLayer = new VectorLayer({ source: vectorSource })
       handle = this.createHandle(vectorLayer, config)
       let timeFilter: LayerTimeFilter | undefined
-      const timeDimensions = (): readonly LayerTimeDimension[] => detectTimeDimensions(vectorSource.getFeatures())
+      let cachedDimensions: readonly LayerTimeDimension[] | undefined
+      let cachedSummary: { geometryType?: string; hasDataLocation: boolean; dimensions: { field: string; count: number; min: number | undefined; max: number | undefined }[] } | undefined
+      const invalidateDimensions = vectorSource.on('change', () => { cachedDimensions = undefined; cachedSummary = undefined })
+      cleanup.push(() => unByKey(invalidateDimensions))
+      const timeDimensions = (): readonly LayerTimeDimension[] => cachedDimensions ??= Object.freeze(detectTimeDimensions(vectorSource.getFeatures()))
       const matchesTimeFilter = (feature: Feature): boolean => {
         if (!timeFilter) return true
         const value = timestampValue(feature.get(timeFilter.field), timeFilter.field)
@@ -264,14 +376,15 @@ class OLMapAdapter implements MapAdapter {
         this.featureFilterByHandle.get(handle!)?.(timeFilter ? matchesTimeFilter : undefined)
       }
       const baseMetadata = handle.getMetadata
-      handle.getMetadata = () => ({
-        ...baseMetadata?.(),
-        hasDataLocation: !!vectorSource.getExtent()?.every(Number.isFinite),
-        time: {
+      handle.getMetadata = () => {
+        cachedSummary ??= {
+          geometryType: vectorSource.getFeatures()[0]?.getGeometry()?.getType(),
+          hasDataLocation: !!vectorSource.getExtent()?.every(Number.isFinite),
           dimensions: timeDimensions().map(({ field, values }) => ({ field, count: values.length, min: values[0], max: values.at(-1) })),
-          filter: timeFilter ? { ...timeFilter } : null,
-        },
-      })
+        }
+        return { ...baseMetadata?.(), geometryType: cachedSummary.geometryType, hasDataLocation: cachedSummary.hasDataLocation,
+          time: { dimensions: cachedSummary.dimensions.map(item => ({ ...item })), filter: timeFilter ? { ...timeFilter } : null } }
+      }
       handle.getDataLocation = () => {
         const extent = vectorSource.getExtent()
         if (!extent?.every(Number.isFinite)) return undefined
@@ -287,9 +400,14 @@ class OLMapAdapter implements MapAdapter {
         if (context.interactions.getSelection()?.layerId === config.id) context.interactions.clearSelection()
         // Re-apply the optional filter and publish a layer revision after the
         // source changes so time dimensions and data-derived extents update UI.
-        context.layers.get(config.id)?.setTimeFilter(timeFilter)
+        const previousFilter = timeFilter
+        const nextFilter = previousFilter && timeDimensions().some(dimension => dimension.field === previousFilter.field)
+          ? previousFilter
+          : undefined
+        context.layers.get(config.id)?.setTimeFilter(nextFilter)
       })
       cleanup.push(unsubscribe)
+      const matchesLegend = this.matchesLegendByHandle.get(handle)
       cleanup.push(context.search.registerProvider({
         id: `ol-geojson:${config.id}`,
         layerIds: [config.id],
@@ -299,7 +417,7 @@ class OLMapAdapter implements MapAdapter {
           const results: SearchResult[] = []
           for (const feature of vectorSource.getFeatures()) {
             signal?.throwIfAborted()
-            if (!matchesTimeFilter(feature)) continue
+            if (!matchesTimeFilter(feature) || matchesLegend?.(feature) === false) continue
             const properties = { ...feature.getProperties() }
             delete properties[feature.getGeometryName()]
             const values = Object.values(properties).filter(value => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
@@ -332,17 +450,25 @@ class OLMapAdapter implements MapAdapter {
     }
   }
 
-  private createHandle(layer: BaseLayer, config: LayerConfig): MapLayerHandle {
+  createHandle(layer: BaseLayer, config: LayerConfig): MapLayerHandle {
     const defaults = { fillColor: '#ffffff66', strokeColor: '#3399cc', strokeWidth: 1.25, pointRadius: 5 }
     let styleOptions = { ...defaults, ...config.style }
     let legend: LayerConfig['legend'] = config.legend ? JSON.parse(JSON.stringify(config.legend)) : undefined
+    let legendFilter: string | undefined
     let featureFilter: ((feature: Feature) => boolean) | undefined
     let vectorStyle: Style
     const colors = new Map<string, Style>()
-    const enumColors = new Map<import('@joinmap/gis-core').LegendValue, string | undefined>()
-    const makeStyle = (options: typeof defaults) => {
-      const fill = new Fill({ color: options.fillColor })
-      const stroke = new Stroke({ color: options.strokeColor, width: options.strokeWidth })
+    const enumRules = new Map<import('@joinmap/gis-core').LegendValue, { id: string; color?: string }>()
+    const makeStyle = (options: typeof styleOptions) => {
+      const { fillOpacity = 1, lineDash, lineCap } = options
+      const color = options.fillColor
+      const rgba = fillOpacity === 1 ? color : [...parseColor(color)]
+      if (typeof rgba !== 'string') rgba[3] = (rgba[3] ?? 1) * fillOpacity
+      const fill = new Fill({ color: rgba })
+      const stroke = new Stroke({
+        color: options.strokeColor, width: options.strokeWidth, lineCap,
+        lineDash: lineDash === 'dashed' ? [8, 5] : lineDash === 'dotted' ? [1, 4] : undefined,
+      })
       return new Style({ fill, stroke, image: new CircleStyle({ radius: options.pointRadius, fill, stroke }) })
     }
     const validateStyle = (options: typeof defaults) => {
@@ -355,16 +481,23 @@ class OLMapAdapter implements MapAdapter {
       for (const range of value?.ranges ?? []) parseColor(range.color)
       if (value?.noData?.color) parseColor(value.noData.color)
     }
+    const ruleFor = (feature: Feature) => {
+      if (!legend?.field) return undefined
+      const value: unknown = feature.get(legend.field)
+      if (value === null || value === undefined) return legend.noData
+      if (legend.type === 'category') return enumRules.get(value as import('@joinmap/gis-core').LegendValue)
+      if (legend.type === 'interval' && typeof value === 'number' && Number.isFinite(value)) {
+        return legend.ranges?.find(range => value >= range.min && (value < range.max || (range.includeMax && value === range.max)))
+      }
+    }
+    const rules = () => legend?.field && legend.type === 'category' ? legend.items ?? []
+      : legend?.field && legend.type === 'interval' ? legend.ranges ?? [] : []
+    const matchesLegend = (feature: Feature) => legendFilter === undefined || ruleFor(feature)?.id === legendFilter
     const featureStyle = (feature: Feature) => {
       if (featureFilter && !featureFilter(feature)) return undefined
-      if (!legend?.field) return vectorStyle
-      const value: unknown = feature.get(legend.field)
-      let color: string | undefined
-      if (value === null || value === undefined) color = legend.noData?.color
-      else if (legend.type === 'category') color = enumColors.get(value as import('@joinmap/gis-core').LegendValue)
-      else if (legend.type === 'interval' && typeof value === 'number' && Number.isFinite(value)) {
-        color = legend.ranges?.find(range => value >= range.min && (value < range.max || (range.includeMax && value === range.max)))?.color
-      }
+      const rule = ruleFor(feature)
+      if (legendFilter !== undefined && rule?.id !== legendFilter) return undefined
+      const color = rule?.color
       if (!color) return vectorStyle
       const line = /LineString$/.test(feature.getGeometry()?.getType() ?? '')
       const key = (line ? 'line:' : 'fill:') + color
@@ -376,8 +509,9 @@ class OLMapAdapter implements MapAdapter {
       if (!(layer instanceof VectorLayer)) return
       vectorStyle = makeStyle(styleOptions)
       colors.clear()
-      enumColors.clear()
-      if (legend?.type === 'category') for (const item of legend.items ?? []) for (const value of item.values ?? []) enumColors.set(value, item.color)
+      enumRules.clear()
+      if (legend?.type === 'category') for (const item of legend.items ?? []) for (const value of item.values ?? []) enumRules.set(value, item)
+      if (legendFilter !== undefined && !rules().some(rule => rule.id === legendFilter)) legendFilter = undefined
       layer.setStyle(legend?.field || featureFilter
         ? feature => feature instanceof Feature ? featureStyle(feature) : undefined
         : vectorStyle)
@@ -394,6 +528,13 @@ class OLMapAdapter implements MapAdapter {
     let handle: MapLayerHandle
     handle = {
       getStyle: () => layer instanceof VectorLayer ? Object.freeze({ ...styleOptions }) : undefined,
+      supportsLegendFilter: () => layer instanceof VectorLayer && rules().length > 0,
+      getLegendFilter: () => legendFilter,
+      setLegendFilter: ruleId => {
+        if (ruleId !== undefined && !rules().some(rule => rule.id === ruleId)) throw new Error(`Unknown legend rule "${ruleId}".`)
+        legendFilter = ruleId
+        layer.changed()
+      },
       setVisible: visible => layer.setVisible(visible),
       setZIndex: zIndex => layer.setZIndex(zIndex),
       update: patch => {
@@ -414,13 +555,13 @@ class OLMapAdapter implements MapAdapter {
         this.handles.delete(handle)
         if (layer instanceof VectorLayer) layer.getSource()?.clear(true)
       },
-      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), zIndex: layer.getZIndex() ?? 0,
-        geometryType: layer instanceof VectorLayer ? layer.getSource()?.getFeatures()[0]?.getGeometry()?.getType() : undefined }),
+      getMetadata: () => ({ olLayerType: layer.constructor.name, opacity: layer.getOpacity(), zIndex: layer.getZIndex() ?? 0 }),
       resolveLegend: value => !value.field && value.useLayerStyle && value.type === 'category' && value.items?.length === 1 ? {
         ...value, items: value.items.map(item => ({ ...item, color: item.symbol === 'line' ? styleOptions.strokeColor : styleOptions.fillColor })),
       } : value,
     }
     this.layerByHandle.set(handle, layer)
+    this.matchesLegendByHandle.set(handle, matchesLegend)
     if (layer instanceof VectorLayer) this.featureFilterByHandle.set(handle, filter => { featureFilter = filter; applyVectorStyle(); layer.changed() })
     this.handles.add(handle)
     return handle

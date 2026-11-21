@@ -2,6 +2,17 @@ import type { LayerInstance, LayerService } from '@joinmap/gis-core'
 
 export interface LayerNode { layer: LayerInstance; children: LayerNode[] }
 
+/** Retain matching nodes and their ancestors without changing Runtime ordering. */
+export function filterLayerTree(nodes: readonly LayerNode[], keyword: string): LayerNode[] {
+  const term = keyword.trim().toLocaleLowerCase()
+  if (!term) return [...nodes]
+  return nodes.flatMap(node => {
+    if ((node.layer.title || node.layer.id).toLocaleLowerCase().includes(term)) return [node]
+    const children = filterLayerTree(node.children, term)
+    return children.length ? [{ ...node, children }] : []
+  })
+}
+
 /** UI order is front-to-back; Runtime setOrder receives back-to-front IDs. */
 export function layerTree(layers: readonly LayerInstance[]): LayerNode[] {
   const byId = new Map(layers.map(layer => [layer.id, layer]))

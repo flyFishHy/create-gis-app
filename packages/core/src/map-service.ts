@@ -1,5 +1,5 @@
 import { GISRuntimeError } from './errors.js'
-import type { MapAdapter, MapService, MapViewService, MapLocation } from './types.js'
+import type { MapAdapter, MapService, MapViewService, MapLocation, MapOverlayAnchor } from './types.js'
 import type { AppStatus, MapConfig, MapStateSnapshot, Unsubscribe } from './types.js'
 import type { AppStateImpl } from './state/app-state.js'
 import { assertRuntimeStatus, writableStatuses } from './runtime/lifecycle.js'
@@ -114,6 +114,10 @@ export class MapServiceImpl implements MapService {
       else if (location.coordinate) adapter.getView().setCenter(location.coordinate)
     }
     this.state.refresh()
+  }
+
+  addPopupOverlay(element: HTMLElement, anchor: MapOverlayAnchor): Unsubscribe | undefined {
+    return this.requireReadyAdapter('add a map popup').addPopupOverlay?.(element, anchor)
   }
 
   getSize(): [number, number] | undefined {

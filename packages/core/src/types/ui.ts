@@ -13,6 +13,23 @@ export interface UIConfig {
   readonly theme?: 'light' | 'dark' | 'system' | UIThemeConfig
   readonly locale?: 'zh' | 'en'
   readonly panels?: readonly PanelConfig[]
+  readonly timePicker?: UITimePickerConfig
+}
+
+export interface UITimePickerConfig {
+  readonly granularities?: readonly ('hour' | 'day' | 'week' | 'month' | 'year')[]
+  readonly defaultGranularity?: 'hour' | 'day' | 'week' | 'month' | 'year'
+  readonly defaultMode?: 'single' | 'range' | 'custom-range'
+  readonly defaultTimeZone?: string
+  readonly showGranularitySwitch?: boolean
+  readonly showModeSwitch?: boolean
+  readonly showShortcuts?: boolean
+  readonly confirmable?: boolean
+  readonly clearable?: boolean
+  readonly disabled?: boolean
+  readonly minTime?: number
+  readonly maxTime?: number
+  readonly maxRangeDurationMs?: number
 }
 
 /** Framework-independent, serializable panel metadata shared by UI adapters. */

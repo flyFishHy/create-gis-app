@@ -9,7 +9,7 @@ import type { LegendEditValue, UniformLayerStyle } from '../components/legend-ed
 
 const props = defineProps<{ layer: LayerInstance }>()
 const emit = defineEmits<{ close: [] }>()
-const app = useGISApp(), ui = useGISUI(), snapshot = useAppState()
+const app = useGISApp(), ui = useGISUI(), snapshot = useAppState(state => state.layers)
 const saving = ref(false), error = ref(''), editorKey = ref(0)
 let stopped = false
 onBeforeUnmount(() => { stopped = true })
@@ -18,13 +18,19 @@ function read() {
   const legend: LayerLegend | undefined = resolved ? (({ layerId: _layerId, ...rest }) => JSON.parse(JSON.stringify(rest)))(resolved) : undefined
   const value = props.layer.style
   const style = value && typeof value.fillColor === 'string' && typeof value.strokeColor === 'string' && typeof value.strokeWidth === 'number' && typeof value.pointRadius === 'number'
-    ? { fillColor: value.fillColor, strokeColor: value.strokeColor, strokeWidth: value.strokeWidth, pointRadius: value.pointRadius } : undefined
+    ? { ...value, fillColor: value.fillColor, strokeColor: value.strokeColor, strokeWidth: value.strokeWidth, pointRadius: value.pointRadius } : undefined
   return { legend, style, version: props.layer.version }
 }
 const base = shallowRef(read())
 const alive = computed(() => { void snapshot.value; return app.layers.get(props.layer.id) === props.layer && props.layer.status !== 'disposed' })
 const conflict = computed(() => { void snapshot.value; return alive.value && JSON.stringify(read()) !== JSON.stringify(base.value) })
-const keys = ['title', 'item', 'color', 'category', 'interval', 'continuous', 'image', 'field', 'value', 'default', 'add', 'remove', 'reset', 'save', 'cancel', 'invalid', 'min', 'max', 'uniform', 'search', 'clear', 'empty', 'missing', 'used', 'inclusive']
+const keys = [
+  'type', 'generate', 'generationEmpty', 'generationLimit',
+  'title', 'item', 'color', 'category', 'interval', 'continuous', 'image', 'field', 'value', 'default', 'layerColor',
+  'add', 'remove', 'save', 'cancel', 'invalid', 'min', 'max', 'uniform', 'search', 'clear', 'empty', 'missing', 'used', 'inclusive',
+  'more', 'moreStyle', 'fillOpacity', 'strokeColor', 'strokeWidth', 'lineWidth', 'lineDash', 'lineCap', 'pointRadius',
+  'solid', 'dashed', 'dotted', 'round', 'butt', 'square', 'dismissStyle', 'applyStyle',
+]
 const labels = computed(() => ({ ...Object.fromEntries(keys.map(key => [key, ui.locale.t(`editor.${key}`)])), cancel: ui.locale.t('editor.close') }))
 function reload() { base.value = read(); editorKey.value++; error.value = '' }
 async function submit(value: LegendEditValue) {
