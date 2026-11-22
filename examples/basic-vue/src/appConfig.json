@@ -163,7 +163,7 @@
     }
   ],
   "ui": {
-    "layout": "overlay-dashboard",
+    "layout": "docked-dashboard",
     "theme": "dark",
     "timePicker": {
       "defaultGranularity": "day",

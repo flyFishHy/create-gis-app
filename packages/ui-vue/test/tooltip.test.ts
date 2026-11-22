@@ -38,14 +38,19 @@ describe('Tooltip', () => {
     const wrapper = mountTooltip()
     try {
       await wrapper.setProps({ placement: 'bottom' })
-      wrapper
-        .get<HTMLElement>('.gis-ui-tooltip-trigger')
-        .element.style.setProperty('--gis-ui-font-size', '16px')
+      const trigger = wrapper.get<HTMLElement>('.gis-ui-tooltip-trigger').element
+      trigger.style.setProperty('--gis-ui-font-size', '16px')
+      trigger.style.setProperty('--gis-ui-material-filter', 'none')
+      trigger.style.setProperty('--gis-ui-material-image', 'linear-gradient(white, gray)')
+      trigger.style.setProperty('--gis-ui-material-border', '#cbd5e1')
       wrapper.get('button').element.focus()
       await nextTick()
       await nextTick()
       const tip = document.querySelector<HTMLElement>('[role="tooltip"]')!
       expect(tip.style.getPropertyValue('--gis-ui-font-size')).toBe('16px')
+      expect(tip.style.getPropertyValue('--gis-ui-material-filter')).toBe('none')
+      expect(tip.style.getPropertyValue('--gis-ui-material-image')).toContain('linear-gradient')
+      expect(tip.style.getPropertyValue('--gis-ui-material-border')).toBe('#cbd5e1')
       expect(parseFloat(tip.style.left)).toBe(56)
       expect(parseFloat(tip.style.top)).toBe(window.innerHeight - 80)
     } finally {

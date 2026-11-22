@@ -146,12 +146,10 @@
   border-radius: inherit;
 }
 
-// Active draw/measure guidance floats above the map without intercepting input.
+// Active draw/measure guidance sits above the status bar.
 .gis-ui-tool-hint {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  z-index: 4;
+  align-self: center;
+  width: max-content;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -160,13 +158,12 @@
   border: 1px solid var(--gis-ui-border);
   border-radius: 999px;
   color: var(--gis-ui-text);
-  @include glass.menu-surface;
+  @include glass.panel-surface;
   font-size: var(--gis-ui-font-xs);
   font-weight: 500;
   line-height: 1.35;
   text-align: center;
   pointer-events: none;
-  transform: translateX(-50%);
   kbd {
     padding: 1px 5px;
     border: 1px solid var(--gis-ui-border);
@@ -181,14 +178,14 @@
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 4px #34d3992e;
+  background: var(--gis-ui-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gis-ui-primary) 18%, transparent);
   animation: gis-ui-tool-pulse 1.45s ease-out infinite;
 }
 @keyframes gis-ui-tool-pulse {
   0%,
   35% {
-    box-shadow: 0 0 0 0 #34d39970;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--gis-ui-primary) 44%, transparent);
   }
   100% {
     box-shadow: 0 0 0 7px transparent;
@@ -198,12 +195,12 @@
 .gis-ui-tool-hint-leave-active {
   transition:
     opacity 0.16s ease,
-    transform 0.16s ease;
+    translate 0.16s ease;
 }
 .gis-ui-tool-hint-enter-from,
 .gis-ui-tool-hint-leave-to {
   opacity: 0;
-  transform: translate(-50%, -6px);
+  translate: 0 6px;
 }
 
 // Action row above the map.
@@ -357,6 +354,7 @@
 }
 // Results and the status bar occupy separate rows.
 .gis-ui-bottom-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -684,9 +682,6 @@
   .gis-ui-status-content {
     width: 100%;
     padding: 8px 12px;
-  }
-  .gis-ui-tool-hint {
-    top: 132px;
   }
 }
 

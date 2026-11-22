@@ -40,9 +40,9 @@ describe('Dashboard status and query placement', () => {
       await nextTick()
       const dialog = container.querySelector('.gis-ui-feature-picker')!
       expect(dialog).not.toBeNull()
-      expect(dialog.querySelector('.gis-ui-feature-picker-tail')?.getAttribute('aria-hidden')).toBe(
-        'true'
-      )
+      const surfaces = dialog.querySelectorAll('.gis-ui-feature-picker-surface')
+      expect(surfaces).toHaveLength(1)
+      expect(surfaces[0]?.getAttribute('aria-hidden')).toBe('true')
       expect(map.getOverlays().getLength()).toBe(1)
       app.map.getView().setCenter([40, 50])
       await nextTick()
@@ -361,35 +361,39 @@ describe('Dashboard status and query placement', () => {
     }
   })
 
-  it('shows localized map guidance while a drawing tool is active', async () => {
-    const app = createGISApp()
-    app.use(createFakeMapPlugin())
-    app.use({
-      name: 'draw-line-tool',
-      install(runtime, _options, scope) {
-        runtime.registerTool('draw-line', { id: 'draw-line', activate() {} }, scope)
-      },
-    })
-    app.use(createVueUI({ config: { layout: 'overlay-dashboard', tools: ['draw-line'] } }))
-    const target = document.createElement('div')
-    document.body.append(target)
-    try {
-      await app.init({})
-      await app.mount(target)
-      expect(target.querySelector('.gis-ui-tool-hint')).toBeNull()
-      target.querySelector<HTMLButtonElement>('button[aria-label="绘制线"]')!.click()
-      await flushPromises()
-      const hint = target.querySelector('.gis-ui-tool-hint')!
-      expect(hint.textContent).toContain('点击地图依次添加折线顶点，双击结束绘制')
-      expect(hint.textContent).toContain('Esc')
-      target
-        .querySelector('.gis-ui-root')!
-        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      await flushPromises()
-      await vi.waitFor(() => expect(target.querySelector('.gis-ui-tool-hint')).toBeNull())
-    } finally {
-      await app.dispose()
-      target.remove()
+  it.each(['overlay-dashboard', 'docked-dashboard'] as const)(
+    'shows localized drawing guidance immediately above the status bar in %s',
+    async (layout) => {
+      const app = createGISApp()
+      app.use(createFakeMapPlugin())
+      app.use({
+        name: 'draw-line-tool',
+        install(runtime, _options, scope) {
+          runtime.registerTool('draw-line', { id: 'draw-line', activate() {} }, scope)
+        },
+      })
+      app.use(createVueUI({ config: { layout, tools: ['draw-line'] } }))
+      const target = document.createElement('div')
+      document.body.append(target)
+      try {
+        await app.init({})
+        await app.mount(target)
+        expect(target.querySelector('.gis-ui-tool-hint')).toBeNull()
+        target.querySelector<HTMLButtonElement>('button[aria-label="绘制线"]')!.click()
+        await flushPromises()
+        const hint = target.querySelector('.gis-ui-tool-hint')!
+        expect(hint.nextElementSibling).toBe(target.querySelector('.gis-ui-status-content'))
+        expect(hint.textContent).toContain('点击地图依次添加折线顶点，双击结束绘制')
+        expect(hint.textContent).toContain('Esc')
+        target
+          .querySelector('.gis-ui-root')!
+          .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        await flushPromises()
+        await vi.waitFor(() => expect(target.querySelector('.gis-ui-tool-hint')).toBeNull())
+      } finally {
+        await app.dispose()
+        target.remove()
+      }
     }
-  })
+  )
 })

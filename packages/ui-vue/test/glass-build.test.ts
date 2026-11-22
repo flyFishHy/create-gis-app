@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const stylesheet = fileURLToPath(new URL('../src/styles.scss', import.meta.url))
 
-it('preserves floating backdrop filters without animating the query and layer containers', async () => {
+it('preserves floating backdrop filters without animating their overlay containers', async () => {
   const css = compile(stylesheet).css
   const result = await build({
     configFile: false,
@@ -54,17 +54,43 @@ it('preserves floating backdrop filters without animating the query and layer co
     '.gis-ui-toolbar-menu',
     '.gis-ui-legend-style-dialog',
     '.gis-ui-tool-hint',
+    '.gis-ui-tooltip',
+    '.gis-ui-feature-picker-surface',
+    '.gis-ui-measurement-label',
   ]) {
     expect(
       rules.some((rule) => rule[1]!.includes(selector)),
       selector
     ).toBe(true)
   }
-  const animatedSelectors = styleRules
-    .filter((rule) => /(?:^|;)\s*animation(?:-name)?\s*:/.test(rule[2]!))
-    .map((rule) => rule[1]!)
-    .join(',')
+  const pickerSurface = styleRules.find(
+    ([, selector, declarations]) =>
+      selector?.trim() === '.gis-ui-feature-picker-surface' && declarations?.includes('clip-path:')
+  )
+  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-top')
+  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-bottom')
+  const pickerOutline = styleRules.find(([, selector]) =>
+    /\.gis-ui-feature-picker-surface::?after\b/.test(selector ?? '')
+  )
+  expect(pickerOutline?.[2]).toMatch(
+    /background(?:-color)?:\s*var\(--gis-ui-material-border,\s*var\(--gis-ui-glass-border/
+  )
+  expect(pickerOutline?.[2]).toMatch(/clip-path:\s*polygon\(evenodd/)
+  const pickerGlass = rules.find(([, selector]) =>
+    selector?.includes('.gis-ui-feature-picker-surface')
+  )
+  expect(pickerGlass?.[2]).toContain('--gis-ui-material-opacity')
+  expect(pickerGlass?.[2]).toContain('--gis-ui-material-filter')
+  const statusGlass = rules.find(([, selector]) => selector?.includes('.gis-ui-status-content'))
+  expect(statusGlass?.[2]).toContain('--gis-ui-glass-blur')
+  const animations = styleRules.filter((rule) => /(?:^|;)\s*animation(?:-name)?\s*:/.test(rule[2]!))
+  const animatedSelectors = animations.map((rule) => rule[1]!).join(',')
   expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--(?:top|left)\b/)
+  expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--bottom(?=\s*[,)]|\s*$)/)
+  const statusEntrance = animations.find(([, selector]) =>
+    selector?.includes('.gis-ui-overlay--bottom .gis-ui-status-content')
+  )
+  expect(statusEntrance?.[2]).toContain('backwards')
 })
 
 it('shares material finishes across floating menus and inset controls', () => {
@@ -81,6 +107,10 @@ it('shares material finishes across floating menus and inset controls', () => {
     '.gis-ui-time-picker-fields .gis-ui-select-trigger',
     '.gis-ui-status-content',
     '.gis-ui-map-status',
+    '.gis-ui-tool-hint',
+    '.gis-ui-tooltip',
+    '.gis-ui-feature-picker-surface',
+    '.gis-ui-measurement-label',
   ]
   for (const surface of surfaces) {
     expect(
@@ -93,6 +123,8 @@ it('shares material finishes across floating menus and inset controls', () => {
       surface
     ).toBe(true)
   }
+  const pulse = rules.find(([, selector]) => selector?.trim() === '.gis-ui-tool-hint-pulse')
+  expect(pulse?.[2]).toContain('background: var(--gis-ui-primary)')
 })
 
 it('paints selected switches with the primary color and animates the subtitle dot', () => {

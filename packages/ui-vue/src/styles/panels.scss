@@ -578,3 +578,46 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+
+.gis-ui-measurement-overlay {
+  // OpenLayers sets pointer-events inline on the overlay wrapper.
+  pointer-events: none !important;
+}
+
+.gis-ui-measurement-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: max-content;
+  padding: 2px 5px;
+  border: 1px solid;
+  border-radius: 6px;
+  @include glass.panel-surface;
+  color: var(--gis-ui-primary-text, var(--gis-ui-text));
+  font-size: var(--gis-ui-font-xs);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.gis-ui-measurement-remove {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+
+  &:hover {
+    background: var(--gis-ui-hover);
+    color: var(--gis-ui-primary);
+  }
+}

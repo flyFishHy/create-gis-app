@@ -153,4 +153,74 @@ describe('LayerService', () => {
     expect(handles.get('b')?.dispose).toHaveBeenCalledOnce()
     await app.dispose()
   })
+
+  it('publishes a complete group tree once all children are ready and hides failed additions', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let waiting!: () => void
+    const started = new Promise<void>((resolve) => {
+      waiting = resolve
+    })
+    const disposed = vi.fn()
+    const app = createGISApp().use(
+      createFakeMapPlugin(new FakeMapAdapter(), {
+        staged: {
+          async create(_context, config) {
+            if (config.id === 'slow') {
+              waiting()
+              await gate
+            }
+            return { setVisible() {}, setZIndex() {}, dispose: () => disposed(config.id) }
+          },
+        },
+      })
+    )
+    await app.init({})
+    const events: string[][] = []
+    const snapshots: string[][] = []
+    app.layers.subscribe(() => events.push(app.layers.list().map(({ id }) => id)))
+    app.context.state.subscribe(({ layers }) => {
+      if (layers.length) snapshots.push(layers.map(({ id }) => id))
+    })
+    try {
+      const adding = app.layers.add({
+        id: 'group',
+        type: 'GROUP',
+        children: [
+          { id: 'fast', type: 'staged' },
+          { id: 'slow', type: 'staged' },
+        ],
+      })
+      await started
+      expect(app.layers.list()).toEqual([])
+      expect(events).toEqual([])
+      expect(snapshots).toEqual([])
+      await expect(app.layers.add({ id: 'fast', type: 'staged' })).rejects.toMatchObject({
+        code: 'LAYER_DUPLICATE',
+      })
+      release()
+      await adding
+      const complete = ['fast', 'slow', 'group']
+      expect(events).toEqual([complete, complete, complete])
+      expect(snapshots).toEqual([complete])
+      await expect(
+        app.layers.add({
+          id: 'failed',
+          type: 'GROUP',
+          children: [
+            { id: 'temporary', type: 'staged' },
+            { id: 'invalid', type: 'missing' },
+          ],
+        })
+      ).rejects.toMatchObject({ code: 'LAYER_TYPE_NOT_FOUND' })
+      expect(events).toHaveLength(3)
+      expect(disposed).toHaveBeenCalledWith('temporary')
+      await app.layers.add({ id: 'temporary', type: 'staged' })
+    } finally {
+      release()
+      await app.dispose()
+    }
+  })
 })

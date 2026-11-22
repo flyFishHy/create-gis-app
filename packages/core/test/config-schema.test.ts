@@ -23,6 +23,10 @@ describe('GIS app config JSON Schema', () => {
       validate({
         map: { center: [0, 0], zoom: 3 },
         layers: [{ id: 'cities', type: 'geojson', source: { type: 'url', url: '/cities.json' } }],
+        tools: {
+          draw: { targets: { point: 'locations' } },
+          measure: { targets: { area: 'plots' } },
+        },
         ui: {
           layout: 'docked-dashboard',
           theme: {
@@ -55,6 +59,9 @@ describe('GIS app config JSON Schema', () => {
     const badSubtitle = { title: { content: 'Dashboard', subtitle: 42 } }
     expect(validate(badSubtitle)).toBe(false)
     expect(() => parseGISAppConfig(badSubtitle)).toThrow('title.subtitle must be a string')
+    const badTargets = { tools: { draw: { targets: { point: ' ' } } } }
+    expect(validate(badTargets)).toBe(false)
+    expect(() => parseGISAppConfig(badTargets)).toThrow('non-empty layer ID')
     const badGranularities = { ui: { timePicker: { granularities: ['hour', 'hour'] } } }
     expect(validate(badGranularities)).toBe(false)
     expect(() => parseGISAppConfig(badGranularities)).toThrow('unique supported units')

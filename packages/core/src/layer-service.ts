@@ -262,6 +262,11 @@ class LayerInstanceImpl implements LayerInstance {
   }
 }
 
+interface LayerAddition {
+  reserved: Set<string>
+  staged: Map<string, LayerInstanceImpl>
+}
+
 export class LayerServiceImpl implements LayerService {
   private readonly pending = new Set<string>()
   private readonly tasks = new Set<Promise<LayerInstance>>()
@@ -303,7 +308,7 @@ export class LayerServiceImpl implements LayerService {
   }
 
   async add(config: LayerConfig): Promise<LayerInstance> {
-    const task = this.addReserved(config)
+    const task = this.addTree(config)
     this.tasks.add(task)
     try {
       return await task
@@ -317,7 +322,33 @@ export class LayerServiceImpl implements LayerService {
     await Promise.all([...this.instances.values()].map((instance) => instance.settleUpdates()))
   }
 
-  private async addReserved(config: LayerConfig): Promise<LayerInstance> {
+  private async addTree(config: LayerConfig): Promise<LayerInstance> {
+    const addition: LayerAddition = { reserved: new Set(), staged: new Map() }
+    try {
+      const root = await this.addReserved(config, addition)
+      this.assertCanMutate('publish a layer')
+      const entries = [...addition.staged]
+      // Publish the complete tree before any observer can read its children.
+      for (const [id, instance] of entries) this.instances.set(id, instance)
+      addition.staged.clear()
+      this.changed()
+      for (const [id] of entries) this.publish({ type: 'add', id })
+      return root
+    } catch (cause) {
+      for (const layer of [...addition.staged.values()].reverse())
+        await layer.dispose().catch(() => undefined)
+      throw cause
+    } finally {
+      addition.staged.clear()
+      for (const id of addition.reserved) this.pending.delete(id)
+      addition.reserved.clear()
+    }
+  }
+
+  private async addReserved(
+    config: LayerConfig,
+    addition: LayerAddition
+  ): Promise<LayerInstanceImpl> {
     this.assertCanMutate('add a layer')
     if (this.instances.has(config.id) || this.pending.has(config.id)) {
       throw new GISRuntimeError({
@@ -328,14 +359,14 @@ export class LayerServiceImpl implements LayerService {
       })
     }
     this.pending.add(config.id)
-    try {
-      return await this.createLayer(config)
-    } finally {
-      this.pending.delete(config.id)
-    }
+    addition.reserved.add(config.id)
+    return this.createLayer(config, addition)
   }
 
-  private async createLayer(config: LayerConfig): Promise<LayerInstance> {
+  private async createLayer(
+    config: LayerConfig,
+    addition: LayerAddition
+  ): Promise<LayerInstanceImpl> {
     if (config.legend !== undefined)
       config = { ...config, legend: normalizeLayerLegend(config.legend, config.id) }
     if (config.style !== undefined) normalizeLayerStyle(config.style)
@@ -345,7 +376,7 @@ export class LayerServiceImpl implements LayerService {
         message: 'Move options.style to layer.style.',
         stage: 'layer-create',
       })
-    if (config.type === 'GROUP') return this.addGroup(config)
+    if (config.type === 'GROUP') return this.addGroup(config, addition)
     const definition = this.definitions.get(config.type)
     if (!definition) {
       throw new GISRuntimeError({
@@ -364,7 +395,7 @@ export class LayerServiceImpl implements LayerService {
       if (config.zIndex !== undefined) handle.setZIndex(config.zIndex)
       adapter.addLayer(handle)
       attached = true
-      const instance = new LayerInstanceImpl(
+      const instance: LayerInstanceImpl = new LayerInstanceImpl(
         config.id,
         config.type,
         config.title,
@@ -384,14 +415,16 @@ export class LayerServiceImpl implements LayerService {
               errors.push(error)
             }
           } finally {
-            this.instances.delete(config.id)
-            const selected = this.context.interactions.getSelection()
-            if (
-              selected?.layerId === config.id &&
-              (!selected.source || selected.source === 'layer')
-            )
-              this.context.interactions.clearSelection()
-            this.emit({ type: 'remove', id: config.id })
+            if (this.instances.get(config.id) === instance) {
+              this.instances.delete(config.id)
+              const selected = this.context.interactions.getSelection()
+              if (
+                selected?.layerId === config.id &&
+                (!selected.source || selected.source === 'layer')
+              )
+                this.context.interactions.clearSelection()
+              this.emit({ type: 'remove', id: config.id })
+            }
           }
           if (errors.length)
             throw new GISRuntimeError({
@@ -406,8 +439,7 @@ export class LayerServiceImpl implements LayerService {
         config.legend,
         config.style
       )
-      this.instances.set(config.id, instance)
-      this.emit({ type: 'add', id: config.id })
+      addition.staged.set(config.id, instance)
       return instance
     } catch (cause) {
       if (attached) adapter.removeLayer(handle)
@@ -581,7 +613,7 @@ export class LayerServiceImpl implements LayerService {
     }
   }
 
-  private async addGroup(config: LayerConfig): Promise<LayerInstance> {
+  private async addGroup(config: LayerConfig, addition: LayerAddition): Promise<LayerInstanceImpl> {
     if (!config.children?.length) {
       throw new GISRuntimeError({
         code: 'CONFIG_INVALID',
@@ -590,26 +622,22 @@ export class LayerServiceImpl implements LayerService {
         detail: { path: `layers.${config.id}.children` },
       })
     }
-    const children: LayerInstance[] = []
-    try {
-      for (const child of config.children) children.push(await this.add(child))
-      this.assertCanMutate('finish adding a group layer')
-    } catch (cause) {
-      for (const child of children.reverse()) await this.remove(child.id).catch(() => undefined)
-      throw cause
-    }
+    const children: LayerInstanceImpl[] = []
+    for (const child of config.children) children.push(await this.addReserved(child, addition))
+    this.assertCanMutate('finish adding a group layer')
+    const lookup = (id: string) => this.instances.get(id) ?? addition.staged.get(id)
 
     const visible = config.visible ?? true
     const groupLeaves = (): LayerInstanceImpl[] => {
       const collect = (items: LayerInstance[]): LayerInstanceImpl[] =>
         items.flatMap((child) => {
-          if (this.get(child.id) !== child) return []
+          if (lookup(child.id) !== child) return []
           if (child.type !== 'GROUP') return [child as LayerInstanceImpl]
           const ids = child.getMetadata().childIds
           return collect(
             Array.isArray(ids)
               ? ids.flatMap((id) => {
-                  const current = this.get(String(id))
+                  const current = lookup(String(id))
                   return current ? [current] : []
                 })
               : []
@@ -661,8 +689,10 @@ export class LayerServiceImpl implements LayerService {
         }
       },
       setVisible: (next) => {
-        for (const child of children)
-          if (this.get(child.id) === child) this.setVisibility(child.id, next)
+        for (const child of children) {
+          if (this.instances.get(child.id) === child) this.setVisibility(child.id, next)
+          else if (addition.staged.get(child.id) === child) child.setVisibility(next)
+        }
       },
       setZIndex: (value) => {
         const leaves = groupLeaves().sort(
@@ -676,7 +706,7 @@ export class LayerServiceImpl implements LayerService {
         const errors: unknown[] = []
         for (const child of [...children].reverse()) {
           try {
-            if (this.get(child.id) === child) await this.remove(child.id)
+            if (lookup(child.id) === child) await child.dispose()
           } catch (error) {
             errors.push(error)
           }
@@ -692,16 +722,14 @@ export class LayerServiceImpl implements LayerService {
       getMetadata: () => {
         const leaves = groupLeaves()
         return {
-          childIds: children
-            .filter((child) => this.get(child.id) === child)
-            .map((child) => child.id),
+          childIds: children.filter((child) => lookup(child.id) === child).map((child) => child.id),
           zIndex: leaves.length
             ? Math.max(...leaves.map((leaf) => Number(leaf.getMetadata().zIndex ?? 0)))
             : (config.zIndex ?? 0),
         }
       },
     }
-    const group = new LayerInstanceImpl(
+    const group: LayerInstanceImpl = new LayerInstanceImpl(
       config.id,
       'GROUP',
       config.title,
@@ -711,8 +739,10 @@ export class LayerServiceImpl implements LayerService {
         try {
           await handle.dispose?.()
         } finally {
-          this.instances.delete(config.id)
-          this.emit({ type: 'remove', id: config.id })
+          if (this.instances.get(config.id) === group) {
+            this.instances.delete(config.id)
+            this.emit({ type: 'remove', id: config.id })
+          }
         }
       },
       () => this.changed(),
@@ -722,13 +752,12 @@ export class LayerServiceImpl implements LayerService {
       undefined,
       () =>
         children.some(
-          (child) => this.get(child.id) === child && child.status !== 'disposed' && child.visible
+          (child) => lookup(child.id) === child && child.status !== 'disposed' && child.visible
         )
     )
     if (!visible) handle.setVisible(false)
     if (config.zIndex !== undefined) handle.setZIndex(config.zIndex)
-    this.instances.set(config.id, group)
-    this.emit({ type: 'add', id: config.id })
+    addition.staged.set(config.id, group)
     return group
   }
 
@@ -743,6 +772,10 @@ export class LayerServiceImpl implements LayerService {
 
   private emit(event: LayerEvent): void {
     this.changed()
+    this.publish(event)
+  }
+
+  private publish(event: LayerEvent): void {
     for (const listener of [...this.listeners]) {
       try {
         listener(event)

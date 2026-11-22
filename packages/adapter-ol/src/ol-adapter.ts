@@ -68,7 +68,8 @@ export function createOLAdapter(options: OLAdapterOptions = {}): GISPlugin {
       app.registerMapAdapter(adapter, resources)
       app.registerLayerType('xyz', createXYZDefinition(adapter), resources)
       app.registerLayerType('geojson', createGeoJSONDefinition(adapter), resources)
-      if (options.tools !== false) installOLTools(app, resources)
+      if (options.tools !== false)
+        installOLTools(app, resources, (id) => adapter.getWritableVectorLayer(id))
     },
   }
 }
@@ -112,6 +113,7 @@ class OLMapAdapter implements MapAdapter {
   private map?: OlMap
   private selectionHighlight?: OLSelectionHighlight
   private readonly layerByHandle = new WeakMap<MapLayerHandle, BaseLayer>()
+  private readonly inlineVectorLayers = new WeakSet<BaseLayer>()
   private readonly featureFilterByHandle = new WeakMap<
     MapLayerHandle,
     (filter: ((feature: Feature) => boolean) | undefined) => void
@@ -428,6 +430,14 @@ class OLMapAdapter implements MapAdapter {
     return this.requireMap()
   }
 
+  getWritableVectorLayer(id: string): VectorLayer<VectorSource> | undefined {
+    const layer = this.requireMap()
+      .getLayers()
+      .getArray()
+      .find((item) => item.get('gisLayerId') === id)
+    return layer instanceof VectorLayer && this.inlineVectorLayers.has(layer) ? layer : undefined
+  }
+
   createTileHandle(config: LayerConfig): MapLayerHandle {
     const source = asObject(config.source)
     const url = source?.url
@@ -461,6 +471,7 @@ class OLMapAdapter implements MapAdapter {
       const features = format.readFeatures(dataSet.data as Record<string, unknown>)
       const vectorSource = new VectorSource({ features })
       const vectorLayer = new VectorLayer({ source: vectorSource })
+      if (source.type === 'inline') this.inlineVectorLayers.add(vectorLayer)
       handle = this.createHandle(vectorLayer, config)
       let timeFilter: LayerTimeFilter | undefined
       let cachedDimensions: readonly LayerTimeDimension[] | undefined

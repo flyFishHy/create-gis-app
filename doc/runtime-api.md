@@ -244,12 +244,27 @@ data; cleanup waits for pending creation/fetch tasks and aggregates cleanup erro
 
 InteractionService owns selection and one active tool. FeatureReference.source
 omitted/layer means business layer; other owners manage their own invalidation.
-OL tools use ol-tools, share selection with business features and provide result
+OL drawing and measurement results are ordinary GeoJSON features managed by
+LayerService. They share selection, highlighting, and properties with other
+vector features. The result controller provides
 list/get/select/remove/updateGeometry/importResults/exportResults/cancel/undo/clear.
-Tool results survive UI remounts. createOLAdapter installs base tools internally;
+Tool results survive tool deactivation and UI remounts. createOLAdapter installs base tools internally;
 there is no public createOLTools factory. Use createOLAdapter({ tools: false }) to
 omit tool capability. Interactions and result layers are attached lazily as used.
 useOLTools still exposes the OL-specific programmatic result controller.
+
+Set `tools.draw.targets` with `point`, `line`, or `polygon` and
+`tools.measure.targets` with `distance` or `area` to target existing inline
+GeoJSON layers by ID. Each omitted key uses a default layer. Missing and
+non-writable explicit targets fail on activation. The first valid result from an
+unmapped tool creates its default group with the completed feature already in
+the target layer. Angle measurement creates its own default layer on the first
+valid result. LayerService publishes a newly added group and its descendants
+together. Default layers do not modify
+`app.config`. Await `importResults()` so it can create any required default layers.
+Results write through the target's dataset with GeoJSON coordinates in EPSG:4326,
+while the result controller keeps its map-projection format. Clear removes tool
+features and labels while preserving target layers and other features.
 
 `FeatureReference.featureKey` is an optional, opaque identity within the current
 layer data. The OL adapter uses it to find the exact local vector feature even
@@ -314,8 +329,17 @@ OL built-ins are xyz/geojson; Core supplies GROUP. `options` supports opacity.
 `style` is a top-level layer field with fillColor/fillOpacity/strokeColor/strokeWidth,
 lineDash/lineCap and pointRadius.
 `options.style` is rejected with a migration message. The `modify-result` tool
-edits the selected drawing or measurement and recalculates its measurements.
+edits the selected tool result and recalculates measurements when applicable.
 Drawing and editing can snap to existing drawing and measurement results.
+The OL adapter renders vertex markers and displays live and saved measurements in
+map-anchored overlays. Distance measurements label the start and the accumulated
+distance at each following vertex, show the live total at the pointer, and keep
+the final total at the last vertex.
+Angle measurements label the outside of the arc at the second vertex. Completed
+result labels have a remove button and follow their layer's visibility.
+Drawing and measurement tools deactivate
+after committing a valid result. `deactivateTool(expectedId?)` can limit
+deactivation to the matching active tool.
 
 ## Layer style and classification
 

@@ -186,7 +186,7 @@ function reportToolError(cause: unknown) {
         />
       </div>
     </template>
-    <template #map><MapViewport /><FeaturePicker /><ToolHint /></template>
+    <template #map><MapViewport /><FeaturePicker /></template>
     <template #top>
       <div class="gis-ui-query-controls">
         <PanelRegion position="top" />
@@ -212,6 +212,7 @@ function reportToolError(cause: unknown) {
     <template #bottom>
       <div class="gis-ui-bottom-content">
         <PanelRegion position="bottom" />
+        <ToolHint />
         <div v-if="ui.panels.getState('status')?.visible" class="gis-ui-status-content">
           <PanelHost id="status" />
         </div>

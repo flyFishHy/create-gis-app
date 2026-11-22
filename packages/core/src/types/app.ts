@@ -15,6 +15,14 @@ export interface GISAppConfig {
   readonly title?: { readonly content: string; readonly icon?: string; readonly subtitle?: string }
   readonly map?: MapConfig
   readonly layers?: readonly LayerConfig[]
+  readonly tools?: {
+    readonly draw?: {
+      readonly targets?: Readonly<Partial<Record<'point' | 'line' | 'polygon', string>>>
+    }
+    readonly measure?: {
+      readonly targets?: Readonly<Partial<Record<'distance' | 'area', string>>>
+    }
+  }
   readonly data?: Readonly<Record<string, DataSourceConfig>>
   readonly ui?: UIConfig
   readonly [key: string]: unknown

@@ -71,7 +71,7 @@ it('switches built-in layouts in place and retains settings, map view and select
     await app.mount(target)
     const map = useOLMap(app)
     const tools = useOLTools(app)
-    tools.importResults([
+    await tools.importResults([
       {
         id: 'point',
         toolId: 'draw-point',

@@ -42,14 +42,13 @@
       visibility 0.18s;
   }
   .gis-ui-layout--overlay {
-    // Leave the query and layer containers unanimated so their glass surfaces can sample the map.
-    > .gis-ui-title,
-    .gis-ui-overlay--bottom {
+    // Animate glass surfaces directly so an ancestor's opacity cannot isolate their backdrop.
+    > .gis-ui-title {
       animation: gis-ui-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
-    .gis-ui-overlay--bottom {
-      animation-delay: 0.12s;
+    .gis-ui-overlay--bottom .gis-ui-status-content {
+      animation: gis-ui-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.12s backwards;
     }
   }
 }

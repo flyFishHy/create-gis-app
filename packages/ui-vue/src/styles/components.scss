@@ -474,16 +474,16 @@
 }
 
 .gis-ui-feature-picker {
+  --gis-ui-picker-radius: min(14px, var(--gis-ui-panel-radius, 12px));
   position: absolute;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   width: min(280px, 100%);
   max-height: min(320px, 100%);
-  border: 1px solid var(--gis-ui-border);
-  border-radius: var(--gis-ui-panel-radius);
+  border-radius: var(--gis-ui-picker-radius);
   color: var(--gis-ui-text);
-  @include glass.menu-surface;
-  box-shadow: var(--gis-ui-panel-shadow);
+  box-shadow: var(--gis-ui-overlay-shadow);
   font-size: var(--gis-ui-font-sm);
   pointer-events: auto;
 
@@ -549,29 +549,76 @@
   max-width: 100%;
 }
 
-.gis-ui-feature-picker-tail {
-  position: absolute;
-  display: none;
-  left: clamp(14px, var(--gis-ui-map-popup-anchor-x, 50%), calc(100% - 14px));
-  width: 10px;
-  height: 10px;
-  border-right: 1px solid;
-  border-bottom: 1px solid;
-  @include glass.menu-surface;
-  box-shadow: none;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
-  translate: -50% -50%;
-  pointer-events: none;
+@function feature-picker-outline($inset) {
+  $left: $inset;
+  $right: calc(100% - $inset);
+  $top: calc(var(--gis-ui-picker-top) + $inset);
+  $bottom: calc(var(--gis-ui-picker-bottom) - $inset);
+  $radius: max(0px, calc(var(--gis-ui-picker-radius) - $inset));
+  $corner-half: calc($radius / 2);
+  $corner-tip: calc($radius * 0.134);
+  $start: calc($left + $radius);
+  $anchor: var(--gis-ui-picker-anchor);
 
-  [data-popup-tail='bottom'] & {
-    display: block;
-    top: 100%;
-    rotate: 45deg;
+  @return (
+    $start $top,
+    calc($anchor - 8px) $top,
+    $anchor calc(var(--gis-ui-picker-tip-top, var(--gis-ui-picker-top)) + $inset),
+    calc($anchor + 8px) $top,
+    calc($right - $radius) $top,
+    calc($right - $corner-half) calc($top + $corner-tip),
+    calc($right - $corner-tip) calc($top + $corner-half),
+    $right calc($top + $radius),
+    $right calc($bottom - $radius),
+    calc($right - $corner-tip) calc($bottom - $corner-half),
+    calc($right - $corner-half) calc($bottom - $corner-tip),
+    calc($right - $radius) $bottom,
+    calc($anchor + 8px) $bottom,
+    $anchor calc(var(--gis-ui-picker-tip-bottom, var(--gis-ui-picker-bottom)) - $inset),
+    calc($anchor - 8px) $bottom,
+    $start $bottom,
+    calc($left + $corner-half) calc($bottom - $corner-tip),
+    calc($left + $corner-tip) calc($bottom - $corner-half),
+    $left calc($bottom - $radius),
+    $left calc($top + $radius),
+    calc($left + $corner-tip) calc($top + $corner-half),
+    calc($left + $corner-half) calc($top + $corner-tip),
+    $start $top
+  );
+}
+
+.gis-ui-feature-picker-surface {
+  --gis-ui-picker-anchor: clamp(24px, var(--gis-ui-map-popup-anchor-x, 50%), calc(100% - 24px));
+  --gis-ui-picker-top: 0px;
+  --gis-ui-picker-bottom: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  @include glass.panel-surface;
+
+  clip-path: polygon(#{feature-picker-outline(0px)});
+
+  // The inset contour cuts out the center, leaving a stroke around the body and pointer.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--gis-ui-material-border, var(--gis-ui-glass-border, #cbd5e1));
+    clip-path: polygon(evenodd, #{feature-picker-outline(0px)}, #{feature-picker-outline(1px)});
   }
-  [data-popup-tail='top'] & {
-    display: block;
-    top: 0;
-    rotate: 225deg;
+
+  [data-popup-tail='bottom'] .gis-ui-feature-picker:not(.gis-ui-feature-picker-notice) > &,
+  .gis-ui-feature-picker[data-popup-tail='bottom']:not(.gis-ui-feature-picker-notice) > & {
+    --gis-ui-picker-bottom: calc(100% - 8px);
+    --gis-ui-picker-tip-bottom: 100%;
+    bottom: -8px;
+  }
+  [data-popup-tail='top'] .gis-ui-feature-picker:not(.gis-ui-feature-picker-notice) > &,
+  .gis-ui-feature-picker[data-popup-tail='top']:not(.gis-ui-feature-picker-notice) > & {
+    --gis-ui-picker-top: 8px;
+    --gis-ui-picker-tip-top: 0px;
+    top: -8px;
   }
 }
 

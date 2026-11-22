@@ -63,6 +63,38 @@
         "$ref": "#/$defs/layer"
       }
     },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "draw": {
+          "type": "object",
+          "properties": {
+            "targets": {
+              "type": "object",
+              "properties": {
+                "point": { "type": "string", "pattern": "\\S" },
+                "line": { "type": "string", "pattern": "\\S" },
+                "polygon": { "type": "string", "pattern": "\\S" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "measure": {
+          "type": "object",
+          "properties": {
+            "targets": {
+              "type": "object",
+              "properties": {
+                "distance": { "type": "string", "pattern": "\\S" },
+                "area": { "type": "string", "pattern": "\\S" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      }
+    },
     "data": {
       "type": "object",
       "additionalProperties": {

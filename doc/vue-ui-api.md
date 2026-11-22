@@ -278,15 +278,28 @@ Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It us
 InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
 Missing capabilities hide buttons; unavailable actions are disabled. UIConfig.tools
 optionally lists visible built-in IDs (including zoom-in/zoom-out); [] hides all
-built-ins. Activating a known drawing or measurement tool shows a non-interactive map
-hint with the click/double-click workflow and Esc shortcut; the hint follows public
-AppState and disappears when the tool deactivates. Custom toolbarItems are separate. Escape cancels and Backspace undoes
+built-ins. Activating a known drawing or measurement tool shows a non-interactive
+hint centered above the status bar with the click/double-click workflow and Esc shortcut.
+The hint follows public AppState, uses the workbench panel material and primary-color
+pulse, and disappears when the tool deactivates. Custom toolbarItems are separate. Escape cancels and Backspace undoes
 inside the workspace; text inputs/contenteditable and modified keys are ignored.
 Status uses the dedicated id=status panel slot and respects visible=false.
 No createOLToolsUI/createPropertiesUI/OLMapStatus is needed for basic applications.
 The optional [OL integration](ol-vue-api.md) adds only an advanced result-list panel.
+Map measurement labels inherit the workbench's frosted, liquid and solid
+materials. Measurement outlines, vertex outlines, and angle arcs use the active
+primary color. Vertex circles have a white fill. Distance labels stay near their nodes, choosing a side that
+avoids adjoining lines and other labels in the same result when space allows.
+Cumulative distances switch from m to km at 1,000 m, and area switches from m² to
+km² at 1,000,000 m². Drawing and measurement result layers appear in the ordinary
+LayerManager. A default result group first appears when a valid result is saved
+or imported. A newly added group is rendered with all of its children, collapsed
+by default. Both kinds of result support selection and the properties panel.
+Measurement labels follow layer visibility. Top-level `tools.*.targets` controls
+result storage, while `ui.tools` controls toolbar visibility.
 
-Tooltip has no header; hover delay is 180ms, focus opens immediately. right/left/
+Tooltip inherits material and typography tokens from its trigger. Tooltip has no header;
+hover delay is 180ms, focus opens immediately. right/left/
 bottom placement flips at viewport edges, and Escape/click/blur/resize/scroll closes
 it. Timers/listeners are cleaned up at unmount.
 

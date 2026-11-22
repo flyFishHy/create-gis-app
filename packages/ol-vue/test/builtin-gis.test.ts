@@ -91,6 +91,7 @@ it('provides tools, properties, pointer status and scale with only the two defau
       new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
     )
     expect(undo).toHaveBeenCalledTimes(1)
+    expect(target.querySelector('.gis-ui-layer-manager')?.textContent).not.toContain('测量结果')
     draw.dispatchEvent({
       type: 'drawend',
       feature: new Feature(
@@ -100,23 +101,29 @@ it('provides tools, properties, pointer status and scale with only the two defau
         ])
       ),
     } as never)
-    expect(useOLTools(app).list()).toHaveLength(1)
+    await vi.waitFor(() => expect(useOLTools(app).list()).toHaveLength(1))
     viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await flushPromises()
     expect(app.interactions.getActiveTool()).toBeUndefined()
     const result = useOLTools(app).list()[0]!
     useOLTools(app).select(result.id)
     await nextTick()
-    expect(target.querySelector('.gis-ui-panel-host--properties')!.textContent).toContain(result.id)
-    target.querySelector<HTMLButtonElement>('button[aria-label="删除选中结果"]')!.click()
+    expect(target.querySelector('.gis-ui-panel-host--properties')?.textContent).toContain(
+      'measure-distance'
+    )
+    const group = [...target.querySelectorAll('.gis-ui-layer-row.is-root')].find(
+      (row) => row.querySelector('.gis-ui-layer-name')?.textContent?.trim() === '测量结果'
+    )
+    expect(group?.querySelector('.gis-ui-layer-expand')?.getAttribute('aria-expanded')).toBe(
+      'false'
+    )
+    expect(group?.querySelector('.gis-ui-layer-settings')).toBeNull()
+    target.querySelector<HTMLButtonElement>('button[aria-label="删除测量结果"]')!.click()
     await flushPromises()
     expect(useOLTools(app).list()).toHaveLength(0)
     expect(app.interactions.getSelection()).toBeUndefined()
     expect(app.interactions.getActiveTool()).toBeUndefined()
-    await vi.waitFor(() =>
-      expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull()
-    )
-    useOLTools(app).importResults([
+    await useOLTools(app).importResults([
       {
         id: 'clear-me',
         toolId: 'draw-point',

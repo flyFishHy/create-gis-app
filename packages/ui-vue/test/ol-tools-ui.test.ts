@@ -30,7 +30,7 @@ it('connects the generic toolbar to Core, preserves results on remount and delet
     target.querySelector<HTMLButtonElement>('button[aria-label="绘制点"]')!.click()
     await flushPromises()
     expect(app.interactions.getActiveTool()).toBe('draw-point')
-    useOLTools(app).importResults([
+    await useOLTools(app).importResults([
       {
         id: 'sketch-1',
         toolId: 'draw-point',

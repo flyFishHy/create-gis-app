@@ -39,6 +39,10 @@ CSS 可进一步覆盖 `--gis-ui-font-micro/xs/sm/lg/xl`，默认按基础字号
 
 `panelStyle` 支持 `frosted`、`liquid` 和 `solid`。Overlay 默认磨砂，材质应用到 Header、搜索、时间、工具栏、状态栏和面板外壳。Docked 默认实色，材质应用到 Header、侧栏、操作行和状态行。搜索、时间和工具栏的下拉浮层复用当前材质，底色至少保持 80% 不透明度。内部卡片和控件复用材质底色、渐变和边框，保持单层背景模糊。`--gis-ui-control-height: 2.75rem` 统一搜索、时间及工具条表面的最小高度。
 
+地图候选弹框与其他面板共用 `panelStyle` 的底色、透明度、模糊、高光和边框色。弹框和箭头共用一层背景，边框沿两者的外轮廓连续绘制。
+
+Tooltip 和状态栏正上方的 ToolHint 共用 `panelStyle` 的面板材质。ToolHint 的圆点及脉冲使用 `--gis-ui-primary`。
+
 `glass-opacity` 是背景不透明度，数值越小越通透；`glass-blur` 只控制背景模糊，
 不控制透明度。实色模式把有效背景不透明度限制在 94%–100% 并关闭模糊。磨砂和实色沿用参考页的边框与投影。液态玻璃分深浅主题使用不同的渐变、边框和阴影，高光强度由 `panelSpecular` 控制。
 工具栏的玻璃、边框、圆角和阴影由外层 `.gis-ui-toolbar-root` 承担，内部只负责排列

@@ -127,11 +127,7 @@ function choose(candidate: FeaturePickCandidate) {
         @wheel.stop
         @keydown.esc.stop.prevent="cancel"
       >
-        <span
-          v-if="pick.status === 'choices'"
-          class="gis-ui-feature-picker-tail"
-          aria-hidden="true"
-        />
+        <span class="gis-ui-feature-picker-surface" aria-hidden="true" />
         <header>
           <strong v-if="pick.status === 'choices'" :id="id"
             >{{ ui.locale.t('featurePicker.title') }} ({{ pick.candidates.length }})</strong

@@ -48,7 +48,7 @@
   .gis-ui-left-region,
   .gis-ui-right-region,
   .gis-ui-map-actions,
-  .gis-ui-map-status {
+  .gis-ui-map-status::before {
     border-style: solid;
     border-width: 0;
     @include glass.panel-surface;
@@ -212,7 +212,23 @@
     position: relative;
   }
   .gis-ui-map-status {
-    border-top-width: 1px;
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--gis-ui-material-border, var(--gis-ui-glass-border));
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+  }
+  // Keep the docked map at the same height when only the status bar is present.
+  .gis-ui-bottom-content:not(:has(> .gis-ui-panel-region:not(:empty))) > .gis-ui-tool-hint {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
   }
   .gis-ui-status-content {
     border: 0;

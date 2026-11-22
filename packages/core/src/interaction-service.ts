@@ -291,7 +291,7 @@ export class InteractionServiceImpl implements InteractionService {
         }
         throw new GISRuntimeError({
           code: 'TOOL_ACTIVATION_FAILED',
-          message: `Tool "${id}" failed to activate.`,
+          message: `Tool "${id}" failed to activate.${cause instanceof GISRuntimeError ? ` ${cause.message}` : ''}`,
           stage: 'tool-activation',
           cause,
         })
@@ -299,9 +299,10 @@ export class InteractionServiceImpl implements InteractionService {
     })
   }
 
-  deactivateTool(): Promise<void> {
+  deactivateTool(expectedId?: string): Promise<void> {
     return this.enqueue(async () => {
-      if (!this.activeToolId) return
+      if (!this.activeToolId || (expectedId !== undefined && this.activeToolId !== expectedId))
+        return
       const id = this.activeToolId
       const active = this.tools.get(id)
       await active?.deactivate?.(this.context)

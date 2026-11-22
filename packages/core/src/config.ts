@@ -57,6 +57,32 @@ function validateGISShape(config: Record<string, unknown>): void {
     throw configError('layers must be an array.', 'layers')
   }
   if (config.ui !== undefined) validateUIShape(config.ui)
+  if (config.tools !== undefined) {
+    if (!isPlainObject(config.tools)) throw configError('tools must be an object.', 'tools')
+    for (const [kind, keys] of [
+      ['draw', ['point', 'line', 'polygon']],
+      ['measure', ['distance', 'area']],
+    ] as const) {
+      const tool = config.tools[kind]
+      if (tool === undefined) continue
+      const path = `tools.${kind}`
+      if (!isPlainObject(tool)) throw configError(`${path} must be an object.`, path)
+      if (tool.targets === undefined) continue
+      if (!isPlainObject(tool.targets))
+        throw configError('targets must be an object.', `${path}.targets`)
+      for (const [key, value] of Object.entries(tool.targets)) {
+        if (
+          !(keys as readonly string[]).includes(key) ||
+          typeof value !== 'string' ||
+          !value.trim()
+        )
+          throw configError(
+            'Expected a supported tool target and a non-empty layer ID.',
+            `${path}.targets.${key}`
+          )
+      }
+    }
+  }
 
   const ids = new Set<string>()
   const validateLayers = (layers: unknown[], prefix: string) => {

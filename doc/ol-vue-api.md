@@ -17,13 +17,15 @@ app.use(createVueUI({ extensions: [createOLResultsUI()] }))
 ```
 
 createOLResultsUI registers only an unframed bottom result list (id tool-results).
-The list selects/highlights and deletes individual results through useOLTools.
+The list can select, highlight, and delete drawings and measurements through
+useOLTools. The LayerManager manages their containing layers.
 It does not register a second toolbar, keyboard handlers or a status component.
 Dispose removes registrations/subscriptions; results remain with the adapter
 across UI remounts. tools:false is incompatible with this optional extension.
 
 useOLTools(app) remains available from adapter-ol for result inspection, geometry
-updates and import/export. Core and the standard UI never read the OL-specific
+updates and import/export. Await `importResults()` to allow lazy target layer
+creation. Core and the standard UI never read the OL-specific
 controller or extensions['ol-tools'] directly.
 
 Import ol/ol.css and @joinmap/ui-vue/style.css for the normal app and result

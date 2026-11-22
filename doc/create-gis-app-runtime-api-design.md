@@ -1671,6 +1671,9 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 - 图层卸载分别尝试 adapter.removeLayer 与 handle.dispose，汇总错误；实例 dispose 的并发调用共享同一个清理 Promise。
 - OLToolsController 新增 get/remove/select/selected/updateGeometry/exportResults/importResults。结果 ID 与 Feature ID 一致；选中结果高亮，删除只作用于指定 ID。几何修改先校验并重新计算，导入批次先校验全部记录再提交，拒绝重复 ID 和不同于地图的投影。公开结果为拷贝。
 - Draw 不再自行提交 Source：插件校验后统一写入 Source 和结果集合，再通知 UI。测量值按 m、m²、° 保存；拒绝空几何、非有限坐标、零长度线、零面积面及重复角点。
+- OL 工具为折线和面渲染白色填充的圆形顶点，有效结果提交后退出当前绘制或测量工具。测距在节点标注起点和沿线累计距离，鼠标处显示实时总长，末点只保留最终总计。测角在第二个顶点绘制圆弧，将读数放在圆弧外侧。结果经普通 GeoJSON 数据集写入 LayerService 管理的图层，参与要素拾取、选择和属性查询。Overlay 随图层显隐及要素删除更新。
+- `tools.draw.targets` 和 `tools.measure.targets` 按工具指定可写的 inline GeoJSON 图层 ID。缺省目标在首次提交有效结果时通过 LayerService 创建，并将首条要素放入初始数据。已配置的无效目标在激活时报错。导入结果等待目标创建，清空只删除工具生成的要素。
+- LayerService 在父组和所有后代就绪后一起发布图层树，再逐个发出新增通知。创建失败时释放已经创建的子层。
 - Basic Vue 仅安装 createOLAdapter 和 createVueUI。基础工具栏、属性联动和状态栏内置；高级结果列表可显式安装 createOLResultsUI，编程结果操作保留 useOLTools。
 - OL 图层 options 支持 opacity（0–1）；GeoJSON 额外支持 style 对象：fillColor、strokeColor（颜色字符串）、strokeWidth、pointRadius（正数）。style 是完整替换，缺省字段使用默认值；创建和 update 均生效，不支持的 option/style 字段明确报错。参数先全部校验再应用。统一矢量样式通过 getMetadata().style 提供给图例，线符号使用 strokeColor，其余使用 fillColor；分级/分类表达式样式仍未实现。
 - 本轮测试包含 Core 异常/所有权回归与真实 OL、Vue UI 的 jsdom 集成；这些不等同于真实浏览器鼠标事件端到端回归。
@@ -1697,7 +1700,7 @@ Toolbar 的 title 可使用 locale 字典键，也支持原始文本。面板操
 
 LegendDefinition.useLayerStyle 默认不启用。仅显式启用的单项 category 图例跟随统一图层样式。分类颜色保留自定义值。continuous 按真实数值比例生成色带，interval 保持离散色块。
 
-GeoJSON 图层公开分类规则筛选和当前规则 ID。渲染、拾取和本地搜索同时判断时间和分类条件。替换数据后清除已不存在的时间字段条件，编辑图例后清除已不存在的规则条件。结果编辑由 OL 工具提供。Modify 编辑选中的绘制或测量结果，Snap 吸附到其他结果，修改完成后校验并重算测量值。
+GeoJSON 图层公开分类规则筛选和当前规则 ID。渲染、拾取和本地搜索同时判断时间和分类条件。替换数据后清除已不存在的时间字段条件，编辑图例后清除已不存在的规则条件。Modify 编辑选中的工具结果，Snap 吸附到可见结果。更新测量几何时会校验并重算测量值。
 
 Vue UI 的 TimeFilterPicker 根据选定的 IANA 时区计算左闭右开的 Unix 毫秒区间。已提交的值通过 Vue UI 状态片段暴露。业务可订阅并使用公开的 Runtime 接口执行更新。
 

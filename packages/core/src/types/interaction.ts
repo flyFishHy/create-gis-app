@@ -75,6 +75,6 @@ export interface InteractionService {
   cancelFeaturePick(options?: { readonly preserveAnchoredChoices?: boolean }): void
   registerTool(id: string, definition: ToolDefinition, resources: ResourceScope): void
   activateTool(id: string): Promise<void>
-  deactivateTool(): Promise<void>
+  deactivateTool(expectedId?: string): Promise<void>
   getActiveTool(): string | undefined
 }

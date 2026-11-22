@@ -31,12 +31,12 @@ async function show() {
   cancelTimer()
   if (!props.content || !trigger.value) return
   const triggerStyle = getComputedStyle(trigger.value)
-  const fonts = Object.fromEntries(
+  const tokens = Object.fromEntries(
     Array.from(triggerStyle)
-      .filter((key) => key.startsWith('--gis-ui-font-'))
+      .filter((key) => key.startsWith('--gis-ui-'))
       .map((key) => [key, triggerStyle.getPropertyValue(key)])
   )
-  position.value = { ...fonts, visibility: 'hidden' }
+  position.value = { ...tokens, visibility: 'hidden' }
   open.value = true
   await nextTick()
   if (!open.value || !trigger.value || !bubble.value) return
@@ -62,7 +62,7 @@ async function show() {
         : anchor.top - gap - tip.height
   }
   position.value = {
-    ...fonts,
+    ...tokens,
     left: `${Math.max(edge, Math.min(left, window.innerWidth - tip.width - edge))}px`,
     top: `${Math.max(edge, Math.min(top, window.innerHeight - tip.height - edge))}px`,
     visibility: 'visible',

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import Feature from 'ol/Feature.js'
 import LineString from 'ol/geom/LineString.js'
+import Polygon from 'ol/geom/Polygon.js'
+import MultiPoint from 'ol/geom/MultiPoint.js'
 import Draw from 'ol/interaction/Draw.js'
 import Modify from 'ol/interaction/Modify.js'
 import Snap from 'ol/interaction/Snap.js'
@@ -9,6 +11,7 @@ import View from 'ol/View.js'
 import VectorLayer from 'ol/layer/Vector.js'
 import VectorSource from 'ol/source/Vector.js'
 import TileLayer from 'ol/layer/Tile.js'
+import CircleStyle from 'ol/style/Circle.js'
 import { createGISApp } from '@joinmap/gis-core'
 import { createOLAdapter, createOLLayerHandle, useOLMap, useOLTools } from '../src/index.js'
 
@@ -611,7 +614,7 @@ it('edits only the selected result, keeps snapping active and commits the new ge
   try {
     const tools = useOLTools(app),
       map = useOLMap(app)
-    tools.importResults(
+    await tools.importResults(
       ['one', 'two'].map((id, index) => ({
         id,
         toolId: 'draw-point',
@@ -624,13 +627,20 @@ it('edits only the selected result, keeps snapping active and commits the new ge
     const interactions = map.getInteractions().getArray()
     const modify = interactions.find((interaction) => interaction instanceof Modify)!
     expect(interactions.at(-1)).toBeInstanceOf(Snap)
-    const source = (map.getLayers().getArray().at(-1) as VectorLayer<VectorSource>).getSource()!
+    const source = (
+      map
+        .getLayers()
+        .getArray()
+        .find(
+          (layer) => layer.get('gisLayerId') === 'ol-tools:draw-point'
+        ) as VectorLayer<VectorSource>
+    ).getSource()!
     const one = source.getFeatureById('one')!
     modify.dispatchEvent('modifystart')
     ;(one.getGeometry() as Point).setCoordinates([3, 4])
     modify.dispatchEvent('modifyend')
-    expect(tools.get('one')?.geometry.coordinates).toEqual([3, 4])
-    expect(tools.get('two')?.geometry.coordinates).toEqual([1, 1])
+    expect(tools.get('one')?.geometry.coordinates).toEqual([expect.closeTo(3), expect.closeTo(4)])
+    expect(tools.get('two')?.geometry.coordinates).toEqual([expect.closeTo(1), expect.closeTo(1)])
     await app.interactions.deactivateTool()
     expect(
       interactions.some(
@@ -699,29 +709,62 @@ it('unifies map picks, result selection, business selection and removal', async 
   try {
     const tools = useOLTools(app),
       map = useOLMap(app)
-    tools.importResults([
+    await tools.importResults([
       {
         id: 'result',
         toolId: 'draw-point',
         projection: 'EPSG:3857',
         geometry: { type: 'Point', coordinates: [0, 0] },
       },
+      {
+        id: 'distance',
+        toolId: 'measure-distance',
+        projection: 'EPSG:3857',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [100, 0],
+          ],
+        },
+      },
     ])
-    const sketch = map
+    const drawing = map
       .getLayers()
       .getArray()
       .find(
-        (layer) => layer instanceof VectorLayer && !layer.get('gisLayerId')
+        (layer) => layer.get('gisLayerId') === 'ol-tools:draw-point'
       ) as VectorLayer<VectorSource>
-    vi.spyOn(map, 'forEachFeatureAtPixel').mockImplementation((_pixel, callback) =>
-      callback(sketch.getSource()!.getFeatures()[0]!, sketch, null as never)
+    const distance = map
+      .getLayers()
+      .getArray()
+      .find(
+        (layer) => layer.get('gisLayerId') === 'ol-tools:measure-distance'
+      ) as VectorLayer<VectorSource>
+    const measurement = distance.getSource()!.getFeatureById('distance')!
+    const hits = vi.spyOn(map, 'forEachFeatureAtPixel')
+    hits.mockImplementation((_pixel, callback) => callback(measurement, distance, null as never))
+    map.dispatchEvent({ type: 'singleclick', pixel: [0, 0] } as never)
+    expect(app.interactions.getSelection()).toMatchObject({
+      layerId: 'ol-tools:measure-distance',
+      id: 'distance',
+      properties: { gisToolId: 'measure-distance', unit: 'm' },
+    })
+    expect(tools.selected()).toBe('distance')
+    app.layers.setVisibility('ol-tools:measure', false)
+    expect(app.interactions.getSelection()).toBeUndefined()
+    expect(map.getOverlays().getLength()).toBe(0)
+    app.layers.setVisibility('ol-tools:measure', true)
+    expect(map.getOverlays().getLength()).toBe(2)
+    hits.mockImplementation((_pixel, callback) =>
+      callback(drawing.getSource()!.getFeatureById('result')!, drawing, null as never)
     )
     map.dispatchEvent({ type: 'singleclick', pixel: [0, 0] } as never)
     expect(tools.selected()).toBe('result')
     expect(app.interactions.getSelection()).toMatchObject({
-      source: 'ol-tools',
+      layerId: 'ol-tools:draw-point',
       id: 'result',
-      properties: { toolId: 'draw-point' },
+      properties: { gisToolId: 'draw-point' },
     })
     app.layers.setVisibility('vector', false)
     expect(tools.selected()).toBe('result')
@@ -729,7 +772,9 @@ it('unifies map picks, result selection, business selection and removal', async 
     expect(tools.selected()).toBeUndefined()
     tools.select('result')
     expect(app.interactions.getSelection()?.id).toBe('result')
-    tools.remove('result')
+    tools.select('distance')
+    expect(app.interactions.getSelection()?.id).toBe('distance')
+    tools.remove('distance')
     expect(app.interactions.getSelection()).toBeUndefined()
     expect(tools.selected()).toBeUndefined()
   } finally {
@@ -817,22 +862,51 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
     layers: [{ id: 'vector', type: 'geojson', source: { type: 'inline', data: collection } }],
   })
   const map = useOLMap(app)
+  const host = document.createElement('div')
+  const target = document.createElement('div')
+  host.className = 'gis-ui-root'
+  host.style.setProperty('--gis-ui-primary', '#08875a')
+  host.append(target)
+  document.body.append(host)
+  map.setTarget(target)
   try {
     await app.interactions.activateTool('measure-angle')
     const draw = map
       .getInteractions()
       .getArray()
       .find((i) => i instanceof Draw)!
-    draw.dispatchEvent({
-      type: 'drawend',
-      feature: new Feature(
-        new LineString([
-          [0, -1],
-          [0, 0],
-          [-1, 0],
-        ])
-      ),
-    } as never)
+    const feature = new Feature(
+      new LineString([
+        [0, -1],
+        [0, 0],
+        [-1, 0],
+      ])
+    )
+    draw.dispatchEvent({ type: 'drawend', feature } as never)
+    await vi.waitFor(() => expect(useOLTools(app).list()).toHaveLength(1))
+    const layer = map.getLayers().getArray().at(-1) as VectorLayer<VectorSource>
+    const committed = layer.getSource()!.getFeatures()[0]!
+    const checkArc = (color: number[]) => {
+      const resolution = map.getView().getResolution()!
+      const styles = committed.getStyleFunction()!(committed, resolution)
+      if (!Array.isArray(styles)) throw new Error('Missing measurement styles')
+      const arc = styles[2]!.getGeometry() as LineString
+      const midpoint = arc.getCoordinateAt(0.5)
+      const position = map.getOverlays().item(0).getPosition()!
+      expect(position[0]).toBeCloseTo(position[1]!)
+      expect(position[0]).toBeLessThan(midpoint[0]!)
+      expect(styles[0]!.getStroke()?.getColor()).toEqual(color)
+      expect(styles[2]!.getStroke()?.getColor()).toEqual(color)
+      const marker = styles[1]!.getImage() as CircleStyle
+      expect(marker.getFill()?.getColor()).toBe('#fff')
+      expect(marker.getStroke()?.getColor()).toEqual(color)
+    }
+    checkArc([8, 135, 90, 1])
+    host.style.setProperty('--gis-ui-primary', '#6944af')
+    await Promise.resolve()
+    map.getView().setResolution(map.getView().getResolution()! / 2)
+    map.dispatchEvent('postrender')
+    checkArc([105, 68, 175, 1])
     expect(useOLTools(app).list()[0]).toMatchObject({
       value: 90,
       unit: '°',
@@ -843,8 +917,10 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
     })
     const tools = useOLTools(app)
     const result = tools.list()[0]!
+    expect(map.getOverlays().item(0).getElement()?.firstElementChild?.textContent).toBe('90°')
     tools.select(result.id)
     expect(tools.selected()).toBe(result.id)
+    expect(app.interactions.getSelection()?.layerId).toBe('ol-tools:measure-angle')
     tools.updateGeometry(result.id, {
       type: 'LineString',
       coordinates: [
@@ -854,6 +930,7 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
       ],
     })
     expect(tools.get(result.id)!.value).toBeCloseTo(45)
+    expect(map.getOverlays().item(0).getElement()?.firstElementChild?.textContent).toBe('45°')
     expect(() =>
       tools.updateGeometry(result.id, {
         type: 'LineString',
@@ -868,10 +945,12 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
     const saved = tools.exportResults()
     tools.remove(result.id)
     expect(tools.list()).toHaveLength(0)
-    tools.importResults(saved)
+    expect(map.getOverlays().getLength()).toBe(0)
+    await tools.importResults(saved)
     expect(tools.list()).toHaveLength(1)
-    expect(() => tools.importResults(saved)).toThrow()
-    app.layers.setOrder(['vector'])
+    expect(map.getOverlays().item(0).getElement()?.firstElementChild?.textContent).toBe('45°')
+    await expect(tools.importResults(saved)).rejects.toThrow()
+    app.layers.setOrder(['ol-tools:measure-angle', 'vector'])
     expect(map.getLayers().getLength()).toBe(2)
     await app.interactions.activateTool('draw-point')
     expect(map.getInteractions().getArray()).not.toContain(draw)
@@ -881,8 +960,360 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
     expect(useOLTools(app).list()).toHaveLength(0)
   } finally {
     await app.dispose()
+    host.remove()
   }
 })
+
+it('shows live area and square kilometers without rendering an angle arc', async () => {
+  const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+  await app.init({})
+  const map = useOLMap(app)
+  const overlays = map.getOverlays()
+  const ring = [
+    [0, 0],
+    [40, 40],
+    [0, 80],
+    [80, 80],
+    [80, 0],
+    [0, 0],
+  ]
+  try {
+    await app.interactions.activateTool('measure-area')
+    expect(app.layers.list()).toHaveLength(0)
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    const geometry = new Polygon([])
+    const feature = new Feature(geometry)
+    draw.dispatchEvent({ type: 'drawend', feature } as never)
+    expect(app.layers.list()).toHaveLength(0)
+    draw.dispatchEvent({ type: 'drawstart', feature } as never)
+    expect(overlays.getLength()).toBe(0)
+    geometry.setCoordinates([ring])
+    expect(overlays.getLength()).toBe(1)
+    const preview = overlays.item(0)
+    expect(preview.getElement()?.textContent).toMatch(/ m²$/)
+    expect(preview.getPosition()).toEqual([80, 0])
+    expect(preview.getOptions().stopEvent).toBe(false)
+    draw.dispatchEvent({ type: 'drawabort', feature } as never)
+    expect(overlays.getLength()).toBe(0)
+
+    draw.dispatchEvent({ type: 'drawstart', feature } as never)
+    draw.dispatchEvent({ type: 'drawend', feature } as never)
+    await vi.waitFor(() => expect(overlays.getLength()).toBe(1))
+    const [x, y] = geometry.getInteriorPoint().getCoordinates()
+    expect(overlays.item(0).getPosition()).toEqual([expect.closeTo(x!), expect.closeTo(y!)])
+    const layer = map
+      .getLayers()
+      .getArray()
+      .find(
+        (item) => item.get('gisLayerId') === 'ol-tools:measure-area'
+      ) as VectorLayer<VectorSource>
+    const committed = layer.getSource()!.getFeatures()[0]!
+    const styles = committed.getStyleFunction()!(committed, 1)
+    expect(Array.isArray(styles)).toBe(true)
+    const styleGeometries = Array.isArray(styles)
+      ? styles.map((style) => style.getGeometryFunction()(committed))
+      : []
+    const vertices = styleGeometries.find((item) => item instanceof MultiPoint)
+    expect(vertices?.getCoordinates()).toEqual(
+      ring.slice(0, -1).map(([x, y]) => [expect.closeTo(x!), expect.closeTo(y!)])
+    )
+    expect(styleGeometries.some((item) => item instanceof LineString)).toBe(false)
+    const tools = useOLTools(app)
+    tools.updateGeometry(tools.list()[0]!.id, {
+      type: 'Polygon',
+      coordinates: [ring.map(([x, y]) => [x! * 100, y! * 100])],
+    })
+    expect(overlays.item(0).getElement()?.firstElementChild?.textContent).toMatch(/ km²$/)
+  } finally {
+    await app.dispose()
+  }
+  expect(overlays.getLength()).toBe(0)
+})
+
+it('labels cumulative distances at nodes and deletes a completed result from its total', async () => {
+  const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+  await app.init({})
+  const map = useOLMap(app)
+  const overlays = map.getOverlays()
+  const tools = useOLTools(app)
+  try {
+    await app.interactions.activateTool('measure-distance')
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    const coordinates = [
+      [0, 0],
+      [700, 0],
+      [700, 700],
+      [1_400, 700],
+    ]
+    const geometry = new LineString([coordinates[0]!, coordinates[0]!])
+    const feature = new Feature(geometry)
+    draw.dispatchEvent({ type: 'drawstart', feature } as never)
+    expect(overlays.getLength()).toBe(2)
+    expect(overlays.item(0).getElement()?.textContent).toBe('起点')
+    expect(overlays.item(1).getElement()?.textContent).toBe('总长: 0 m')
+    geometry.setCoordinates(coordinates)
+    expect(overlays.getLength()).toBe(4)
+    expect(overlays.getArray().map((item) => item.getPosition())).toEqual(coordinates)
+    expect(overlays.item(1).getElement()?.textContent).toMatch(/ m$/)
+    expect(overlays.item(2).getElement()?.textContent).toMatch(/^\d.+ km$/)
+    expect(overlays.item(3).getElement()?.textContent).toMatch(/^总长: .+ km$/)
+    const projected = vi.spyOn(map, 'getPixelFromCoordinate')
+    projected.mockImplementation(([x]) => [100 + x! / 10, 100])
+    vi.spyOn(map, 'getSize').mockReturnValue([400, 200])
+    map.dispatchEvent('postrender')
+    expect(overlays.item(0).getOffset()[1]).toBeLessThan(0)
+    projected.mockImplementation(([x]) => [100 + x! / 10, 2])
+    map.dispatchEvent('postrender')
+    expect(overlays.item(0).getOffset()[1]).toBeGreaterThan(0)
+    expect(overlays.item(0).getOffset()[1]).toBeLessThan(30)
+    expect(overlays.getArray().some((item) => item.getElement()?.querySelector('button'))).toBe(
+      false
+    )
+
+    draw.dispatchEvent({ type: 'drawend', feature } as never)
+    await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBeUndefined())
+    expect(map.getInteractions().getArray()).not.toContain(draw)
+    expect(overlays.getLength()).toBe(4)
+    expect(overlays.item(3).getElement()?.firstElementChild?.textContent).toMatch(
+      /^总计: [^\n]+ km$/
+    )
+    const result = tools.list()[0]!
+    tools.updateGeometry(result.id, { type: 'LineString', coordinates: coordinates.slice(0, 2) })
+    expect(overlays.getLength()).toBe(2)
+    expect(overlays.item(1).getElement()?.querySelector('button')).toBeTruthy()
+    tools.updateGeometry(result.id, { type: 'LineString', coordinates })
+    expect(overlays.getLength()).toBe(4)
+    const buttons = overlays
+      .getArray()
+      .flatMap((item) => [...(item.getElement()?.querySelectorAll('button') ?? [])])
+    expect(buttons).toHaveLength(1)
+    buttons[0]!.click()
+    expect(overlays.getLength()).toBe(0)
+    expect(tools.list()).toHaveLength(0)
+  } finally {
+    await app.dispose()
+  }
+})
+
+it('creates a default drawing group only after a valid result and publishes the first feature with it', async () => {
+  const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+  await app.init({})
+  try {
+    const map = useOLMap(app)
+    await app.interactions.activateTool('draw-line')
+    expect(app.layers.list()).toEqual([])
+    const draft = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    draft.appendCoordinates([[0, 0]])
+    await app.interactions.deactivateTool()
+    expect(app.layers.list()).toEqual([])
+    await app.interactions.activateTool('draw-line')
+    const published: { ids: string[]; count: number }[] = []
+    const unlisten = app.layers.subscribe((event) => {
+      if (event.type !== 'add') return
+      const layer = map
+        .getLayers()
+        .getArray()
+        .find(
+          (layer) => layer.get('gisLayerId') === 'ol-tools:draw-line'
+        ) as VectorLayer<VectorSource>
+      published.push({
+        ids: app.layers.list().map(({ id }) => id),
+        count: layer.getSource()!.getFeatures().length,
+      })
+    })
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    draw.appendCoordinates([
+      [0, 0],
+      [100, 100],
+    ])
+    draw.finishDrawing()
+
+    await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBeUndefined())
+    expect(useOLTools(app).list()).toHaveLength(1)
+    expect(published).toEqual(
+      Array.from({ length: 4 }, () => ({
+        ids: [
+          'ol-tools:draw-point',
+          'ol-tools:draw-line',
+          'ol-tools:draw-polygon',
+          'ol-tools:draw',
+        ],
+        count: 1,
+      }))
+    )
+    unlisten()
+    expect(
+      map
+        .getInteractions()
+        .getArray()
+        .some((item) => item instanceof Draw || item instanceof Snap)
+    ).toBe(false)
+  } finally {
+    await app.dispose()
+  }
+})
+
+it('clears a completed result even if its first default layer is still being created', async () => {
+  const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+  await app.init({})
+  try {
+    await app.interactions.activateTool('draw-point')
+    const map = useOLMap(app)
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    draw.dispatchEvent({ type: 'drawend', feature: new Feature(new Point([1, 2])) } as never)
+    await app.interactions.activateTool('clear-results')
+    expect(app.layers.has('ol-tools:draw')).toBe(true)
+    expect(useOLTools(app).list()).toHaveLength(0)
+  } finally {
+    await app.dispose()
+  }
+})
+
+it('writes to configured GeoJSON targets and lazily groups the remaining tool types', async () => {
+  const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+  await app.init({
+    tools: { draw: { targets: { point: 'locations' } }, measure: { targets: { area: 'areas' } } },
+    layers: [
+      {
+        id: 'locations',
+        type: 'geojson',
+        source: {
+          type: 'inline',
+          data: {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                id: 'existing',
+                properties: {},
+                geometry: { type: 'Point', coordinates: [0, 0] },
+              },
+            ],
+          },
+        },
+      },
+      { id: 'areas', type: 'geojson', source: { type: 'inline', data: collection } },
+    ],
+  })
+  const map = useOLMap(app)
+  try {
+    expect(app.layers.list().map(({ id }) => id)).toEqual(['locations', 'areas'])
+    const tools = useOLTools(app)
+    await app.interactions.activateTool('draw-point')
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Draw)!
+    draw.dispatchEvent({
+      type: 'drawend',
+      feature: new Feature(new Point([111319.490793, 0])),
+    } as never)
+    expect(app.data.get('layer:locations')?.data).toMatchObject({
+      features: [
+        { id: 'existing' },
+        {
+          id: tools.list()[0]!.id,
+          geometry: { coordinates: [expect.closeTo(1), expect.closeTo(0)] },
+        },
+      ],
+    })
+    expect(app.layers.has('ol-tools:draw')).toBe(false)
+    const points = [
+      [0, 0],
+      [100, 0],
+      [100, 100],
+      [0, 0],
+    ]
+    await tools.importResults([
+      {
+        id: 'line',
+        toolId: 'draw-line',
+        projection: 'EPSG:3857',
+        geometry: { type: 'LineString', coordinates: points.slice(0, 2) },
+      },
+      {
+        id: 'polygon',
+        toolId: 'draw-polygon',
+        projection: 'EPSG:3857',
+        geometry: { type: 'Polygon', coordinates: [points] },
+      },
+      {
+        id: 'distance',
+        toolId: 'measure-distance',
+        projection: 'EPSG:3857',
+        geometry: { type: 'LineString', coordinates: points.slice(0, 2) },
+      },
+      {
+        id: 'area',
+        toolId: 'measure-area',
+        projection: 'EPSG:3857',
+        geometry: { type: 'Polygon', coordinates: [points] },
+      },
+    ])
+    expect(app.layers.get('ol-tools:draw')?.getMetadata().childIds).toEqual([
+      'ol-tools:draw-line',
+      'ol-tools:draw-polygon',
+    ])
+    expect(app.layers.get('ol-tools:measure')?.getMetadata().childIds).toEqual([
+      'ol-tools:measure-distance',
+    ])
+    expect(app.data.get('layer:areas')?.data).toMatchObject({
+      features: [{ id: 'area', properties: { value: expect.any(Number), unit: 'm²' } }],
+    })
+    expect(app.layers.getDataLocation('areas')).toBeDefined()
+    await app.layers.update('areas', { options: { opacity: 0.4 } })
+    expect(app.layers.get('areas')?.getMetadata().opacity).toBe(0.4)
+    await app.interactions.activateTool('measure-distance')
+    await tools.cancel()
+    expect(tools.list()).toHaveLength(5)
+    await tools.clear()
+    expect(tools.list()).toHaveLength(0)
+    expect(map.getOverlays().getLength()).toBe(0)
+    expect(app.data.get('layer:locations')?.data).toMatchObject({ features: [{ id: 'existing' }] })
+    expect(app.layers.get('areas')?.getMetadata().opacity).toBe(0.4)
+    expect(app.layers.getDataLocation('areas')).toBeUndefined()
+    expect(app.config?.layers?.map(({ id }) => id)).toEqual(['locations', 'areas'])
+  } finally {
+    await app.dispose()
+  }
+})
+
+it.each(['missing', 'tiles'])(
+  'reports an explicit invalid tool target %s without creating defaults',
+  async (id) => {
+    const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+    try {
+      await app.init({
+        tools: { draw: { targets: { point: id } } },
+        layers: [
+          { id: 'tiles', type: 'xyz', source: { url: 'https://example.com/{z}/{x}/{y}.png' } },
+        ],
+      })
+      await expect(app.interactions.activateTool('draw-point')).rejects.toThrow(
+        `requires a writable inline GeoJSON layer "${id}"`
+      )
+      expect(app.layers.list().map((layer) => layer.id)).toEqual(['tiles'])
+      expect(app.interactions.getActiveTool()).toBeUndefined()
+    } finally {
+      await app.dispose()
+    }
+  }
+)
 
 it('allows retry of a failed GeoJSON URL with the same id', async () => {
   const app = createGISApp()

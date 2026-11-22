@@ -1,3 +1,5 @@
+@use 'glass' as glass;
+
 // Root sizing, box model, typography and shared primitives.
 
 .gis-ui-root,
@@ -87,11 +89,10 @@
   max-width: min(240px, calc(100vw - 16px));
   box-sizing: border-box;
   padding: 7px 10px;
-  border: 1px solid #ffffff1a;
+  border: 1px solid;
   border-radius: 6px;
-  background: #182230;
-  box-shadow: 0 4px 12px #10182826;
-  color: #f9fafb;
+  @include glass.panel-surface(var(--gis-ui-surface, #182230));
+  color: var(--gis-ui-text, #f9fafb);
   font: var(--gis-ui-font-sm, 0.8125rem)/1.4 var(--gis-ui-font-family, system-ui, sans-serif);
   text-align: left;
   overflow-wrap: anywhere;
