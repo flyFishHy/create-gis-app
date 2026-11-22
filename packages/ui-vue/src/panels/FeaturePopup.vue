@@ -12,7 +12,9 @@ let unsubscribe: (() => void) | undefined
 
 onMounted(() => {
   feature.value = app.interactions.getSelection()
-  unsubscribe = app.interactions.onSelect((selection) => { feature.value = selection })
+  unsubscribe = app.interactions.onSelect((selection) => {
+    feature.value = selection
+  })
 })
 onBeforeUnmount(() => unsubscribe?.())
 </script>
@@ -21,7 +23,13 @@ onBeforeUnmount(() => unsubscribe?.())
   <aside v-if="feature" class="gis-ui-feature-popup" aria-live="polite">
     <header>
       <strong>{{ ui.locale.t('panel.properties') }}</strong>
-      <button type="button" :aria-label="ui.locale.t('action.clearSelection')" @click="app.interactions.clearSelection()">×</button>
+      <button
+        type="button"
+        :aria-label="ui.locale.t('action.clearSelection')"
+        @click="app.interactions.clearSelection()"
+      >
+        ×
+      </button>
     </header>
     <FeatureDetails :feature="feature" />
   </aside>

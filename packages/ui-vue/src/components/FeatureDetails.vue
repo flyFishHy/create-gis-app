@@ -6,13 +6,29 @@ const ui = useGISUI()
 </script>
 
 <template>
-  <component v-if="ui.featureRenderers.resolve(feature)" :is="ui.featureRenderers.resolve(feature)?.component" :feature="feature" />
+  <component
+    v-if="ui.featureRenderers.resolve(feature)"
+    :is="ui.featureRenderers.resolve(feature)?.component"
+    :feature="feature"
+  />
   <dl v-else>
-    <div><dt>{{ ui.locale.t('properties.layer') }}</dt><dd>{{ feature.layerId }}</dd></div>
-    <div v-if="feature.id !== undefined"><dt>{{ ui.locale.t('properties.featureId') }}</dt><dd>{{ feature.id }}</dd></div>
-    <div v-if="feature.geometryType"><dt>{{ ui.locale.t('properties.geometry') }}</dt><dd>{{ feature.geometryType }}</dd></div>
+    <div>
+      <dt>{{ ui.locale.t('properties.layer') }}</dt>
+      <dd>{{ feature.layerId }}</dd>
+    </div>
+    <div v-if="feature.id !== undefined">
+      <dt>{{ ui.locale.t('properties.featureId') }}</dt>
+      <dd>{{ feature.id }}</dd>
+    </div>
+    <div v-if="feature.geometryType">
+      <dt>{{ ui.locale.t('properties.geometry') }}</dt>
+      <dd>{{ feature.geometryType }}</dd>
+    </div>
     <template v-for="(value, key) in feature.properties" :key="key">
-      <div><dt>{{ key }}</dt><dd>{{ typeof value === 'object' ? JSON.stringify(value) : value }}</dd></div>
+      <div>
+        <dt>{{ key }}</dt>
+        <dd>{{ typeof value === 'object' ? JSON.stringify(value) : value }}</dd>
+      </div>
     </template>
   </dl>
 </template>

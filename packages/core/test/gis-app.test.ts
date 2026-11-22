@@ -9,12 +9,20 @@ describe('GISApp lifecycle and plugins', () => {
     const cleanup: string[] = []
     const base: GISPlugin = {
       name: 'base',
-      install(_app, _options, resources) { resources.add(() => { cleanup.push('base') }) },
+      install(_app, _options, resources) {
+        resources.add(() => {
+          cleanup.push('base')
+        })
+      },
     }
     const feature: GISPlugin = {
       name: 'feature',
       dependencies: ['base'],
-      install(_app, _options, resources) { resources.add(() => { cleanup.push('feature') }) },
+      install(_app, _options, resources) {
+        resources.add(() => {
+          cleanup.push('feature')
+        })
+      },
     }
     app.use(feature).use(base)
 
@@ -47,8 +55,12 @@ describe('GISApp lifecycle and plugins', () => {
     const failure = new Error('plugin init failed')
     app.use({
       name: 'broken',
-      install(_app, _options, resources) { resources.add(cleanup) },
-      onInit() { throw failure },
+      install(_app, _options, resources) {
+        resources.add(cleanup)
+      },
+      onInit() {
+        throw failure
+      },
     })
 
     await expect(app.init({})).rejects.toMatchObject({
@@ -68,7 +80,10 @@ describe('GISApp lifecycle and plugins', () => {
     app.use({
       name: 'slow',
       install() {},
-      onInit: () => new Promise<void>((resolve) => { finishInit = resolve }),
+      onInit: () =>
+        new Promise<void>((resolve) => {
+          finishInit = resolve
+        }),
     })
     const init = app.init({})
     const dispose = app.dispose()
@@ -83,11 +98,22 @@ describe('GISApp lifecycle and plugins', () => {
     const app = createGISApp()
     const calls: string[] = []
     const adapter: UIAdapter = {
-      mount(target) { calls.push(`mount:${String(target)}`) },
-      unmount() { calls.push('unmount') },
-      dispose() { calls.push('dispose') },
+      mount(target) {
+        calls.push(`mount:${String(target)}`)
+      },
+      unmount() {
+        calls.push('unmount')
+      },
+      dispose() {
+        calls.push('dispose')
+      },
     }
-    app.use({ name: 'test-ui', install(runtime, _options, resources) { runtime.registerUIAdapter(adapter, resources) } })
+    app.use({
+      name: 'test-ui',
+      install(runtime, _options, resources) {
+        runtime.registerUIAdapter(adapter, resources)
+      },
+    })
     await app.init({})
     await app.mount('#one')
     await app.unmount()
@@ -102,14 +128,28 @@ describe('GISApp lifecycle and plugins', () => {
     const unmount = vi.fn()
     let failed = true
     const adapter: UIAdapter = {
-      mount() { if (failed) { failed = false; throw new Error('bad target') } },
+      mount() {
+        if (failed) {
+          failed = false
+          throw new Error('bad target')
+        }
+      },
       unmount,
       dispose() {},
     }
-    app.use({ name: 'test-ui', install(runtime, _options, resources) { runtime.registerUIAdapter(adapter, resources) } })
+    app.use({
+      name: 'test-ui',
+      install(runtime, _options, resources) {
+        runtime.registerUIAdapter(adapter, resources)
+      },
+    })
     await app.init({})
     let mountError: unknown
-    try { await app.mount('#bad') } catch (error) { mountError = error }
+    try {
+      await app.mount('#bad')
+    } catch (error) {
+      mountError = error
+    }
     expect(mountError).toMatchObject({ message: 'bad target' })
     expect(app.status).toBe('ready')
     expect(unmount).toHaveBeenCalledOnce()

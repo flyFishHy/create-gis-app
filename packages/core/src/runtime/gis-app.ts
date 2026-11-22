@@ -54,8 +54,12 @@ class GISAppImpl implements GISApp {
   readonly search: SearchServiceImpl
   readonly #state: AppStateImpl
   private readonly initializeContextConfig: (config: Readonly<GISAppConfig>) => void
-  private get currentStatus(): AppStatus { return this.#state.status }
-  private set currentStatus(status: AppStatus) { this.#state.setStatus(status) }
+  private get currentStatus(): AppStatus {
+    return this.#state.status
+  }
+  private set currentStatus(status: AppStatus) {
+    this.#state.setStatus(status)
+  }
   private readonly resources = new ResourceScopeImpl()
   private readonly mapResources = new ResourceScopeImpl()
   private readonly plugins = new Map<string, PluginRecord>()
@@ -77,21 +81,39 @@ class GISAppImpl implements GISApp {
     this.layers = new LayerServiceImpl(this.map, dependencies)
     this.data = new DataServiceImpl(dependencies)
     this.interactions = new InteractionServiceImpl(dependencies, this.events)
-    const assembly = AppContextImpl.create({ map: this.map, layers: this.layers, data: this.data,
-      interactions: this.interactions, search: this.search, events: this.events, resources: this.resources, state: this.#state.view })
+    const assembly = AppContextImpl.create({
+      map: this.map,
+      layers: this.layers,
+      data: this.data,
+      interactions: this.interactions,
+      search: this.search,
+      events: this.events,
+      resources: this.resources,
+      state: this.#state.view,
+    })
     this.context = context = assembly.context
     this.initializeContextConfig = assembly.initializeConfig
     const map = this.map
     const layers = this.layers
     const data = this.data
     const events = this.events
-    this.#state.connect(createSnapshotReader(() => map.snapshot(), () => layers.list(), () => data.snapshot()))
+    this.#state.connect(
+      createSnapshotReader(
+        () => map.snapshot(),
+        () => layers.list(),
+        () => data.snapshot()
+      )
+    )
     this.resources.add(() => data.clear())
     const unsubscribeLayerEvents = this.layers.subscribe((event) => {
       if (!event.id) return
       if (event.type === 'add') events.emit('layer:added', { layerId: event.id })
       else if (event.type === 'remove') events.emit('layer:removed', { layerId: event.id })
-      else if (event.type === 'visibility') events.emit('layer:visibility-changed', { layerId: event.id, visible: event.visible ?? true })
+      else if (event.type === 'visibility')
+        events.emit('layer:visibility-changed', {
+          layerId: event.id,
+          visible: event.visible ?? true,
+        })
       else if (event.type === 'update') events.emit('layer:updated', { layerId: event.id })
     })
     this.resources.add(unsubscribeLayerEvents)
@@ -106,10 +128,16 @@ class GISAppImpl implements GISApp {
   }
 
   registerStateSlice(name: string, contributor: StateContributor, resources: ResourceScope): void {
-    if (!['initializing', 'ready', 'mounted', 'unmounted'].includes(this.status)) this.assertStatus('initializing', 'register state slice')
+    if (!['initializing', 'ready', 'mounted', 'unmounted'].includes(this.status))
+      this.assertStatus('initializing', 'register state slice')
     assertResourceScopeActive(resources)
     const stop = this.#state.register(name, contributor)
-    try { resources.add(stop) } catch (error) { stop(); throw error }
+    try {
+      resources.add(stop)
+    } catch (error) {
+      stop()
+      throw error
+    }
   }
 
   use<Options>(plugin: GISPlugin<Options>, options?: Options): this {
@@ -171,7 +199,11 @@ class GISAppImpl implements GISApp {
         }
 
         const configuredData = this.config?.data
-        if (configuredData && typeof configuredData === 'object' && !Array.isArray(configuredData)) {
+        if (
+          configuredData &&
+          typeof configuredData === 'object' &&
+          !Array.isArray(configuredData)
+        ) {
           stage = 'data-initialization'
           for (const [id, source] of Object.entries(configuredData)) {
             await this.data.load(source as DataSourceConfig, { id })
@@ -192,25 +224,30 @@ class GISAppImpl implements GISApp {
         this.events.emit('app:ready', { appId: this.id })
       } catch (cause) {
         this.currentStatus = 'error'
-        try { await this.interactions.deactivateTool() } catch { /* preserve initialization failure */ }
+        try {
+          await this.interactions.deactivateTool()
+        } catch {
+          /* preserve initialization failure */
+        }
         const cleanupErrors = await this.cleanupResources()
         this.currentStatus = 'error'
-        const error = cause instanceof GISRuntimeError
-          ? new GISRuntimeError({
-              code: cause.code,
-              message: cause.message,
-              stage: cause.stage ?? stage,
-              detail: cause.detail,
-              cause: cause.cause ?? cause,
-              cleanupErrors: [...(cause.cleanupErrors ?? []), ...cleanupErrors],
-            })
-          : new GISRuntimeError({
-              code: 'APP_INITIALIZATION_FAILED',
-              message: `Application initialization failed during ${stage}.`,
-              stage,
-              cause,
-              cleanupErrors,
-            })
+        const error =
+          cause instanceof GISRuntimeError
+            ? new GISRuntimeError({
+                code: cause.code,
+                message: cause.message,
+                stage: cause.stage ?? stage,
+                detail: cause.detail,
+                cause: cause.cause ?? cause,
+                cleanupErrors: [...(cause.cleanupErrors ?? []), ...cleanupErrors],
+              })
+            : new GISRuntimeError({
+                code: 'APP_INITIALIZATION_FAILED',
+                message: `Application initialization failed during ${stage}.`,
+                stage,
+                cause,
+                cleanupErrors,
+              })
         this.reportError(error)
         throw error
       }
@@ -278,7 +315,7 @@ class GISAppImpl implements GISApp {
         errors.push(error)
       }
 
-      errors.push(...await this.cleanupResources())
+      errors.push(...(await this.cleanupResources()))
       if (this.interactions.getSelection()) this.interactions.clearSelection()
       this.interactions.close()
       this.currentStatus = 'disposed'
@@ -325,8 +362,11 @@ class GISAppImpl implements GISApp {
     this.uiAdapter = adapter
     try {
       resources.add(async () => {
-        try { await adapter.dispose() }
-        finally { if (this.uiAdapter === adapter) this.uiAdapter = undefined }
+        try {
+          await adapter.dispose()
+        } finally {
+          if (this.uiAdapter === adapter) this.uiAdapter = undefined
+        }
       })
     } catch (error) {
       this.uiAdapter = undefined
@@ -345,8 +385,12 @@ class GISAppImpl implements GISApp {
     }
     this.map.registerAdapter(adapter)
     const map = this.map
-    try { resources.add(() => map.unregisterAdapter(adapter)) }
-    catch (error) { map.unregisterAdapter(adapter); throw error }
+    try {
+      resources.add(() => map.unregisterAdapter(adapter))
+    } catch (error) {
+      map.unregisterAdapter(adapter)
+      throw error
+    }
   }
 
   registerLayerType(type: string, definition: LayerTypeDefinition, resources: ResourceScope): void {
@@ -359,20 +403,36 @@ class GISAppImpl implements GISApp {
       })
     }
     this.layers.registerType(type, definition)
-    try { resources.add(() => this.layers.unregisterType(type, definition)) }
-    catch (error) { this.layers.unregisterType(type, definition); throw error }
+    try {
+      resources.add(() => this.layers.unregisterType(type, definition))
+    } catch (error) {
+      this.layers.unregisterType(type, definition)
+      throw error
+    }
   }
 
-  registerDataProcessor<Input, Output>(name: string, processor: DataProcessor<Input, Output>, resources: ResourceScope): void {
+  registerDataProcessor<Input, Output>(
+    name: string,
+    processor: DataProcessor<Input, Output>,
+    resources: ResourceScope
+  ): void {
     if (this.currentStatus !== 'initializing') {
-      throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Data processors can only be registered during plugin installation.', stage: 'plugin-install' })
+      throw new GISRuntimeError({
+        code: 'APP_INVALID_STATE',
+        message: 'Data processors can only be registered during plugin installation.',
+        stage: 'plugin-install',
+      })
     }
     this.data.registerProcessorResource(name, processor, resources)
   }
 
   registerTool(id: string, definition: ToolDefinition, resources: ResourceScope): void {
     if (this.currentStatus !== 'initializing') {
-      throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Tools can only be registered during plugin installation.', stage: 'plugin-install' })
+      throw new GISRuntimeError({
+        code: 'APP_INVALID_STATE',
+        message: 'Tools can only be registered during plugin installation.',
+        stage: 'plugin-install',
+      })
     }
     if (definition.id !== id) {
       throw new GISRuntimeError({
@@ -406,7 +466,11 @@ class GISAppImpl implements GISApp {
       }
     }
     for (const scope of [this.mapResources, this.resources]) {
-      try { await scope.dispose() } catch (error) { errors.push(error) }
+      try {
+        await scope.dispose()
+      } catch (error) {
+        errors.push(error)
+      }
     }
     return errors
   }
@@ -448,5 +512,8 @@ class GISAppImpl implements GISApp {
 }
 
 function createId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `gis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `gis-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  )
 }

@@ -1,851 +1,901 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenLayers 10 时空轨迹与时序播放组件</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" />
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenLayers 10 时空轨迹与时序播放组件</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
 
-    body, html {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: #0b0f17;
-      color: #f1f5f9;
-    }
+      body,
+      html {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei',
+          sans-serif;
+        background: #0b0f17;
+        color: #f1f5f9;
+      }
 
-    #map {
-      width: 100%;
-      height: 100%;
-    }
+      #map {
+        width: 100%;
+        height: 100%;
+      }
 
-    /* 烟熏磨砂高对比度面板 */
-    .hud-panel {
-      background: rgba(15, 23, 42, 0.86);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-      border-radius: 10px;
-    }
+      /* 烟熏磨砂高对比度面板 */
+      .hud-panel {
+        background: rgba(15, 23, 42, 0.86);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+        border-radius: 10px;
+      }
 
-    /* 顶部实时遥测状态栏 */
-    .telemetry-card {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      padding: 14px 18px;
-      min-width: 280px;
-      z-index: 10;
-    }
+      /* 顶部实时遥测状态栏 */
+      .telemetry-card {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        padding: 14px 18px;
+        min-width: 280px;
+        z-index: 10;
+      }
 
-    .telemetry-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-    }
+      .telemetry-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      }
 
-    .telemetry-title {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: #38bdf8;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+      .telemetry-title {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 8px #22c55e;
-    }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 8px #22c55e;
+      }
 
-    .telemetry-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      font-size: 12px;
-    }
+      .telemetry-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        font-size: 12px;
+      }
 
-    .metric-item label {
-      display: block;
-      color: #94a3b8;
-      font-size: 11px;
-      margin-bottom: 2px;
-    }
+      .metric-item label {
+        display: block;
+        color: #94a3b8;
+        font-size: 11px;
+        margin-bottom: 2px;
+      }
 
-    .metric-item span {
-      font-family: "JetBrains Mono", "Fira Code", monospace;
-      font-size: 13px;
-      font-weight: 600;
-      color: #f8fafc;
-    }
+      .metric-item span {
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        font-size: 13px;
+        font-weight: 600;
+        color: #f8fafc;
+      }
 
-    /* 底部时空播放控制器 */
-    .player-dock {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(920px, calc(100% - 32px));
-      padding: 14px 20px;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+      /* 底部时空播放控制器 */
+      .player-dock {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(920px, calc(100% - 32px));
+        padding: 14px 20px;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
 
-    .player-top-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
+      .player-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
 
-    .transport-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+      .transport-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-    .btn-icon {
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      color: #e2e8f0;
-      height: 34px;
-      padding: 0 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      transition: all 0.15s ease;
-    }
+      .btn-icon {
+        background: rgba(30, 41, 59, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: #e2e8f0;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        transition: all 0.15s ease;
+      }
 
-    .btn-icon:hover {
-      background: rgba(51, 65, 85, 0.95);
-      border-color: #38bdf8;
-      color: #ffffff;
-    }
+      .btn-icon:hover {
+        background: rgba(51, 65, 85, 0.95);
+        border-color: #38bdf8;
+        color: #ffffff;
+      }
 
-    .btn-primary {
-      background: #0284c7;
-      border-color: #38bdf8;
-      color: #ffffff;
-      min-width: 82px;
-    }
+      .btn-primary {
+        background: #0284c7;
+        border-color: #38bdf8;
+        color: #ffffff;
+        min-width: 82px;
+      }
 
-    .btn-primary:hover {
-      background: #0369a1;
-    }
+      .btn-primary:hover {
+        background: #0369a1;
+      }
 
-    .btn-active {
-      background: rgba(14, 165, 233, 0.22);
-      border-color: #38bdf8;
-      color: #38bdf8;
-    }
+      .btn-active {
+        background: rgba(14, 165, 233, 0.22);
+        border-color: #38bdf8;
+        color: #38bdf8;
+      }
 
-    .time-readout {
-      font-family: "JetBrains Mono", "Fira Code", monospace;
-      font-size: 13px;
-      color: #e2e8f0;
-      background: rgba(2, 6, 23, 0.6);
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid rgba(148, 163, 184, 0.15);
-    }
+      .time-readout {
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        font-size: 13px;
+        color: #e2e8f0;
+        background: rgba(2, 6, 23, 0.6);
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.15);
+      }
 
-    .time-readout strong {
-      color: #38bdf8;
-    }
+      .time-readout strong {
+        color: #38bdf8;
+      }
 
-    .player-options {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+      .player-options {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-    select.hud-select {
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      color: #f1f5f9;
-      height: 34px;
-      padding: 0 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      outline: none;
-      cursor: pointer;
-    }
+      select.hud-select {
+        background: rgba(30, 41, 59, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: #f1f5f9;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        outline: none;
+        cursor: pointer;
+      }
 
-    /* 时间轴滑块与事件刻度 */
-    .timeline-track-wrapper {
-      position: relative;
-      padding: 6px 0;
-    }
+      /* 时间轴滑块与事件刻度 */
+      .timeline-track-wrapper {
+        position: relative;
+        padding: 6px 0;
+      }
 
-    .timeline-ticks {
-      position: relative;
-      height: 14px;
-      margin-bottom: 4px;
-    }
+      .timeline-ticks {
+        position: relative;
+        height: 14px;
+        margin-bottom: 4px;
+      }
 
-    .tick-marker {
-      position: absolute;
-      top: 2px;
-      transform: translateX(-50%);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #f59e0b;
-      cursor: pointer;
-      box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
-    }
+      .tick-marker {
+        position: absolute;
+        top: 2px;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #f59e0b;
+        cursor: pointer;
+        box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+      }
 
-    .tick-marker::after {
-      content: attr(data-label);
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 10px;
-      white-space: nowrap;
-      color: #cbd5e1;
-      background: rgba(15, 23, 42, 0.9);
-      padding: 2px 5px;
-      border-radius: 4px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s;
-    }
+      .tick-marker::after {
+        content: attr(data-label);
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        white-space: nowrap;
+        color: #cbd5e1;
+        background: rgba(15, 23, 42, 0.9);
+        padding: 2px 5px;
+        border-radius: 4px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+      }
 
-    .tick-marker:hover::after {
-      opacity: 1;
-    }
+      .tick-marker:hover::after {
+        opacity: 1;
+      }
 
-    input[type="range"].timeline-slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      background: rgba(51, 65, 85, 0.85);
-      border-radius: 3px;
-      outline: none;
-      cursor: pointer;
-    }
+      input[type='range'].timeline-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 6px;
+        background: rgba(51, 65, 85, 0.85);
+        border-radius: 3px;
+        outline: none;
+        cursor: pointer;
+      }
 
-    input[type="range"].timeline-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #38bdf8;
-      border: 2px solid #ffffff;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.85);
-      cursor: grab;
-    }
+      input[type='range'].timeline-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #38bdf8;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.85);
+        cursor: grab;
+      }
 
-    .timeline-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      color: #94a3b8;
-      font-family: "JetBrains Mono", "Fira Code", monospace;
-      margin-top: 4px;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
+      .timeline-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #94a3b8;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
 
-  <!-- 左上角遥测状态面板 -->
-  <div class="hud-panel telemetry-card">
-    <div class="telemetry-header">
-      <div class="telemetry-title">
-        <span class="status-dot" id="statusDot"></span>
-        <span>巡检无人机 #UAV-09</span>
+    <!-- 左上角遥测状态面板 -->
+    <div class="hud-panel telemetry-card">
+      <div class="telemetry-header">
+        <div class="telemetry-title">
+          <span class="status-dot" id="statusDot"></span>
+          <span>巡检无人机 #UAV-09</span>
+        </div>
+        <span style="font-size: 11px; color: #94a3b8" id="modeBadge">轨迹 + 时序联动</span>
       </div>
-      <span style="font-size: 11px; color: #94a3b8;" id="modeBadge">轨迹 + 时序联动</span>
-    </div>
-    <div class="telemetry-grid">
-      <div class="metric-item">
-        <label>当前坐标 (WGS84)</label>
-        <span id="coordText">--</span>
-      </div>
-      <div class="metric-item">
-        <label>实时航速 / 航向</label>
-        <span id="speedHeadingText">--</span>
-      </div>
-      <div class="metric-item">
-        <label>累计里程</label>
-        <span id="distanceText">0.00 km</span>
-      </div>
-      <div class="metric-item">
-        <label>已触发时序事件</label>
-        <span id="eventCountText">0 / 0</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 底部播放控制条 -->
-  <div class="hud-panel player-dock">
-    <div class="player-top-row">
-      <div class="transport-controls">
-        <button class="btn-icon" id="stepBackBtn" title="后退 30 秒">⏪ -30s</button>
-        <button class="btn-icon btn-primary" id="playPauseBtn">▶ 播放</button>
-        <button class="btn-icon" id="stepForwardBtn" title="前进 30 秒">+30s ⏩</button>
-        <button class="btn-icon" id="resetBtn" title="重置">↺</button>
-      </div>
-
-      <div class="time-readout">
-        <strong id="currentTimeText">2026-11-21 09:00:00</strong>
-        <span style="color: #64748b;"> / </span>
-        <span id="endTimeText">09:30:00</span>
-      </div>
-
-      <div class="player-options">
-        <select class="hud-select" id="speedSelect" title="播放倍速">
-          <option value="10">10x 速</option>
-          <option value="30" selected>30x 速</option>
-          <option value="60">60x 速</option>
-          <option value="120">120x 速</option>
-        </select>
-        <button class="btn-icon btn-active" id="followBtn" title="视角锁定目标">🎯 视角跟随</button>
-        <button class="btn-icon" id="windowModeBtn" title="切换时序过滤模式：累计显示 vs 滑动窗口">⏱ 累计事件</button>
+      <div class="telemetry-grid">
+        <div class="metric-item">
+          <label>当前坐标 (WGS84)</label>
+          <span id="coordText">--</span>
+        </div>
+        <div class="metric-item">
+          <label>实时航速 / 航向</label>
+          <span id="speedHeadingText">--</span>
+        </div>
+        <div class="metric-item">
+          <label>累计里程</label>
+          <span id="distanceText">0.00 km</span>
+        </div>
+        <div class="metric-item">
+          <label>已触发时序事件</label>
+          <span id="eventCountText">0 / 0</span>
+        </div>
       </div>
     </div>
 
-    <div class="timeline-track-wrapper">
-      <div class="timeline-ticks" id="timelineTicks"></div>
-      <input type="range" class="timeline-slider" id="timelineSlider" min="0" max="1000" value="0" />
-      <div class="timeline-labels">
-        <span id="startLabel">09:00:00</span>
-        <span id="midLabel">09:15:00</span>
-        <span id="endLabel">09:30:00</span>
+    <!-- 底部播放控制条 -->
+    <div class="hud-panel player-dock">
+      <div class="player-top-row">
+        <div class="transport-controls">
+          <button class="btn-icon" id="stepBackBtn" title="后退 30 秒">⏪ -30s</button>
+          <button class="btn-icon btn-primary" id="playPauseBtn">▶ 播放</button>
+          <button class="btn-icon" id="stepForwardBtn" title="前进 30 秒">+30s ⏩</button>
+          <button class="btn-icon" id="resetBtn" title="重置">↺</button>
+        </div>
+
+        <div class="time-readout">
+          <strong id="currentTimeText">2026-11-21 09:00:00</strong>
+          <span style="color: #64748b"> / </span>
+          <span id="endTimeText">09:30:00</span>
+        </div>
+
+        <div class="player-options">
+          <select class="hud-select" id="speedSelect" title="播放倍速">
+            <option value="10">10x 速</option>
+            <option value="30" selected>30x 速</option>
+            <option value="60">60x 速</option>
+            <option value="120">120x 速</option>
+          </select>
+          <button class="btn-icon btn-active" id="followBtn" title="视角锁定目标"
+            >🎯 视角跟随</button
+          >
+          <button class="btn-icon" id="windowModeBtn" title="切换时序过滤模式：累计显示 vs 滑动窗口"
+            >⏱ 累计事件</button
+          >
+        </div>
+      </div>
+
+      <div class="timeline-track-wrapper">
+        <div class="timeline-ticks" id="timelineTicks"></div>
+        <input
+          type="range"
+          class="timeline-slider"
+          id="timelineSlider"
+          min="0"
+          max="1000"
+          value="0"
+        />
+        <div class="timeline-labels">
+          <span id="startLabel">09:00:00</span>
+          <span id="midLabel">09:15:00</span>
+          <span id="endLabel">09:30:00</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
-  <script>
-    /**
-     * 1. 模拟时空数据集生成（西安高新区至长安区巡检航线 + 沿途时序告警事件）
-     */
-    function generateMockSpatioTemporalData() {
-      const baseTimestamp = new Date('2026-11-21T09:00:00+08:00').getTime();
-      const waypoints = [
-        [108.8825, 34.2312], // 起点：西安高新区软件新城附近
-        [108.8940, 34.2245],
-        [108.9085, 34.2190],
-        [108.9210, 34.2115],
-        [108.9325, 34.2010],
-        [108.9260, 34.1880],
-        [108.9120, 34.1795],
-        [108.8965, 34.1740],
-        [108.8840, 34.1855],
-        [108.8825, 34.2020]  // 终点：长安区方向巡检结束
-      ];
+    <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+    <script>
+      /**
+       * 1. 模拟时空数据集生成（西安高新区至长安区巡检航线 + 沿途时序告警事件）
+       */
+      function generateMockSpatioTemporalData() {
+        const baseTimestamp = new Date('2026-11-21T09:00:00+08:00').getTime()
+        const waypoints = [
+          [108.8825, 34.2312], // 起点：西安高新区软件新城附近
+          [108.894, 34.2245],
+          [108.9085, 34.219],
+          [108.921, 34.2115],
+          [108.9325, 34.201],
+          [108.926, 34.188],
+          [108.912, 34.1795],
+          [108.8965, 34.174],
+          [108.884, 34.1855],
+          [108.8825, 34.202], // 终点：长安区方向巡检结束
+        ]
 
-      const trajectory = [];
-      const totalDurationMs = 30 * 60 * 1000; // 30 分钟
-      const stepMs = totalDurationMs / (waypoints.length - 1);
+        const trajectory = []
+        const totalDurationMs = 30 * 60 * 1000 // 30 分钟
+        const stepMs = totalDurationMs / (waypoints.length - 1)
 
-      for (let i = 0; i < waypoints.length; i++) {
-        trajectory.push({
-          lon: waypoints[i][0],
-          lat: waypoints[i][1],
-          timestamp: baseTimestamp + i * stepMs
-        });
-      }
-
-      // 离散时序事件点（模拟巡检识别到的异常热源、设备告警等）
-      const temporalEvents = [
-        { id: 'EVT-01', title: '基站温升异常', lon: 108.8940, lat: 34.2245, timestamp: baseTimestamp + 3.5 * 60 * 1000, level: 'warn' },
-        { id: 'EVT-02', title: '管廊井盖位移', lon: 108.9150, lat: 34.2150, timestamp: baseTimestamp + 8.2 * 60 * 1000, level: 'alert' },
-        { id: 'EVT-03', title: '施工车辆闯入', lon: 108.9310, lat: 34.1980, timestamp: baseTimestamp + 14.5 * 60 * 1000, level: 'alert' },
-        { id: 'EVT-04', title: '信号链路波动', lon: 108.9120, lat: 34.1795, timestamp: baseTimestamp + 20.0 * 60 * 1000, level: 'info' },
-        { id: 'EVT-05', title: '巡检闭环确认', lon: 108.8880, lat: 34.1815, timestamp: baseTimestamp + 25.5 * 60 * 1000, level: 'info' }
-      ];
-
-      return { trajectory, temporalEvents };
-    }
-
-    /**
-     * 2. 核心时间轴引擎 (解耦 UI 与地图渲染)
-     */
-    class SpatioTemporalPlayerEngine {
-      constructor({ startTime, endTime, playbackRate = 30, onTick, onStateChange }) {
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.currentTime = startTime;
-        this.playbackRate = playbackRate;
-        this.isPlaying = false;
-        this.lastFrameTime = null;
-        this.rafId = null;
-        this.onTick = onTick;
-        this.onStateChange = onStateChange;
-      }
-
-      play() {
-        if (this.isPlaying) return;
-        if (this.currentTime >= this.endTime) {
-          this.currentTime = this.startTime;
-        }
-        this.isPlaying = true;
-        this.lastFrameTime = performance.now();
-        this.onStateChange?.(this.isPlaying);
-        this.loop();
-      }
-
-      pause() {
-        if (!this.isPlaying) return;
-        this.isPlaying = false;
-        if (this.rafId) {
-          cancelAnimationFrame(this.rafId);
-          this.rafId = null;
-        }
-        this.onStateChange?.(this.isPlaying);
-      }
-
-      toggle() {
-        this.isPlaying ? this.pause() : this.play();
-      }
-
-      seek(targetTime) {
-        this.currentTime = Math.max(this.startTime, Math.min(this.endTime, targetTime));
-        this.onTick?.(this.currentTime);
-      }
-
-      step(deltaMs) {
-        this.seek(this.currentTime + deltaMs);
-      }
-
-      setRate(rate) {
-        this.playbackRate = rate;
-      }
-
-      loop = () => {
-        if (!this.isPlaying) return;
-        const now = performance.now();
-        const elapsedMs = now - this.lastFrameTime;
-        this.lastFrameTime = now;
-
-        this.currentTime += elapsedMs * this.playbackRate;
-
-        if (this.currentTime >= this.endTime) {
-          this.currentTime = this.endTime;
-          this.onTick?.(this.currentTime);
-          this.pause();
-          return;
+        for (let i = 0; i < waypoints.length; i++) {
+          trajectory.push({
+            lon: waypoints[i][0],
+            lat: waypoints[i][1],
+            timestamp: baseTimestamp + i * stepMs,
+          })
         }
 
-        this.onTick?.(this.currentTime);
-        this.rafId = requestAnimationFrame(this.loop);
-      };
-    }
+        // 离散时序事件点（模拟巡检识别到的异常热源、设备告警等）
+        const temporalEvents = [
+          {
+            id: 'EVT-01',
+            title: '基站温升异常',
+            lon: 108.894,
+            lat: 34.2245,
+            timestamp: baseTimestamp + 3.5 * 60 * 1000,
+            level: 'warn',
+          },
+          {
+            id: 'EVT-02',
+            title: '管廊井盖位移',
+            lon: 108.915,
+            lat: 34.215,
+            timestamp: baseTimestamp + 8.2 * 60 * 1000,
+            level: 'alert',
+          },
+          {
+            id: 'EVT-03',
+            title: '施工车辆闯入',
+            lon: 108.931,
+            lat: 34.198,
+            timestamp: baseTimestamp + 14.5 * 60 * 1000,
+            level: 'alert',
+          },
+          {
+            id: 'EVT-04',
+            title: '信号链路波动',
+            lon: 108.912,
+            lat: 34.1795,
+            timestamp: baseTimestamp + 20.0 * 60 * 1000,
+            level: 'info',
+          },
+          {
+            id: 'EVT-05',
+            title: '巡检闭环确认',
+            lon: 108.888,
+            lat: 34.1815,
+            timestamp: baseTimestamp + 25.5 * 60 * 1000,
+            level: 'info',
+          },
+        ]
 
-    /**
-     * 3. 空间插值器：二分查找定位线段 + 坐标/航向/里程计算
-     */
-    class TrajectoryInterpolator {
-      constructor(points) {
-        // 转换为 Web Mercator (EPSG:3857) 坐标以便直接渲染与平面测距
-        this.nodes = points.map((pt) => ({
-          ...pt,
-          coord3857: ol.proj.fromLonLat([pt.lon, pt.lat])
-        }));
+        return { trajectory, temporalEvents }
+      }
 
-        // 预计算累计里程（米）
-        this.cumulativeDistances = [0];
-        for (let i = 1; i < this.nodes.length; i++) {
-          const dist = ol.sphere.getDistance(
-            [this.nodes[i - 1].lon, this.nodes[i - 1].lat],
-            [this.nodes[i].lon, this.nodes[i].lat]
-          );
-          this.cumulativeDistances.push(this.cumulativeDistances[i - 1] + dist);
+      /**
+       * 2. 核心时间轴引擎 (解耦 UI 与地图渲染)
+       */
+      class SpatioTemporalPlayerEngine {
+        constructor({ startTime, endTime, playbackRate = 30, onTick, onStateChange }) {
+          this.startTime = startTime
+          this.endTime = endTime
+          this.currentTime = startTime
+          this.playbackRate = playbackRate
+          this.isPlaying = false
+          this.lastFrameTime = null
+          this.rafId = null
+          this.onTick = onTick
+          this.onStateChange = onStateChange
+        }
+
+        play() {
+          if (this.isPlaying) return
+          if (this.currentTime >= this.endTime) {
+            this.currentTime = this.startTime
+          }
+          this.isPlaying = true
+          this.lastFrameTime = performance.now()
+          this.onStateChange?.(this.isPlaying)
+          this.loop()
+        }
+
+        pause() {
+          if (!this.isPlaying) return
+          this.isPlaying = false
+          if (this.rafId) {
+            cancelAnimationFrame(this.rafId)
+            this.rafId = null
+          }
+          this.onStateChange?.(this.isPlaying)
+        }
+
+        toggle() {
+          this.isPlaying ? this.pause() : this.play()
+        }
+
+        seek(targetTime) {
+          this.currentTime = Math.max(this.startTime, Math.min(this.endTime, targetTime))
+          this.onTick?.(this.currentTime)
+        }
+
+        step(deltaMs) {
+          this.seek(this.currentTime + deltaMs)
+        }
+
+        setRate(rate) {
+          this.playbackRate = rate
+        }
+
+        loop = () => {
+          if (!this.isPlaying) return
+          const now = performance.now()
+          const elapsedMs = now - this.lastFrameTime
+          this.lastFrameTime = now
+
+          this.currentTime += elapsedMs * this.playbackRate
+
+          if (this.currentTime >= this.endTime) {
+            this.currentTime = this.endTime
+            this.onTick?.(this.currentTime)
+            this.pause()
+            return
+          }
+
+          this.onTick?.(this.currentTime)
+          this.rafId = requestAnimationFrame(this.loop)
         }
       }
 
-      evaluate(timestamp) {
-        const list = this.nodes;
-        if (timestamp <= list[0].timestamp) {
-          return {
-            coord3857: list[0].coord3857,
-            lonLat: [list[0].lon, list[0].lat],
-            headingRad: this.computeHeading(list[0].coord3857, list[1].coord3857),
-            speedKmh: 0,
-            distanceKm: 0,
-            passedCoords3857: [list[0].coord3857]
-          };
-        }
+      /**
+       * 3. 空间插值器：二分查找定位线段 + 坐标/航向/里程计算
+       */
+      class TrajectoryInterpolator {
+        constructor(points) {
+          // 转换为 Web Mercator (EPSG:3857) 坐标以便直接渲染与平面测距
+          this.nodes = points.map((pt) => ({
+            ...pt,
+            coord3857: ol.proj.fromLonLat([pt.lon, pt.lat]),
+          }))
 
-        const lastIdx = list.length - 1;
-        if (timestamp >= list[lastIdx].timestamp) {
-          return {
-            coord3857: list[lastIdx].coord3857,
-            lonLat: [list[lastIdx].lon, list[lastIdx].lat],
-            headingRad: this.computeHeading(list[lastIdx - 1].coord3857, list[lastIdx].coord3857),
-            speedKmh: 0,
-            distanceKm: this.cumulativeDistances[lastIdx] / 1000,
-            passedCoords3857: list.map((n) => n.coord3857)
-          };
-        }
-
-        // 二分查找定位所在区间 [low, low + 1]
-        let low = 0;
-        let high = lastIdx - 1;
-        while (low <= high) {
-          const mid = (low + high) >> 1;
-          if (list[mid].timestamp <= timestamp && timestamp <= list[mid + 1].timestamp) {
-            low = mid;
-            break;
-          } else if (list[mid].timestamp < timestamp) {
-            low = mid + 1;
-          } else {
-            high = mid - 1;
+          // 预计算累计里程（米）
+          this.cumulativeDistances = [0]
+          for (let i = 1; i < this.nodes.length; i++) {
+            const dist = ol.sphere.getDistance(
+              [this.nodes[i - 1].lon, this.nodes[i - 1].lat],
+              [this.nodes[i].lon, this.nodes[i].lat]
+            )
+            this.cumulativeDistances.push(this.cumulativeDistances[i - 1] + dist)
           }
         }
 
-        const p0 = list[low];
-        const p1 = list[low + 1];
-        const segmentDuration = p1.timestamp - p0.timestamp;
-        const ratio = segmentDuration > 0 ? (timestamp - p0.timestamp) / segmentDuration : 0;
+        evaluate(timestamp) {
+          const list = this.nodes
+          if (timestamp <= list[0].timestamp) {
+            return {
+              coord3857: list[0].coord3857,
+              lonLat: [list[0].lon, list[0].lat],
+              headingRad: this.computeHeading(list[0].coord3857, list[1].coord3857),
+              speedKmh: 0,
+              distanceKm: 0,
+              passedCoords3857: [list[0].coord3857],
+            }
+          }
 
-        const x = p0.coord3857[0] + (p1.coord3857[0] - p0.coord3857[0]) * ratio;
-        const y = p0.coord3857[1] + (p1.coord3857[1] - p0.coord3857[1]) * ratio;
-        const currentCoord3857 = [x, y];
-        const currentLonLat = ol.proj.toLonLat(currentCoord3857);
+          const lastIdx = list.length - 1
+          if (timestamp >= list[lastIdx].timestamp) {
+            return {
+              coord3857: list[lastIdx].coord3857,
+              lonLat: [list[lastIdx].lon, list[lastIdx].lat],
+              headingRad: this.computeHeading(list[lastIdx - 1].coord3857, list[lastIdx].coord3857),
+              speedKmh: 0,
+              distanceKm: this.cumulativeDistances[lastIdx] / 1000,
+              passedCoords3857: list.map((n) => n.coord3857),
+            }
+          }
 
-        const segDistMeters = this.cumulativeDistances[low + 1] - this.cumulativeDistances[low];
-        const currentDistMeters = this.cumulativeDistances[low] + segDistMeters * ratio;
-        const speedKmh = segmentDuration > 0 ? (segDistMeters / (segmentDuration / 1000)) * 3.6 : 0;
+          // 二分查找定位所在区间 [low, low + 1]
+          let low = 0
+          let high = lastIdx - 1
+          while (low <= high) {
+            const mid = (low + high) >> 1
+            if (list[mid].timestamp <= timestamp && timestamp <= list[mid + 1].timestamp) {
+              low = mid
+              break
+            } else if (list[mid].timestamp < timestamp) {
+              low = mid + 1
+            } else {
+              high = mid - 1
+            }
+          }
 
-        const passedCoords3857 = list.slice(0, low + 1).map((n) => n.coord3857);
-        passedCoords3857.push(currentCoord3857);
+          const p0 = list[low]
+          const p1 = list[low + 1]
+          const segmentDuration = p1.timestamp - p0.timestamp
+          const ratio = segmentDuration > 0 ? (timestamp - p0.timestamp) / segmentDuration : 0
 
-        return {
-          coord3857: currentCoord3857,
-          lonLat: currentLonLat,
-          headingRad: this.computeHeading(p0.coord3857, p1.coord3857),
-          speedKmh,
-          distanceKm: currentDistMeters / 1000,
-          passedCoords3857
-        };
+          const x = p0.coord3857[0] + (p1.coord3857[0] - p0.coord3857[0]) * ratio
+          const y = p0.coord3857[1] + (p1.coord3857[1] - p0.coord3857[1]) * ratio
+          const currentCoord3857 = [x, y]
+          const currentLonLat = ol.proj.toLonLat(currentCoord3857)
+
+          const segDistMeters = this.cumulativeDistances[low + 1] - this.cumulativeDistances[low]
+          const currentDistMeters = this.cumulativeDistances[low] + segDistMeters * ratio
+          const speedKmh =
+            segmentDuration > 0 ? (segDistMeters / (segmentDuration / 1000)) * 3.6 : 0
+
+          const passedCoords3857 = list.slice(0, low + 1).map((n) => n.coord3857)
+          passedCoords3857.push(currentCoord3857)
+
+          return {
+            coord3857: currentCoord3857,
+            lonLat: currentLonLat,
+            headingRad: this.computeHeading(p0.coord3857, p1.coord3857),
+            speedKmh,
+            distanceKm: currentDistMeters / 1000,
+            passedCoords3857,
+          }
+        }
+
+        computeHeading(from3857, to3857) {
+          const dx = to3857[0] - from3857[0]
+          const dy = to3857[1] - from3857[1]
+          // OpenLayers 图标旋转顺时针为正，正北为 0
+          return Math.atan2(dx, dy)
+        }
       }
 
-      computeHeading(from3857, to3857) {
-        const dx = to3857[0] - from3857[0];
-        const dy = to3857[1] - from3857[1];
-        // OpenLayers 图标旋转顺时针为正，正北为 0
-        return Math.atan2(dx, dy);
-      }
-    }
+      /**
+       * 4. 初始化 OpenLayers 地图与分层渲染器
+       */
+      const { trajectory, temporalEvents } = generateMockSpatioTemporalData()
+      const interpolator = new TrajectoryInterpolator(trajectory)
 
-    /**
-     * 4. 初始化 OpenLayers 地图与分层渲染器
-     */
-    const { trajectory, temporalEvents } = generateMockSpatioTemporalData();
-    const interpolator = new TrajectoryInterpolator(trajectory);
+      const startTime = trajectory[0].timestamp
+      const endTime = trajectory[trajectory.length - 1].timestamp
 
-    const startTime = trajectory[0].timestamp;
-    const endTime = trajectory[trajectory.length - 1].timestamp;
-
-    // 无人机 SVG 箭头图标
-    const uavSvg = `
+      // 无人机 SVG 箭头图标
+      const uavSvg = `
       <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
         <circle cx="18" cy="18" r="14" fill="rgba(56, 189, 248, 0.22)" stroke="#38bdf8" stroke-width="1.5"/>
         <polygon points="18,6 26,26 18,21 10,26" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
       </svg>
-    `;
-    const uavIconUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(uavSvg);
+    `
+      const uavIconUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(uavSvg)
 
-    // 要素定义
-    const fullTrackFeature = new ol.Feature({
-      geometry: new ol.geom.LineString(interpolator.nodes.map((n) => n.coord3857))
-    });
-
-    const passedTrackFeature = new ol.Feature({
-      geometry: new ol.geom.LineString([interpolator.nodes[0].coord3857])
-    });
-
-    const vehicleFeature = new ol.Feature({
-      geometry: new ol.geom.Point(interpolator.nodes[0].coord3857)
-    });
-
-    const vehicleStyle = new ol.style.Style({
-      image: new ol.style.Icon({
-        src: uavIconUrl,
-        scale: 1,
-        rotateWithView: true,
-        rotation: 0
+      // 要素定义
+      const fullTrackFeature = new ol.Feature({
+        geometry: new ol.geom.LineString(interpolator.nodes.map((n) => n.coord3857)),
       })
-    });
-    vehicleFeature.setStyle(vehicleStyle);
 
-    // 轨迹图层
-    const trackLayer = new ol.layer.Vector({
-      source: new ol.source.Vector({
-        features: [fullTrackFeature, passedTrackFeature, vehicleFeature]
-      }),
-      style: (feature) => {
-        if (feature === fullTrackFeature) {
-          return new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: 'rgba(148, 163, 184, 0.35)',
-              width: 4,
-              lineDash: [8, 8]
-            })
-          });
-        }
-        if (feature === passedTrackFeature) {
-          return new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: '#38bdf8',
-              width: 4
-            })
-          });
-        }
-        return null;
-      }
-    });
+      const passedTrackFeature = new ol.Feature({
+        geometry: new ol.geom.LineString([interpolator.nodes[0].coord3857]),
+      })
 
-    // 时序事件图层（动态按时间过滤，避免重创建 Feature）
-    let currentPlaybackTime = startTime;
-    let isSlidingWindowMode = false; // false: 累计显示 <= currentTime; true: 仅显示最近 5 分钟窗口
-    const SLIDING_WINDOW_MS = 5 * 60 * 1000;
+      const vehicleFeature = new ol.Feature({
+        geometry: new ol.geom.Point(interpolator.nodes[0].coord3857),
+      })
 
-    const eventFeatures = temporalEvents.map((evt) => {
-      const f = new ol.Feature({
-        geometry: new ol.geom.Point(ol.proj.fromLonLat([evt.lon, evt.lat])),
-        ...evt
-      });
-      return f;
-    });
-
-    const eventLayer = new ol.layer.Vector({
-      source: new ol.source.Vector({
-        features: eventFeatures
-      }),
-      style: (feature) => {
-        const evtTime = feature.get('timestamp');
-        const isVisible = isSlidingWindowMode
-          ? evtTime <= currentPlaybackTime && evtTime >= currentPlaybackTime - SLIDING_WINDOW_MS
-          : evtTime <= currentPlaybackTime;
-
-        if (!isVisible) return null;
-
-        const level = feature.get('level');
-        const colorMap = {
-          alert: '#ef4444',
-          warn: '#f59e0b',
-          info: '#10b981'
-        };
-        const color = colorMap[level] || '#38bdf8';
-
-        return new ol.style.Style({
-          image: new ol.style.Circle({
-            radius: 7,
-            fill: new ol.style.Fill({ color }),
-            stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-          }),
-          text: new ol.style.Text({
-            text: feature.get('title'),
-            offsetY: -16,
-            font: '600 12px "PingFang SC", sans-serif',
-            fill: new ol.style.Fill({ color: '#f8fafc' }),
-            backgroundFill: new ol.style.Fill({ color: 'rgba(15, 23, 42, 0.85)' }),
-            padding: [3, 6, 3, 6]
-          })
-        });
-      }
-    });
-
-    // 底图（CartoDB Dark Matter 免 Key 暗色瓦片）
-    const map = new ol.Map({
-      target: 'map',
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.XYZ({
-            url: 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            attributions: '&copy; OpenStreetMap &copy; CARTO'
-          })
+      const vehicleStyle = new ol.style.Style({
+        image: new ol.style.Icon({
+          src: uavIconUrl,
+          scale: 1,
+          rotateWithView: true,
+          rotation: 0,
         }),
-        trackLayer,
-        eventLayer
-      ],
-      view: new ol.View({
-        center: interpolator.nodes[0].coord3857,
-        zoom: 13.5
       })
-    });
+      vehicleFeature.setStyle(vehicleStyle)
 
-    /**
-     * 5. UI 绑定与状态同步
-     */
-    const ui = {
-      playPauseBtn: document.getElementById('playPauseBtn'),
-      stepBackBtn: document.getElementById('stepBackBtn'),
-      stepForwardBtn: document.getElementById('stepForwardBtn'),
-      resetBtn: document.getElementById('resetBtn'),
-      speedSelect: document.getElementById('speedSelect'),
-      followBtn: document.getElementById('followBtn'),
-      windowModeBtn: document.getElementById('windowModeBtn'),
-      timelineSlider: document.getElementById('timelineSlider'),
-      timelineTicks: document.getElementById('timelineTicks'),
-      currentTimeText: document.getElementById('currentTimeText'),
-      endTimeText: document.getElementById('endTimeText'),
-      startLabel: document.getElementById('startLabel'),
-      midLabel: document.getElementById('midLabel'),
-      endLabel: document.getElementById('endLabel'),
-      coordText: document.getElementById('coordText'),
-      speedHeadingText: document.getElementById('speedHeadingText'),
-      distanceText: document.getElementById('distanceText'),
-      eventCountText: document.getElementById('eventCountText')
-    };
+      // 轨迹图层
+      const trackLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+          features: [fullTrackFeature, passedTrackFeature, vehicleFeature],
+        }),
+        style: (feature) => {
+          if (feature === fullTrackFeature) {
+            return new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: 'rgba(148, 163, 184, 0.35)',
+                width: 4,
+                lineDash: [8, 8],
+              }),
+            })
+          }
+          if (feature === passedTrackFeature) {
+            return new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: '#38bdf8',
+                width: 4,
+              }),
+            })
+          }
+          return null
+        },
+      })
 
-    let followCamera = true;
+      // 时序事件图层（动态按时间过滤，避免重创建 Feature）
+      let currentPlaybackTime = startTime
+      let isSlidingWindowMode = false // false: 累计显示 <= currentTime; true: 仅显示最近 5 分钟窗口
+      const SLIDING_WINDOW_MS = 5 * 60 * 1000
 
-    function formatTime(ms, includeDate = false) {
-      const d = new Date(ms);
-      const pad = (n) => String(n).padStart(2, '0');
-      const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-      if (!includeDate) return timeStr;
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${timeStr}`;
-    }
+      const eventFeatures = temporalEvents.map((evt) => {
+        const f = new ol.Feature({
+          geometry: new ol.geom.Point(ol.proj.fromLonLat([evt.lon, evt.lat])),
+          ...evt,
+        })
+        return f
+      })
 
-    // 初始化时间刻度标签与事件打点
-    ui.endTimeText.textContent = formatTime(endTime);
-    ui.startLabel.textContent = formatTime(startTime);
-    ui.midLabel.textContent = formatTime((startTime + endTime) / 2);
-    ui.endLabel.textContent = formatTime(endTime);
+      const eventLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+          features: eventFeatures,
+        }),
+        style: (feature) => {
+          const evtTime = feature.get('timestamp')
+          const isVisible = isSlidingWindowMode
+            ? evtTime <= currentPlaybackTime && evtTime >= currentPlaybackTime - SLIDING_WINDOW_MS
+            : evtTime <= currentPlaybackTime
 
-    temporalEvents.forEach((evt) => {
-      const percent = ((evt.timestamp - startTime) / (endTime - startTime)) * 100;
-      const dot = document.createElement('div');
-      dot.className = 'tick-marker';
-      dot.style.left = `${percent}%`;
-      dot.setAttribute('data-label', `${formatTime(evt.timestamp)} ${evt.title}`);
-      dot.addEventListener('click', () => {
-        engine.seek(evt.timestamp);
-      });
-      ui.timelineTicks.appendChild(dot);
-    });
+          if (!isVisible) return null
 
-    // 核心渲染回调
-    function renderFrame(timestamp) {
-      currentPlaybackTime = timestamp;
-      const state = interpolator.evaluate(timestamp);
+          const level = feature.get('level')
+          const colorMap = {
+            alert: '#ef4444',
+            warn: '#f59e0b',
+            info: '#10b981',
+          }
+          const color = colorMap[level] || '#38bdf8'
 
-      // 更新轨迹与图标
-      passedTrackFeature.getGeometry().setCoordinates(state.passedCoords3857);
-      vehicleFeature.getGeometry().setCoordinates(state.coord3857);
-      vehicleStyle.getImage().setRotation(state.headingRad);
+          return new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 7,
+              fill: new ol.style.Fill({ color }),
+              stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 }),
+            }),
+            text: new ol.style.Text({
+              text: feature.get('title'),
+              offsetY: -16,
+              font: '600 12px "PingFang SC", sans-serif',
+              fill: new ol.style.Fill({ color: '#f8fafc' }),
+              backgroundFill: new ol.style.Fill({ color: 'rgba(15, 23, 42, 0.85)' }),
+              padding: [3, 6, 3, 6],
+            }),
+          })
+        },
+      })
 
-      // 触发时序事件图层样式重算
-      eventLayer.changed();
+      // 底图（CartoDB Dark Matter 免 Key 暗色瓦片）
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.XYZ({
+              url: 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+              attributions: '&copy; OpenStreetMap &copy; CARTO',
+            }),
+          }),
+          trackLayer,
+          eventLayer,
+        ],
+        view: new ol.View({
+          center: interpolator.nodes[0].coord3857,
+          zoom: 13.5,
+        }),
+      })
 
-      // 视角平滑跟随
-      if (followCamera) {
-        map.getView().setCenter(state.coord3857);
+      /**
+       * 5. UI 绑定与状态同步
+       */
+      const ui = {
+        playPauseBtn: document.getElementById('playPauseBtn'),
+        stepBackBtn: document.getElementById('stepBackBtn'),
+        stepForwardBtn: document.getElementById('stepForwardBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        speedSelect: document.getElementById('speedSelect'),
+        followBtn: document.getElementById('followBtn'),
+        windowModeBtn: document.getElementById('windowModeBtn'),
+        timelineSlider: document.getElementById('timelineSlider'),
+        timelineTicks: document.getElementById('timelineTicks'),
+        currentTimeText: document.getElementById('currentTimeText'),
+        endTimeText: document.getElementById('endTimeText'),
+        startLabel: document.getElementById('startLabel'),
+        midLabel: document.getElementById('midLabel'),
+        endLabel: document.getElementById('endLabel'),
+        coordText: document.getElementById('coordText'),
+        speedHeadingText: document.getElementById('speedHeadingText'),
+        distanceText: document.getElementById('distanceText'),
+        eventCountText: document.getElementById('eventCountText'),
       }
 
-      // 更新进度条与遥测面板
-      const progress = ((timestamp - startTime) / (endTime - startTime)) * 1000;
-      ui.timelineSlider.value = Math.round(progress);
-      ui.currentTimeText.textContent = formatTime(timestamp, true);
+      let followCamera = true
 
-      const deg = ((state.headingRad * 180) / Math.PI + 360) % 360;
-      ui.coordText.textContent = `${state.lonLat[0].toFixed(4)}, ${state.lonLat[1].toFixed(4)}`;
-      ui.speedHeadingText.textContent = `${state.speedKmh.toFixed(1)} km/h | ${Math.round(deg)}°`;
-      ui.distanceText.textContent = `${state.distanceKm.toFixed(2)} km`;
-
-      const activeCount = temporalEvents.filter((e) =>
-        isSlidingWindowMode
-          ? e.timestamp <= timestamp && e.timestamp >= timestamp - SLIDING_WINDOW_MS
-          : e.timestamp <= timestamp
-      ).length;
-      ui.eventCountText.textContent = `${activeCount} / ${temporalEvents.length}`;
-    }
-
-    const engine = new SpatioTemporalPlayerEngine({
-      startTime,
-      endTime,
-      playbackRate: Number(ui.speedSelect.value),
-      onTick: renderFrame,
-      onStateChange: (playing) => {
-        ui.playPauseBtn.textContent = playing ? '⏸ 暂停' : '▶ 播放';
+      function formatTime(ms, includeDate = false) {
+        const d = new Date(ms)
+        const pad = (n) => String(n).padStart(2, '0')
+        const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+        if (!includeDate) return timeStr
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${timeStr}`
       }
-    });
 
-    // 事件监听
-    ui.playPauseBtn.addEventListener('click', () => engine.toggle());
-    ui.stepBackBtn.addEventListener('click', () => engine.step(-30 * 1000));
-    ui.stepForwardBtn.addEventListener('click', () => engine.step(30 * 1000));
-    ui.resetBtn.addEventListener('click', () => {
-      engine.pause();
-      engine.seek(startTime);
-    });
+      // 初始化时间刻度标签与事件打点
+      ui.endTimeText.textContent = formatTime(endTime)
+      ui.startLabel.textContent = formatTime(startTime)
+      ui.midLabel.textContent = formatTime((startTime + endTime) / 2)
+      ui.endLabel.textContent = formatTime(endTime)
 
-    ui.speedSelect.addEventListener('change', (e) => {
-      engine.setRate(Number(e.target.value));
-    });
+      temporalEvents.forEach((evt) => {
+        const percent = ((evt.timestamp - startTime) / (endTime - startTime)) * 100
+        const dot = document.createElement('div')
+        dot.className = 'tick-marker'
+        dot.style.left = `${percent}%`
+        dot.setAttribute('data-label', `${formatTime(evt.timestamp)} ${evt.title}`)
+        dot.addEventListener('click', () => {
+          engine.seek(evt.timestamp)
+        })
+        ui.timelineTicks.appendChild(dot)
+      })
 
-    ui.followBtn.addEventListener('click', () => {
-      followCamera = !followCamera;
-      ui.followBtn.classList.toggle('btn-active', followCamera);
-    });
+      // 核心渲染回调
+      function renderFrame(timestamp) {
+        currentPlaybackTime = timestamp
+        const state = interpolator.evaluate(timestamp)
 
-    ui.windowModeBtn.addEventListener('click', () => {
-      isSlidingWindowMode = !isSlidingWindowMode;
-      ui.windowModeBtn.textContent = isSlidingWindowMode ? '⏱ 5分钟窗口' : '⏱ 累计事件';
-      ui.windowModeBtn.classList.toggle('btn-active', isSlidingWindowMode);
-      renderFrame(currentPlaybackTime);
-    });
+        // 更新轨迹与图标
+        passedTrackFeature.getGeometry().setCoordinates(state.passedCoords3857)
+        vehicleFeature.getGeometry().setCoordinates(state.coord3857)
+        vehicleStyle.getImage().setRotation(state.headingRad)
 
-    // 拖拽时间轴时自动暂停以获得精准控制体验
-    let wasPlayingBeforeDrag = false;
-    ui.timelineSlider.addEventListener('pointerdown', () => {
-      wasPlayingBeforeDrag = engine.isPlaying;
-      engine.pause();
-    });
+        // 触发时序事件图层样式重算
+        eventLayer.changed()
 
-    ui.timelineSlider.addEventListener('input', (e) => {
-      const ratio = Number(e.target.value) / 1000;
-      const targetTime = startTime + ratio * (endTime - startTime);
-      engine.seek(targetTime);
-    });
+        // 视角平滑跟随
+        if (followCamera) {
+          map.getView().setCenter(state.coord3857)
+        }
 
-    ui.timelineSlider.addEventListener('pointerup', () => {
-      if (wasPlayingBeforeDrag) {
-        engine.play();
+        // 更新进度条与遥测面板
+        const progress = ((timestamp - startTime) / (endTime - startTime)) * 1000
+        ui.timelineSlider.value = Math.round(progress)
+        ui.currentTimeText.textContent = formatTime(timestamp, true)
+
+        const deg = ((state.headingRad * 180) / Math.PI + 360) % 360
+        ui.coordText.textContent = `${state.lonLat[0].toFixed(4)}, ${state.lonLat[1].toFixed(4)}`
+        ui.speedHeadingText.textContent = `${state.speedKmh.toFixed(1)} km/h | ${Math.round(deg)}°`
+        ui.distanceText.textContent = `${state.distanceKm.toFixed(2)} km`
+
+        const activeCount = temporalEvents.filter((e) =>
+          isSlidingWindowMode
+            ? e.timestamp <= timestamp && e.timestamp >= timestamp - SLIDING_WINDOW_MS
+            : e.timestamp <= timestamp
+        ).length
+        ui.eventCountText.textContent = `${activeCount} / ${temporalEvents.length}`
       }
-    });
 
-    // 用户手动拖拽地图时自动解除视角锁定
-    map.on('pointerdrag', () => {
-      if (followCamera) {
-        followCamera = false;
-        ui.followBtn.classList.remove('btn-active');
-      }
-    });
+      const engine = new SpatioTemporalPlayerEngine({
+        startTime,
+        endTime,
+        playbackRate: Number(ui.speedSelect.value),
+        onTick: renderFrame,
+        onStateChange: (playing) => {
+          ui.playPauseBtn.textContent = playing ? '⏸ 暂停' : '▶ 播放'
+        },
+      })
 
-    // 初始渲染首帧
-    renderFrame(startTime);
-  </script>
-</body>
+      // 事件监听
+      ui.playPauseBtn.addEventListener('click', () => engine.toggle())
+      ui.stepBackBtn.addEventListener('click', () => engine.step(-30 * 1000))
+      ui.stepForwardBtn.addEventListener('click', () => engine.step(30 * 1000))
+      ui.resetBtn.addEventListener('click', () => {
+        engine.pause()
+        engine.seek(startTime)
+      })
+
+      ui.speedSelect.addEventListener('change', (e) => {
+        engine.setRate(Number(e.target.value))
+      })
+
+      ui.followBtn.addEventListener('click', () => {
+        followCamera = !followCamera
+        ui.followBtn.classList.toggle('btn-active', followCamera)
+      })
+
+      ui.windowModeBtn.addEventListener('click', () => {
+        isSlidingWindowMode = !isSlidingWindowMode
+        ui.windowModeBtn.textContent = isSlidingWindowMode ? '⏱ 5分钟窗口' : '⏱ 累计事件'
+        ui.windowModeBtn.classList.toggle('btn-active', isSlidingWindowMode)
+        renderFrame(currentPlaybackTime)
+      })
+
+      // 拖拽时间轴时自动暂停以获得精准控制体验
+      let wasPlayingBeforeDrag = false
+      ui.timelineSlider.addEventListener('pointerdown', () => {
+        wasPlayingBeforeDrag = engine.isPlaying
+        engine.pause()
+      })
+
+      ui.timelineSlider.addEventListener('input', (e) => {
+        const ratio = Number(e.target.value) / 1000
+        const targetTime = startTime + ratio * (endTime - startTime)
+        engine.seek(targetTime)
+      })
+
+      ui.timelineSlider.addEventListener('pointerup', () => {
+        if (wasPlayingBeforeDrag) {
+          engine.play()
+        }
+      })
+
+      // 用户手动拖拽地图时自动解除视角锁定
+      map.on('pointerdrag', () => {
+        if (followCamera) {
+          followCamera = false
+          ui.followBtn.classList.remove('btn-active')
+        }
+      })
+
+      // 初始渲染首帧
+      renderFrame(startTime)
+    </script>
+  </body>
 </html>

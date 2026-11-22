@@ -7,5 +7,6 @@ export interface ServiceDependencies {
 }
 
 export interface InteractionDependencies extends ServiceDependencies {
-  readonly state: ServiceDependencies['state'] & Pick<AppStateImpl, 'interactions' | 'setInteractions'>
+  readonly state: ServiceDependencies['state'] &
+    Pick<AppStateImpl, 'interactions' | 'setInteractions'>
 }

@@ -13,7 +13,8 @@ export class PanelRegistry implements PanelService {
 
   register(definition: VuePanelDefinition): () => void {
     if (!definition.id?.trim()) throw new Error('Panel id must be a non-empty string.')
-    if (this.definitions.has(definition.id)) throw new Error(`Panel "${definition.id}" is already registered.`)
+    if (this.definitions.has(definition.id))
+      throw new Error(`Panel "${definition.id}" is already registered.`)
 
     const stableDefinition = Object.freeze({ ...definition })
     this.definitions.set(definition.id, stableDefinition)
@@ -40,7 +41,8 @@ export class PanelRegistry implements PanelService {
 
   warnForUnknownConfiguredPanels(): void {
     for (const id of this.configured.keys()) {
-      if (!this.definitions.has(id)) console.warn(`[gis-ui-vue] Panel configuration references unregistered panel "${id}".`)
+      if (!this.definitions.has(id))
+        console.warn(`[gis-ui-vue] Panel configuration references unregistered panel "${id}".`)
     }
   }
 
@@ -63,19 +65,28 @@ export class PanelRegistry implements PanelService {
       .filter((definition): definition is VuePanelDefinition => definition !== undefined)
   }
 
-  show(id: string): void { this.updateState(id, { visible: true }) }
-  hide(id: string): void { this.updateState(id, { visible: false }) }
+  show(id: string): void {
+    this.updateState(id, { visible: true })
+  }
+  hide(id: string): void {
+    this.updateState(id, { visible: false })
+  }
   toggle(id: string): void {
     const state = this.requireState(id)
     this.updateState(id, { visible: !state.visible })
   }
-  collapse(id: string): void { this.updateState(id, { collapsed: true }) }
-  expand(id: string): void { this.updateState(id, { collapsed: false }) }
+  collapse(id: string): void {
+    this.updateState(id, { collapsed: true })
+  }
+  expand(id: string): void {
+    this.updateState(id, { collapsed: false })
+  }
 
   setOrder(ids: string[], position?: PanelPosition): void {
     const seen = new Set<string>()
     for (const id of ids) {
-      if (seen.has(id)) throw new Error(`Panel "${id}" occurs more than once in the requested order.`)
+      if (seen.has(id))
+        throw new Error(`Panel "${id}" occurs more than once in the requested order.`)
       const state = this.requireState(id)
       if (position !== undefined && state.position !== position) {
         throw new Error(`Panel "${id}" is not in the "${position}" region.`)
@@ -95,9 +106,9 @@ export class PanelRegistry implements PanelService {
 
   private updateState(id: string, patch: Partial<PanelState>): void {
     this.requireState(id)
-    this.states.value = this.states.value.map((state) => state.id === id
-      ? Object.freeze({ ...state, ...patch })
-      : state)
+    this.states.value = this.states.value.map((state) =>
+      state.id === id ? Object.freeze({ ...state, ...patch }) : state
+    )
   }
 
   private requireState(id: string): PanelState {

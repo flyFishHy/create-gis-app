@@ -6,13 +6,23 @@ import PanelHost from './PanelHost.vue'
 
 const props = defineProps<{ position: PanelPosition; exclude?: readonly string[] }>()
 const ui = useGISUI()
-const panelIds = computed(() => ui.panels.list(props.position)
-  .filter(panel => panel.id !== 'toolbar' && panel.id !== 'status' && !props.exclude?.includes(panel.id))
-  .map((panel) => panel.id))
+const panelIds = computed(() =>
+  ui.panels
+    .list(props.position)
+    .filter(
+      (panel) =>
+        panel.id !== 'toolbar' && panel.id !== 'status' && !props.exclude?.includes(panel.id)
+    )
+    .map((panel) => panel.id)
+)
 </script>
 
 <template>
-  <section class="gis-ui-panel-region" :class="`gis-ui-panel-region--${position}`" :aria-label="`${position} panels`">
+  <section
+    class="gis-ui-panel-region"
+    :class="`gis-ui-panel-region--${position}`"
+    :aria-label="`${position} panels`"
+  >
     <PanelHost v-for="id in panelIds" :key="id" :id="id" />
   </section>
 </template>

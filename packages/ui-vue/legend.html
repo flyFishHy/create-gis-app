@@ -1,845 +1,925 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN" data-theme="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenLayers 动态可编辑图例面板</title>
-  <!-- OpenLayers 10.x CDN -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" />
-  <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
-  <style>
-    :root {
-      --bg-canvas: #0f172a;
-      --panel-bg: rgba(18, 24, 38, 0.86);
-      --panel-border: rgba(255, 255, 255, 0.12);
-      --card-bg: rgba(255, 255, 255, 0.04);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --text-primary: #f1f5f9;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --danger: #ef4444;
-      --input-bg: rgba(15, 23, 42, 0.85);
-      --input-border: rgba(255, 255, 255, 0.16);
-      --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
-      --backdrop: blur(14px);
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenLayers 动态可编辑图例面板</title>
+    <!-- OpenLayers 10.x CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+    <style>
+      :root {
+        --bg-canvas: #0f172a;
+        --panel-bg: rgba(18, 24, 38, 0.86);
+        --panel-border: rgba(255, 255, 255, 0.12);
+        --card-bg: rgba(255, 255, 255, 0.04);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --danger: #ef4444;
+        --input-bg: rgba(15, 23, 42, 0.85);
+        --input-border: rgba(255, 255, 255, 0.16);
+        --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+        --backdrop: blur(14px);
+      }
 
-    [data-theme="light"] {
-      --bg-canvas: #e2e8f0;
-      --panel-bg: rgba(255, 255, 255, 0.92);
-      --panel-border: rgba(15, 23, 42, 0.12);
-      --card-bg: rgba(15, 23, 42, 0.03);
-      --card-border: rgba(15, 23, 42, 0.08);
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #64748b;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --danger: #dc2626;
-      --input-bg: #ffffff;
-      --input-border: rgba(15, 23, 42, 0.18);
-      --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
-      --backdrop: blur(14px);
-    }
+      [data-theme='light'] {
+        --bg-canvas: #e2e8f0;
+        --panel-bg: rgba(255, 255, 255, 0.92);
+        --panel-border: rgba(15, 23, 42, 0.12);
+        --card-bg: rgba(15, 23, 42, 0.03);
+        --card-border: rgba(15, 23, 42, 0.08);
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --danger: #dc2626;
+        --input-bg: #ffffff;
+        --input-border: rgba(15, 23, 42, 0.18);
+        --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+        --backdrop: blur(14px);
+      }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: var(--bg-canvas);
-      color: var(--text-primary);
-      height: 100vh;
-      overflow: hidden;
-      user-select: none;
-    }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei',
+          sans-serif;
+        background: var(--bg-canvas);
+        color: var(--text-primary);
+        height: 100vh;
+        overflow: hidden;
+        user-select: none;
+      }
 
-    #map {
-      width: 100%;
-      height: 100%;
-    }
+      #map {
+        width: 100%;
+        height: 100%;
+      }
 
-    /* 主题切换悬浮按钮 */
-    .theme-toggle {
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 1000;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: var(--panel-bg);
-      backdrop-filter: var(--backdrop);
-      border: 1px solid var(--panel-border);
-      border-radius: 8px;
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      box-shadow: var(--shadow-lg);
-      transition: all 0.2s ease;
-    }
+      /* 主题切换悬浮按钮 */
+      .theme-toggle {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 1000;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: var(--panel-bg);
+        backdrop-filter: var(--backdrop);
+        border: 1px solid var(--panel-border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        box-shadow: var(--shadow-lg);
+        transition: all 0.2s ease;
+      }
 
-    .theme-toggle:hover {
-      border-color: var(--accent);
-    }
+      .theme-toggle:hover {
+        border-color: var(--accent);
+      }
 
-    /* 图例主面板 */
-    .legend-panel {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      width: 310px;
-      max-height: calc(100vh - 32px);
-      display: flex;
-      flex-direction: column;
-      background: var(--panel-bg);
-      backdrop-filter: var(--backdrop);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      box-shadow: var(--shadow-lg);
-      z-index: 1000;
-      overflow: hidden;
-    }
+      /* 图例主面板 */
+      .legend-panel {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        width: 310px;
+        max-height: calc(100vh - 32px);
+        display: flex;
+        flex-direction: column;
+        background: var(--panel-bg);
+        backdrop-filter: var(--backdrop);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        box-shadow: var(--shadow-lg);
+        z-index: 1000;
+        overflow: hidden;
+      }
 
-    .legend-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--panel-border);
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
+      .legend-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--panel-border);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
 
-    .legend-header-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+      .legend-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-    .legend-body {
-      padding: 10px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+      .legend-body {
+        padding: 10px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
-    .legend-body::-webkit-scrollbar {
-      width: 5px;
-    }
+      .legend-body::-webkit-scrollbar {
+        width: 5px;
+      }
 
-    .legend-body::-webkit-scrollbar-thumb {
-      background: var(--panel-border);
-      border-radius: 4px;
-    }
+      .legend-body::-webkit-scrollbar-thumb {
+        background: var(--panel-border);
+        border-radius: 4px;
+      }
 
-    /* 单个图层卡片 */
-    .layer-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      transition: border-color 0.2s ease;
-    }
+      /* 单个图层卡片 */
+      .layer-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        transition: border-color 0.2s ease;
+      }
 
-    .layer-card.is-editing {
-      border-color: var(--accent);
-    }
+      .layer-card.is-editing {
+        border-color: var(--accent);
+      }
 
-    .layer-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
+      .layer-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
 
-    .layer-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+      .layer-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
 
-    .layer-type-badge {
-      font-size: 10px;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background: var(--input-bg);
-      border: 1px solid var(--panel-border);
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
+      .layer-type-badge {
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--input-bg);
+        border: 1px solid var(--panel-border);
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
 
-    .icon-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+      .icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
 
-    .icon-btn:hover {
-      background: var(--input-bg);
-      color: var(--text-primary);
-      border-color: var(--panel-border);
-    }
+      .icon-btn:hover {
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border-color: var(--panel-border);
+      }
 
-    .icon-btn.primary {
-      color: var(--accent);
-    }
+      .icon-btn.primary {
+        color: var(--accent);
+      }
 
-    .icon-btn.primary:hover {
-      background: rgba(59, 130, 246, 0.14);
-      border-color: var(--accent);
-    }
+      .icon-btn.primary:hover {
+        background: rgba(59, 130, 246, 0.14);
+        border-color: var(--accent);
+      }
 
-    .icon-btn.danger:hover {
-      color: var(--danger);
-      border-color: rgba(239, 68, 68, 0.35);
-    }
+      .icon-btn.danger:hover {
+        color: var(--danger);
+        border-color: rgba(239, 68, 68, 0.35);
+      }
 
-    /* 指标名展示与切换 */
-    .metric-label {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+      /* 指标名展示与切换 */
+      .metric-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
 
-    .metric-select {
-      width: 100%;
-      margin: 6px 0 10px;
-      padding: 5px 8px;
-      font-size: 12px;
-      border-radius: 6px;
-      background: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--input-border);
-      outline: none;
-      cursor: pointer;
-    }
+      .metric-select {
+        width: 100%;
+        margin: 6px 0 10px;
+        padding: 5px 8px;
+        font-size: 12px;
+        border-radius: 6px;
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--input-border);
+        outline: none;
+        cursor: pointer;
+      }
 
-    .metric-select:focus {
-      border-color: var(--accent);
-    }
+      .metric-select:focus {
+        border-color: var(--accent);
+      }
 
-    /* 图例项列表 */
-    .legend-items {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
+      /* 图例项列表 */
+      .legend-items {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
 
-    /* 预览态行 */
-    .preview-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--text-primary);
-      min-height: 20px;
-    }
+      /* 预览态行 */
+      .preview-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--text-primary);
+        min-height: 20px;
+      }
 
-    .symbol-box {
-      width: 22px;
-      height: 16px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
+      .symbol-box {
+        width: 22px;
+        height: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
 
-    .symbol-polygon {
-      width: 16px;
-      height: 16px;
-      border-radius: 3px;
-    }
+      .symbol-polygon {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+      }
 
-    .symbol-point {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
+      .symbol-point {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
 
-    .range-text {
-      font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      color: var(--text-primary);
-    }
+      .range-text {
+        font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: var(--text-primary);
+      }
 
-    /* 编辑态行 */
-    .edit-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+      /* 编辑态行 */
+      .edit-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
 
-    .color-picker {
-      width: 24px;
-      height: 24px;
-      padding: 0;
-      border: 1px solid var(--input-border);
-      border-radius: 4px;
-      background: transparent;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
+      .color-picker {
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--input-border);
+        border-radius: 4px;
+        background: transparent;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
 
-    .color-picker::-webkit-color-swatch-wrapper {
-      padding: 1px;
-    }
+      .color-picker::-webkit-color-swatch-wrapper {
+        padding: 1px;
+      }
 
-    .color-picker::-webkit-color-swatch {
-      border: none;
-      border-radius: 2px;
-    }
+      .color-picker::-webkit-color-swatch {
+        border: none;
+        border-radius: 2px;
+      }
 
-    .range-inputs {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex: 1;
-      min-width: 0;
-    }
+      .range-inputs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+      }
 
-    .num-input, .text-input {
-      width: 100%;
-      min-width: 0;
-      padding: 4px 6px;
-      font-size: 12px;
-      font-family: "Fira Code", ui-monospace, monospace;
-      background: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--input-border);
-      border-radius: 4px;
-      outline: none;
-    }
+      .num-input,
+      .text-input {
+        width: 100%;
+        min-width: 0;
+        padding: 4px 6px;
+        font-size: 12px;
+        font-family: 'Fira Code', ui-monospace, monospace;
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--input-border);
+        border-radius: 4px;
+        outline: none;
+      }
 
-    .num-input:focus, .text-input:focus {
-      border-color: var(--accent);
-    }
+      .num-input:focus,
+      .text-input:focus {
+        border-color: var(--accent);
+      }
 
-    .range-sep {
-      color: var(--text-muted);
-      font-size: 12px;
-      flex-shrink: 0;
-    }
+      .range-sep {
+        color: var(--text-muted);
+        font-size: 12px;
+        flex-shrink: 0;
+      }
 
-    /* 编辑态底部操作栏 */
-    .edit-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px dashed var(--panel-border);
-    }
+      /* 编辑态底部操作栏 */
+      .edit-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--panel-border);
+      }
 
-    .action-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 9px;
-      font-size: 12px;
-      border-radius: 5px;
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
-      color: var(--text-primary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        font-size: 12px;
+        border-radius: 5px;
+        border: 1px solid var(--input-border);
+        background: var(--input-bg);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
 
-    .action-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+      .action-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
 
-    /* 设置弹窗 Modal */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.55);
-      backdrop-filter: blur(4px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-    }
+      /* 设置弹窗 Modal */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
 
-    .modal-backdrop.is-open {
-      display: flex;
-    }
+      .modal-backdrop.is-open {
+        display: flex;
+      }
 
-    .modal-dialog {
-      width: 340px;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      box-shadow: var(--shadow-lg);
-      overflow: hidden;
-    }
+      .modal-dialog {
+        width: 340px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
 
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--panel-border);
-      font-size: 13px;
-      font-weight: 600;
-    }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--panel-border);
+        font-size: 13px;
+        font-weight: 600;
+      }
 
-    .modal-body {
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+      .modal-body {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
 
-    .form-item {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
+      .form-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
 
-    .form-item label {
-      font-size: 12px;
-      color: var(--text-secondary);
-      display: flex;
-      justify-content: space-between;
-    }
+      .form-item label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+      }
 
-    .form-row-inline {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+      .form-row-inline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 10px 16px;
-      border-top: 1px solid var(--panel-border);
-    }
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 16px;
+        border-top: 1px solid var(--panel-border);
+      }
 
-    .btn-primary {
-      background: var(--accent);
-      color: #ffffff;
-      border-color: var(--accent);
-    }
+      .btn-primary {
+        background: var(--accent);
+        color: #ffffff;
+        border-color: var(--accent);
+      }
 
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      color: #ffffff;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        color: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
 
-  <!-- 主题切换 -->
-  <button class="theme-toggle" id="themeToggleBtn" title="切换暗色/浅色主题">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="5"></circle>
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
-    </svg>
-    <span id="themeLabel">Dark 模式</span>
-  </button>
+    <!-- 主题切换 -->
+    <button class="theme-toggle" id="themeToggleBtn" title="切换暗色/浅色主题">
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <circle cx="12" cy="12" r="5"></circle>
+        <path
+          d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+        ></path>
+      </svg>
+      <span id="themeLabel">Dark 模式</span>
+    </button>
 
-  <!-- 图例主面板 -->
-  <aside class="legend-panel">
-    <div class="legend-header">
-      <div class="legend-header-left">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-          <polyline points="2 17 12 22 22 17"></polyline>
-          <polyline points="2 12 12 17 22 12"></polyline>
-        </svg>
-        <span>Legend</span>
-      </div>
-      <span style="font-size: 11px; color: var(--text-muted); font-weight: 400;">3 图层</span>
-    </div>
-    <div class="legend-body" id="legendContainer"></div>
-  </aside>
-
-  <!-- 图层高级设置弹窗 -->
-  <div class="modal-backdrop" id="settingModal">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <span id="modalTitle">图层样式设置</span>
-        <button class="icon-btn" id="closeModalBtn" title="关闭">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
+    <!-- 图例主面板 -->
+    <aside class="legend-panel">
+      <div class="legend-header">
+        <div class="legend-header-left">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
           </svg>
-        </button>
+          <span>Legend</span>
+        </div>
+        <span style="font-size: 11px; color: var(--text-muted); font-weight: 400">3 图层</span>
       </div>
-      <div class="modal-body" id="modalBody"></div>
-      <div class="modal-footer">
-        <button class="action-btn" id="cancelModalBtn">取消</button>
-        <button class="action-btn btn-primary" id="applyModalBtn">应用设置</button>
+      <div class="legend-body" id="legendContainer"></div>
+    </aside>
+
+    <!-- 图层高级设置弹窗 -->
+    <div class="modal-backdrop" id="settingModal">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <span id="modalTitle">图层样式设置</span>
+          <button class="icon-btn" id="closeModalBtn" title="关闭">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+          <button class="action-btn" id="cancelModalBtn">取消</button>
+          <button class="action-btn btn-primary" id="applyModalBtn">应用设置</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    /**
-     * @description SVG 图标字典
-     */
-    const ICONS = {
-      edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`,
-      save: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
-      remove: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
-      plus: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
-      setting: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`
-    };
+    <script>
+      /**
+       * @description SVG 图标字典
+       */
+      const ICONS = {
+        edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`,
+        save: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+        remove: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+        plus: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+        setting: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
+      }
 
-    /**
-     * @description 初始化底图与模拟业务矢量数据
-     */
-    const baseTileLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({
-        url: 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      /**
+       * @description 初始化底图与模拟业务矢量数据
+       */
+      const baseTileLayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        }),
       })
-    });
 
-    // 1. 多边形图层：区域热力指标
-    const polygonSource = new ol.source.Vector();
-    const baseLon = 108.94;
-    const baseLat = 34.26;
-    const gridDeltas = [
-      { dx: -0.05, dy: 0.03, density: 8, gdp: 24 },
-      { dx: 0.0, dy: 0.03, density: 18, gdp: 56 },
-      { dx: 0.05, dy: 0.03, density: 35, gdp: 88 },
-      { dx: -0.05, dy: -0.02, density: 14, gdp: 42 },
-      { dx: 0.0, dy: -0.02, density: 28, gdp: 74 },
-      { dx: 0.05, dy: -0.02, density: 45, gdp: 95 }
-    ];
+      // 1. 多边形图层：区域热力指标
+      const polygonSource = new ol.source.Vector()
+      const baseLon = 108.94
+      const baseLat = 34.26
+      const gridDeltas = [
+        { dx: -0.05, dy: 0.03, density: 8, gdp: 24 },
+        { dx: 0.0, dy: 0.03, density: 18, gdp: 56 },
+        { dx: 0.05, dy: 0.03, density: 35, gdp: 88 },
+        { dx: -0.05, dy: -0.02, density: 14, gdp: 42 },
+        { dx: 0.0, dy: -0.02, density: 28, gdp: 74 },
+        { dx: 0.05, dy: -0.02, density: 45, gdp: 95 },
+      ]
 
-    gridDeltas.forEach((item, index) => {
-      const minX = baseLon + item.dx - 0.022;
-      const maxX = baseLon + item.dx + 0.022;
-      const minY = baseLat + item.dy - 0.022;
-      const maxY = baseLat + item.dy + 0.022;
-      const coords = [[[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]]];
-      const feature = new ol.Feature({
-        geometry: new ol.geom.Polygon(coords).transform('EPSG:4326', 'EPSG:3857'),
-        density: item.density,
-        gdp: item.gdp,
-        name: `区块-${index + 1}`
-      });
-      polygonSource.addFeature(feature);
-    });
+      gridDeltas.forEach((item, index) => {
+        const minX = baseLon + item.dx - 0.022
+        const maxX = baseLon + item.dx + 0.022
+        const minY = baseLat + item.dy - 0.022
+        const maxY = baseLat + item.dy + 0.022
+        const coords = [
+          [
+            [minX, minY],
+            [maxX, minY],
+            [maxX, maxY],
+            [minX, maxY],
+            [minX, minY],
+          ],
+        ]
+        const feature = new ol.Feature({
+          geometry: new ol.geom.Polygon(coords).transform('EPSG:4326', 'EPSG:3857'),
+          density: item.density,
+          gdp: item.gdp,
+          name: `区块-${index + 1}`,
+        })
+        polygonSource.addFeature(feature)
+      })
 
-    // 2. 折线图层：路网运行状态（支持区间与枚举双指标切换）
-    const lineSource = new ol.source.Vector();
-    const roadLines = [
-      { coords: [[108.87, 34.28], [108.94, 34.28], [109.01, 34.28]], speed: 65, level: '主干道' },
-      { coords: [[108.87, 34.24], [108.94, 34.24], [109.01, 34.24]], speed: 25, level: '快速路' },
-      { coords: [[108.94, 34.31], [108.94, 34.21]], speed: 42, level: '次干道' }
-    ];
+      // 2. 折线图层：路网运行状态（支持区间与枚举双指标切换）
+      const lineSource = new ol.source.Vector()
+      const roadLines = [
+        {
+          coords: [
+            [108.87, 34.28],
+            [108.94, 34.28],
+            [109.01, 34.28],
+          ],
+          speed: 65,
+          level: '主干道',
+        },
+        {
+          coords: [
+            [108.87, 34.24],
+            [108.94, 34.24],
+            [109.01, 34.24],
+          ],
+          speed: 25,
+          level: '快速路',
+        },
+        {
+          coords: [
+            [108.94, 34.31],
+            [108.94, 34.21],
+          ],
+          speed: 42,
+          level: '次干道',
+        },
+      ]
 
-    roadLines.forEach((road) => {
-      const feature = new ol.Feature({
-        geometry: new ol.geom.LineString(road.coords).transform('EPSG:4326', 'EPSG:3857'),
-        speed: road.speed,
-        level: road.level
-      });
-      lineSource.addFeature(feature);
-    });
+      roadLines.forEach((road) => {
+        const feature = new ol.Feature({
+          geometry: new ol.geom.LineString(road.coords).transform('EPSG:4326', 'EPSG:3857'),
+          speed: road.speed,
+          level: road.level,
+        })
+        lineSource.addFeature(feature)
+      })
 
-    // 3. 点图层：监测设备类型（枚举型）
-    const pointSource = new ol.source.Vector();
-    const stations = [
-      { coord: [108.90, 34.27], category: '在线', signal: 92 },
-      { coord: [108.95, 34.25], category: '告警', signal: 45 },
-      { coord: [108.99, 34.27], category: '离线', signal: 0 },
-      { coord: [108.92, 34.23], category: '在线', signal: 88 }
-    ];
+      // 3. 点图层：监测设备类型（枚举型）
+      const pointSource = new ol.source.Vector()
+      const stations = [
+        { coord: [108.9, 34.27], category: '在线', signal: 92 },
+        { coord: [108.95, 34.25], category: '告警', signal: 45 },
+        { coord: [108.99, 34.27], category: '离线', signal: 0 },
+        { coord: [108.92, 34.23], category: '在线', signal: 88 },
+      ]
 
-    stations.forEach((st) => {
-      const feature = new ol.Feature({
-        geometry: new ol.geom.Point(st.coord).transform('EPSG:4326', 'EPSG:3857'),
-        category: st.category,
-        signal: st.signal
-      });
-      pointSource.addFeature(feature);
-    });
+      stations.forEach((st) => {
+        const feature = new ol.Feature({
+          geometry: new ol.geom.Point(st.coord).transform('EPSG:4326', 'EPSG:3857'),
+          category: st.category,
+          signal: st.signal,
+        })
+        pointSource.addFeature(feature)
+      })
 
-    /**
-     * @description 图层图例核心配置状态树
-     */
-    const legendConfigs = [
-      {
-        id: 'layer-polygon',
-        title: '区域经济热力',
-        geometryType: 'polygon',
-        isEditing: false,
-        activeMetric: 'density',
-        metrics: [
-          {
-            field: 'density',
-            label: '人口密度 (万人/km²)',
-            mode: 'interval',
-            rules: [
-              { color: '#38bdf8', min: 0, max: 15 },
-              { color: '#34d399', min: 15, max: 30 },
-              { color: '#f59e0b', min: 30, max: 50 }
-            ]
+      /**
+       * @description 图层图例核心配置状态树
+       */
+      const legendConfigs = [
+        {
+          id: 'layer-polygon',
+          title: '区域经济热力',
+          geometryType: 'polygon',
+          isEditing: false,
+          activeMetric: 'density',
+          metrics: [
+            {
+              field: 'density',
+              label: '人口密度 (万人/km²)',
+              mode: 'interval',
+              rules: [
+                { color: '#38bdf8', min: 0, max: 15 },
+                { color: '#34d399', min: 15, max: 30 },
+                { color: '#f59e0b', min: 30, max: 50 },
+              ],
+            },
+            {
+              field: 'gdp',
+              label: '产值指数 (点)',
+              mode: 'interval',
+              rules: [
+                { color: '#818cf8', min: 0, max: 50 },
+                { color: '#c084fc', min: 50, max: 80 },
+                { color: '#f43f5e', min: 80, max: 100 },
+              ],
+            },
+          ],
+          extraStyle: {
+            fillOpacity: 0.45,
+            strokeColor: '#ffffff',
+            strokeWidth: 1.5,
+            lineDash: 'solid',
           },
-          {
-            field: 'gdp',
-            label: '产值指数 (点)',
-            mode: 'interval',
-            rules: [
-              { color: '#818cf8', min: 0, max: 50 },
-              { color: '#c084fc', min: 50, max: 80 },
-              { color: '#f43f5e', min: 80, max: 100 }
-            ]
-          }
-        ],
-        extraStyle: {
-          fillOpacity: 0.45,
-          strokeColor: '#ffffff',
-          strokeWidth: 1.5,
-          lineDash: 'solid'
-        }
-      },
-      {
-        id: 'layer-line',
-        title: '城市路网监测',
-        geometryType: 'line',
-        isEditing: false,
-        activeMetric: 'speed',
-        metrics: [
-          {
-            field: 'speed',
-            label: '平均车速 (km/h)',
-            mode: 'interval',
-            rules: [
-              { color: '#ef4444', min: 0, max: 30 },
-              { color: '#eab308', min: 30, max: 50 },
-              { color: '#22c55e', min: 50, max: 100 }
-            ]
+        },
+        {
+          id: 'layer-line',
+          title: '城市路网监测',
+          geometryType: 'line',
+          isEditing: false,
+          activeMetric: 'speed',
+          metrics: [
+            {
+              field: 'speed',
+              label: '平均车速 (km/h)',
+              mode: 'interval',
+              rules: [
+                { color: '#ef4444', min: 0, max: 30 },
+                { color: '#eab308', min: 30, max: 50 },
+                { color: '#22c55e', min: 50, max: 100 },
+              ],
+            },
+            {
+              field: 'level',
+              label: '道路等级 (枚举)',
+              mode: 'category',
+              rules: [
+                { color: '#f97316', value: '快速路' },
+                { color: '#3b82f6', value: '主干道' },
+                { color: '#a855f7', value: '次干道' },
+              ],
+            },
+          ],
+          extraStyle: {
+            strokeWidth: 4,
+            lineDash: 'solid',
+            lineCap: 'round',
           },
-          {
-            field: 'level',
-            label: '道路等级 (枚举)',
-            mode: 'category',
-            rules: [
-              { color: '#f97316', value: '快速路' },
-              { color: '#3b82f6', value: '主干道' },
-              { color: '#a855f7', value: '次干道' }
-            ]
-          }
-        ],
-        extraStyle: {
-          strokeWidth: 4,
-          lineDash: 'solid',
-          lineCap: 'round'
-        }
-      },
-      {
-        id: 'layer-point',
-        title: '感知终端站点',
-        geometryType: 'point',
-        isEditing: false,
-        activeMetric: 'category',
-        metrics: [
-          {
-            field: 'category',
-            label: '设备运行状态',
-            mode: 'category',
-            rules: [
-              { color: '#10b981', value: '在线' },
-              { color: '#f59e0b', value: '告警' },
-              { color: '#64748b', value: '离线' }
-            ]
+        },
+        {
+          id: 'layer-point',
+          title: '感知终端站点',
+          geometryType: 'point',
+          isEditing: false,
+          activeMetric: 'category',
+          metrics: [
+            {
+              field: 'category',
+              label: '设备运行状态',
+              mode: 'category',
+              rules: [
+                { color: '#10b981', value: '在线' },
+                { color: '#f59e0b', value: '告警' },
+                { color: '#64748b', value: '离线' },
+              ],
+            },
+            {
+              field: 'signal',
+              label: '信号强度 (%)',
+              mode: 'interval',
+              rules: [
+                { color: '#ef4444', min: 0, max: 50 },
+                { color: '#3b82f6', min: 50, max: 100 },
+              ],
+            },
+          ],
+          extraStyle: {
+            radius: 7,
+            strokeColor: '#ffffff',
+            strokeWidth: 2,
           },
-          {
-            field: 'signal',
-            label: '信号强度 (%)',
-            mode: 'interval',
-            rules: [
-              { color: '#ef4444', min: 0, max: 50 },
-              { color: '#3b82f6', min: 50, max: 100 }
-            ]
+        },
+      ]
+
+      /**
+       * @description 颜色十六进制转 RGBA
+       */
+      function hexToRgba(hex, alpha) {
+        const cleanHex = hex.replace('#', '')
+        const r = parseInt(cleanHex.substring(0, 2), 16)
+        const g = parseInt(cleanHex.substring(2, 4), 16)
+        const b = parseInt(cleanHex.substring(4, 6), 16)
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`
+      }
+
+      /**
+       * @description 根据图例配置生成 OpenLayers 动态样式函数
+       */
+      function createLayerStyleFunction(layerConfig) {
+        return function (feature) {
+          const currentMetric = layerConfig.metrics.find(
+            (m) => m.field === layerConfig.activeMetric
+          )
+          const rawVal = feature.get(currentMetric.field)
+          let matchedColor = '#94a3b8'
+
+          for (const rule of currentMetric.rules) {
+            if (currentMetric.mode === 'interval') {
+              const numVal = Number(rawVal)
+              if (numVal >= Number(rule.min) && numVal < Number(rule.max)) {
+                matchedColor = rule.color
+                break
+              }
+            } else {
+              if (String(rawVal) === String(rule.value)) {
+                matchedColor = rule.color
+                break
+              }
+            }
           }
-        ],
-        extraStyle: {
-          radius: 7,
-          strokeColor: '#ffffff',
-          strokeWidth: 2
+
+          const extra = layerConfig.extraStyle
+          const dashArray =
+            extra.lineDash === 'dashed' ? [8, 6] : extra.lineDash === 'dotted' ? [2, 5] : undefined
+
+          if (layerConfig.geometryType === 'polygon') {
+            return new ol.style.Style({
+              fill: new ol.style.Fill({
+                color: hexToRgba(matchedColor, extra.fillOpacity),
+              }),
+              stroke: new ol.style.Stroke({
+                color: extra.strokeColor,
+                width: Number(extra.strokeWidth),
+                lineDash: dashArray,
+              }),
+            })
+          }
+
+          if (layerConfig.geometryType === 'line') {
+            return new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: matchedColor,
+                width: Number(extra.strokeWidth),
+                lineDash: dashArray,
+                lineCap: extra.lineCap || 'round',
+              }),
+            })
+          }
+
+          return new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: Number(extra.radius),
+              fill: new ol.style.Fill({ color: matchedColor }),
+              stroke: new ol.style.Stroke({
+                color: extra.strokeColor,
+                width: Number(extra.strokeWidth),
+              }),
+            }),
+          })
         }
       }
-    ];
 
-    /**
-     * @description 颜色十六进制转 RGBA
-     */
-    function hexToRgba(hex, alpha) {
-      const cleanHex = hex.replace('#', '');
-      const r = parseInt(cleanHex.substring(0, 2), 16);
-      const g = parseInt(cleanHex.substring(2, 4), 16);
-      const b = parseInt(cleanHex.substring(4, 6), 16);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
+      const olLayersMap = {
+        'layer-polygon': new ol.layer.Vector({
+          source: polygonSource,
+          style: createLayerStyleFunction(legendConfigs[0]),
+        }),
+        'layer-line': new ol.layer.Vector({
+          source: lineSource,
+          style: createLayerStyleFunction(legendConfigs[1]),
+        }),
+        'layer-point': new ol.layer.Vector({
+          source: pointSource,
+          style: createLayerStyleFunction(legendConfigs[2]),
+        }),
+      }
 
-    /**
-     * @description 根据图例配置生成 OpenLayers 动态样式函数
-     */
-    function createLayerStyleFunction(layerConfig) {
-      return function (feature) {
-        const currentMetric = layerConfig.metrics.find((m) => m.field === layerConfig.activeMetric);
-        const rawVal = feature.get(currentMetric.field);
-        let matchedColor = '#94a3b8';
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          baseTileLayer,
+          olLayersMap['layer-polygon'],
+          olLayersMap['layer-line'],
+          olLayersMap['layer-point'],
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([108.95, 34.26]),
+          zoom: 12.5,
+        }),
+      })
 
-        for (const rule of currentMetric.rules) {
-          if (currentMetric.mode === 'interval') {
-            const numVal = Number(rawVal);
-            if (numVal >= Number(rule.min) && numVal < Number(rule.max)) {
-              matchedColor = rule.color;
-              break;
-            }
-          } else {
-            if (String(rawVal) === String(rule.value)) {
-              matchedColor = rule.color;
-              break;
-            }
-          }
-        }
-
-        const extra = layerConfig.extraStyle;
-        const dashArray = extra.lineDash === 'dashed' ? [8, 6] : extra.lineDash === 'dotted' ? [2, 5] : undefined;
-
+      /**
+       * @description 根据图层几何类型渲染对应的图例颜色符号
+       */
+      function renderLegendSymbol(layerConfig, color) {
+        const extra = layerConfig.extraStyle
         if (layerConfig.geometryType === 'polygon') {
-          return new ol.style.Style({
-            fill: new ol.style.Fill({
-              color: hexToRgba(matchedColor, extra.fillOpacity)
-            }),
-            stroke: new ol.style.Stroke({
-              color: extra.strokeColor,
-              width: Number(extra.strokeWidth),
-              lineDash: dashArray
-            })
-          });
+          const borderStyle =
+            extra.strokeWidth > 0
+              ? `${Math.min(extra.strokeWidth, 2)}px solid ${extra.strokeColor}`
+              : 'none'
+          return `<span class="symbol-box"><span class="symbol-polygon" style="background:${hexToRgba(color, extra.fillOpacity)}; border:${borderStyle};"></span></span>`
         }
 
         if (layerConfig.geometryType === 'line') {
-          return new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: matchedColor,
-              width: Number(extra.strokeWidth),
-              lineDash: dashArray,
-              lineCap: extra.lineCap || 'round'
-            })
-          });
+          const dashAttr =
+            extra.lineDash === 'dashed'
+              ? 'stroke-dasharray="4 3"'
+              : extra.lineDash === 'dotted'
+                ? 'stroke-dasharray="1.5 3"'
+                : ''
+          const strokeH = Math.min(Math.max(Number(extra.strokeWidth), 2), 5)
+          return `<span class="symbol-box"><svg width="22" height="14" viewBox="0 0 22 14"><line x1="1" y1="7" x2="21" y2="7" stroke="${color}" stroke-width="${strokeH}" stroke-linecap="round" ${dashAttr}/></svg></span>`
         }
 
-        return new ol.style.Style({
-          image: new ol.style.Circle({
-            radius: Number(extra.radius),
-            fill: new ol.style.Fill({ color: matchedColor }),
-            stroke: new ol.style.Stroke({
-              color: extra.strokeColor,
-              width: Number(extra.strokeWidth)
-            })
-          })
-        });
-      };
-    }
-
-    const olLayersMap = {
-      'layer-polygon': new ol.layer.Vector({
-        source: polygonSource,
-        style: createLayerStyleFunction(legendConfigs[0])
-      }),
-      'layer-line': new ol.layer.Vector({
-        source: lineSource,
-        style: createLayerStyleFunction(legendConfigs[1])
-      }),
-      'layer-point': new ol.layer.Vector({
-        source: pointSource,
-        style: createLayerStyleFunction(legendConfigs[2])
-      })
-    };
-
-    const map = new ol.Map({
-      target: 'map',
-      layers: [baseTileLayer, olLayersMap['layer-polygon'], olLayersMap['layer-line'], olLayersMap['layer-point']],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([108.95, 34.26]),
-        zoom: 12.5
-      })
-    });
-
-    /**
-     * @description 根据图层几何类型渲染对应的图例颜色符号
-     */
-    function renderLegendSymbol(layerConfig, color) {
-      const extra = layerConfig.extraStyle;
-      if (layerConfig.geometryType === 'polygon') {
-        const borderStyle = extra.strokeWidth > 0 ? `${Math.min(extra.strokeWidth, 2)}px solid ${extra.strokeColor}` : 'none';
-        return `<span class="symbol-box"><span class="symbol-polygon" style="background:${hexToRgba(color, extra.fillOpacity)}; border:${borderStyle};"></span></span>`;
+        const borderStyle = extra.strokeWidth > 0 ? `1.5px solid ${extra.strokeColor}` : 'none'
+        return `<span class="symbol-box"><span class="symbol-point" style="background:${color}; border:${borderStyle};"></span></span>`
       }
 
-      if (layerConfig.geometryType === 'line') {
-        const dashAttr = extra.lineDash === 'dashed' ? 'stroke-dasharray="4 3"' : extra.lineDash === 'dotted' ? 'stroke-dasharray="1.5 3"' : '';
-        const strokeH = Math.min(Math.max(Number(extra.strokeWidth), 2), 5);
-        return `<span class="symbol-box"><svg width="22" height="14" viewBox="0 0 22 14"><line x1="1" y1="7" x2="21" y2="7" stroke="${color}" stroke-width="${strokeH}" stroke-linecap="round" ${dashAttr}/></svg></span>`;
-      }
+      /**
+       * @description 渲染图例面板 DOM
+       */
+      const legendContainer = document.getElementById('legendContainer')
+      let editDraftCache = {}
 
-      const borderStyle = extra.strokeWidth > 0 ? `1.5px solid ${extra.strokeColor}` : 'none';
-      return `<span class="symbol-box"><span class="symbol-point" style="background:${color}; border:${borderStyle};"></span></span>`;
-    }
+      function renderLegendPanel() {
+        legendContainer.innerHTML = legendConfigs
+          .map((layer) => {
+            const activeData = layer.isEditing ? editDraftCache[layer.id] : layer
+            const currentMetric = activeData.metrics.find(
+              (m) => m.field === activeData.activeMetric
+            )
+            const typeLabelMap = { polygon: '面', line: '线', point: '点' }
 
-    /**
-     * @description 渲染图例面板 DOM
-     */
-    const legendContainer = document.getElementById('legendContainer');
-    let editDraftCache = {};
-
-    function renderLegendPanel() {
-      legendContainer.innerHTML = legendConfigs.map((layer) => {
-        const activeData = layer.isEditing ? editDraftCache[layer.id] : layer;
-        const currentMetric = activeData.metrics.find((m) => m.field === activeData.activeMetric);
-        const typeLabelMap = { polygon: '面', line: '线', point: '点' };
-
-        if (!layer.isEditing) {
-          // 预览态
-          const rowsHtml = currentMetric.rules.map((rule) => {
-            const labelText = currentMetric.mode === 'interval'
-              ? `[${rule.min}, ${rule.max})`
-              : `${rule.value}`;
-            return `
+            if (!layer.isEditing) {
+              // 预览态
+              const rowsHtml = currentMetric.rules
+                .map((rule) => {
+                  const labelText =
+                    currentMetric.mode === 'interval'
+                      ? `[${rule.min}, ${rule.max})`
+                      : `${rule.value}`
+                  return `
               <div class="preview-row">
                 ${renderLegendSymbol(layer, rule.color)}
                 <span class="range-text">${labelText}</span>
               </div>
-            `;
-          }).join('');
+            `
+                })
+                .join('')
 
-          return `
+              return `
             <section class="layer-card" data-layer-id="${layer.id}">
               <div class="layer-card-header">
                 <div class="layer-title">
@@ -856,30 +936,36 @@
               </div>
               <div class="legend-items">${rowsHtml}</div>
             </section>
-          `;
-        }
+          `
+            }
 
-        // 编辑态
-        const metricOptions = activeData.metrics.map((m) => `
+            // 编辑态
+            const metricOptions = activeData.metrics
+              .map(
+                (m) => `
           <option value="${m.field}" ${m.field === activeData.activeMetric ? 'selected' : ''}>${m.label} (${m.mode === 'interval' ? '区间' : '枚举'})</option>
-        `).join('');
+        `
+              )
+              .join('')
 
-        const editRowsHtml = currentMetric.rules.map((rule, idx) => {
-          const inputFieldsHtml = currentMetric.mode === 'interval'
-            ? `
+            const editRowsHtml = currentMetric.rules
+              .map((rule, idx) => {
+                const inputFieldsHtml =
+                  currentMetric.mode === 'interval'
+                    ? `
               <div class="range-inputs">
                 <input type="number" class="num-input" data-role="min" data-idx="${idx}" value="${rule.min}" />
                 <span class="range-sep">-</span>
                 <input type="number" class="num-input" data-role="max" data-idx="${idx}" value="${rule.max}" />
               </div>
             `
-            : `
+                    : `
               <div class="range-inputs">
                 <input type="text" class="text-input" data-role="value" data-idx="${idx}" value="${rule.value}" placeholder="枚举值" />
               </div>
-            `;
+            `
 
-          return `
+                return `
             <div class="edit-row">
               <input type="color" class="color-picker" data-role="color" data-idx="${idx}" value="${rule.color}" title="选择颜色" />
               ${inputFieldsHtml}
@@ -887,10 +973,11 @@
                 ${ICONS.remove}
               </button>
             </div>
-          `;
-        }).join('');
+          `
+              })
+              .join('')
 
-        return `
+            return `
           <section class="layer-card is-editing" data-layer-id="${layer.id}">
             <div class="layer-card-header">
               <div class="layer-title">
@@ -916,103 +1003,104 @@
               </button>
             </div>
           </section>
-        `;
-      }).join('');
-    }
-
-    /**
-     * @description 事件委托处理图例面板交互
-     */
-    legendContainer.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-
-      const action = btn.dataset.action;
-      const layerId = btn.dataset.id;
-      const layer = legendConfigs.find((item) => item.id === layerId);
-      if (!layer) return;
-
-      if (action === 'edit') {
-        editDraftCache[layerId] = JSON.parse(JSON.stringify(layer));
-        layer.isEditing = true;
-        renderLegendPanel();
-      } else if (action === 'save') {
-        const draft = editDraftCache[layerId];
-        layer.activeMetric = draft.activeMetric;
-        layer.metrics = draft.metrics;
-        layer.extraStyle = draft.extraStyle;
-        layer.isEditing = false;
-        delete editDraftCache[layerId];
-
-        olLayersMap[layerId].setStyle(createLayerStyleFunction(layer));
-        olLayersMap[layerId].changed();
-        renderLegendPanel();
-      } else if (action === 'add-rule') {
-        const draft = editDraftCache[layerId];
-        const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
-        if (metric.mode === 'interval') {
-          const lastRule = metric.rules[metric.rules.length - 1];
-          const nextMin = lastRule ? Number(lastRule.max) : 0;
-          metric.rules.push({ color: '#06b6d4', min: nextMin, max: nextMin + 20 });
-        } else {
-          metric.rules.push({ color: '#06b6d4', value: `类别${metric.rules.length + 1}` });
-        }
-        renderLegendPanel();
-      } else if (action === 'remove-rule') {
-        const idx = Number(btn.dataset.idx);
-        const draft = editDraftCache[layerId];
-        const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
-        if (metric.rules.length > 1) {
-          metric.rules.splice(idx, 1);
-          renderLegendPanel();
-        }
-      } else if (action === 'open-setting') {
-        openLayerSettingModal(layerId);
-      }
-    });
-
-    legendContainer.addEventListener('change', (e) => {
-      const target = e.target;
-      const card = target.closest('.layer-card');
-      if (!card) return;
-
-      const layerId = card.dataset.layerId;
-      const draft = editDraftCache[layerId];
-      if (!draft) return;
-
-      if (target.dataset.action === 'change-metric') {
-        draft.activeMetric = target.value;
-        renderLegendPanel();
-        return;
+        `
+          })
+          .join('')
       }
 
-      const role = target.dataset.role;
-      const idx = Number(target.dataset.idx);
-      const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
-      if (!metric || !metric.rules[idx]) return;
+      /**
+       * @description 事件委托处理图例面板交互
+       */
+      legendContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]')
+        if (!btn) return
 
-      if (role === 'color') metric.rules[idx].color = target.value;
-      if (role === 'min') metric.rules[idx].min = Number(target.value);
-      if (role === 'max') metric.rules[idx].max = Number(target.value);
-      if (role === 'value') metric.rules[idx].value = target.value;
-    });
+        const action = btn.dataset.action
+        const layerId = btn.dataset.id
+        const layer = legendConfigs.find((item) => item.id === layerId)
+        if (!layer) return
 
-    /**
-     * @description 图层高级设置 Modal 逻辑（针对不同几何类型动态生成表单）
-     */
-    const settingModal = document.getElementById('settingModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalBody = document.getElementById('modalBody');
-    let currentSettingLayerId = null;
+        if (action === 'edit') {
+          editDraftCache[layerId] = JSON.parse(JSON.stringify(layer))
+          layer.isEditing = true
+          renderLegendPanel()
+        } else if (action === 'save') {
+          const draft = editDraftCache[layerId]
+          layer.activeMetric = draft.activeMetric
+          layer.metrics = draft.metrics
+          layer.extraStyle = draft.extraStyle
+          layer.isEditing = false
+          delete editDraftCache[layerId]
 
-    function openLayerSettingModal(layerId) {
-      currentSettingLayerId = layerId;
-      const draft = editDraftCache[layerId];
-      const extra = draft.extraStyle;
-      modalTitle.textContent = `${draft.title} - 高级样式配置`;
+          olLayersMap[layerId].setStyle(createLayerStyleFunction(layer))
+          olLayersMap[layerId].changed()
+          renderLegendPanel()
+        } else if (action === 'add-rule') {
+          const draft = editDraftCache[layerId]
+          const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
+          if (metric.mode === 'interval') {
+            const lastRule = metric.rules[metric.rules.length - 1]
+            const nextMin = lastRule ? Number(lastRule.max) : 0
+            metric.rules.push({ color: '#06b6d4', min: nextMin, max: nextMin + 20 })
+          } else {
+            metric.rules.push({ color: '#06b6d4', value: `类别${metric.rules.length + 1}` })
+          }
+          renderLegendPanel()
+        } else if (action === 'remove-rule') {
+          const idx = Number(btn.dataset.idx)
+          const draft = editDraftCache[layerId]
+          const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
+          if (metric.rules.length > 1) {
+            metric.rules.splice(idx, 1)
+            renderLegendPanel()
+          }
+        } else if (action === 'open-setting') {
+          openLayerSettingModal(layerId)
+        }
+      })
 
-      if (draft.geometryType === 'polygon') {
-        modalBody.innerHTML = `
+      legendContainer.addEventListener('change', (e) => {
+        const target = e.target
+        const card = target.closest('.layer-card')
+        if (!card) return
+
+        const layerId = card.dataset.layerId
+        const draft = editDraftCache[layerId]
+        if (!draft) return
+
+        if (target.dataset.action === 'change-metric') {
+          draft.activeMetric = target.value
+          renderLegendPanel()
+          return
+        }
+
+        const role = target.dataset.role
+        const idx = Number(target.dataset.idx)
+        const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
+        if (!metric || !metric.rules[idx]) return
+
+        if (role === 'color') metric.rules[idx].color = target.value
+        if (role === 'min') metric.rules[idx].min = Number(target.value)
+        if (role === 'max') metric.rules[idx].max = Number(target.value)
+        if (role === 'value') metric.rules[idx].value = target.value
+      })
+
+      /**
+       * @description 图层高级设置 Modal 逻辑（针对不同几何类型动态生成表单）
+       */
+      const settingModal = document.getElementById('settingModal')
+      const modalTitle = document.getElementById('modalTitle')
+      const modalBody = document.getElementById('modalBody')
+      let currentSettingLayerId = null
+
+      function openLayerSettingModal(layerId) {
+        currentSettingLayerId = layerId
+        const draft = editDraftCache[layerId]
+        const extra = draft.extraStyle
+        modalTitle.textContent = `${draft.title} - 高级样式配置`
+
+        if (draft.geometryType === 'polygon') {
+          modalBody.innerHTML = `
           <div class="form-item">
             <label><span>填充透明度</span><span id="opacityVal">${Math.round(extra.fillOpacity * 100)}%</span></label>
             <input type="range" id="cfgFillOpacity" min="0.1" max="1" step="0.05" value="${extra.fillOpacity}" />
@@ -1036,12 +1124,13 @@
               <option value="dotted" ${extra.lineDash === 'dotted' ? 'selected' : ''}>点线 (Dotted)</option>
             </select>
           </div>
-        `;
-        document.getElementById('cfgFillOpacity').addEventListener('input', (ev) => {
-          document.getElementById('opacityVal').textContent = `${Math.round(ev.target.value * 100)}%`;
-        });
-      } else if (draft.geometryType === 'line') {
-        modalBody.innerHTML = `
+        `
+          document.getElementById('cfgFillOpacity').addEventListener('input', (ev) => {
+            document.getElementById('opacityVal').textContent =
+              `${Math.round(ev.target.value * 100)}%`
+          })
+        } else if (draft.geometryType === 'line') {
+          modalBody.innerHTML = `
           <div class="form-item">
             <label><span>线要素宽度 (px)</span></label>
             <input type="number" class="num-input" id="cfgStrokeWidth" min="1" max="15" step="1" value="${extra.strokeWidth}" />
@@ -1061,9 +1150,9 @@
               <option value="butt" ${extra.lineCap === 'butt' ? 'selected' : ''}>平直端点 (Butt)</option>
             </select>
           </div>
-        `;
-      } else {
-        modalBody.innerHTML = `
+        `
+        } else {
+          modalBody.innerHTML = `
           <div class="form-item">
             <label><span>点符号半径 (px)</span></label>
             <input type="number" class="num-input" id="cfgRadius" min="3" max="20" step="1" value="${extra.radius}" />
@@ -1076,65 +1165,66 @@
             <label><span>外描边宽度 (px)</span></label>
             <input type="number" class="num-input" id="cfgStrokeWidth" min="0" max="6" step="0.5" value="${extra.strokeWidth}" />
           </div>
-        `;
+        `
+        }
+
+        settingModal.classList.add('is-open')
       }
 
-      settingModal.classList.add('is-open');
-    }
-
-    function closeSettingModal() {
-      settingModal.classList.remove('is-open');
-      currentSettingLayerId = null;
-    }
-
-    document.getElementById('closeModalBtn').addEventListener('click', closeSettingModal);
-    document.getElementById('cancelModalBtn').addEventListener('click', closeSettingModal);
-
-    document.getElementById('applyModalBtn').addEventListener('click', () => {
-      if (!currentSettingLayerId) return;
-      const draft = editDraftCache[currentSettingLayerId];
-      const extra = draft.extraStyle;
-
-      if (draft.geometryType === 'polygon') {
-        extra.fillOpacity = Number(document.getElementById('cfgFillOpacity').value);
-        extra.strokeColor = document.getElementById('cfgStrokeColor').value;
-        extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
-        extra.lineDash = document.getElementById('cfgLineDash').value;
-      } else if (draft.geometryType === 'line') {
-        extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
-        extra.lineDash = document.getElementById('cfgLineDash').value;
-        extra.lineCap = document.getElementById('cfgLineCap').value;
-      } else {
-        extra.radius = Number(document.getElementById('cfgRadius').value);
-        extra.strokeColor = document.getElementById('cfgStrokeColor').value;
-        extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
+      function closeSettingModal() {
+        settingModal.classList.remove('is-open')
+        currentSettingLayerId = null
       }
 
-      closeSettingModal();
-      renderLegendPanel();
-    });
+      document.getElementById('closeModalBtn').addEventListener('click', closeSettingModal)
+      document.getElementById('cancelModalBtn').addEventListener('click', closeSettingModal)
 
-    /**
-     * @description Dark / Light 主题切换（同步切换底图瓦片风格）
-     */
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const themeLabel = document.getElementById('themeLabel');
+      document.getElementById('applyModalBtn').addEventListener('click', () => {
+        if (!currentSettingLayerId) return
+        const draft = editDraftCache[currentSettingLayerId]
+        const extra = draft.extraStyle
 
-    themeToggleBtn.addEventListener('click', () => {
-      const root = document.documentElement;
-      const isDark = root.getAttribute('data-theme') === 'dark';
-      const nextTheme = isDark ? 'light' : 'dark';
-      root.setAttribute('data-theme', nextTheme);
-      themeLabel.textContent = nextTheme === 'dark' ? 'Dark 模式' : 'Light 模式';
+        if (draft.geometryType === 'polygon') {
+          extra.fillOpacity = Number(document.getElementById('cfgFillOpacity').value)
+          extra.strokeColor = document.getElementById('cfgStrokeColor').value
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
+          extra.lineDash = document.getElementById('cfgLineDash').value
+        } else if (draft.geometryType === 'line') {
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
+          extra.lineDash = document.getElementById('cfgLineDash').value
+          extra.lineCap = document.getElementById('cfgLineCap').value
+        } else {
+          extra.radius = Number(document.getElementById('cfgRadius').value)
+          extra.strokeColor = document.getElementById('cfgStrokeColor').value
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
+        }
 
-      const tileUrl = nextTheme === 'dark'
-        ? 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-      baseTileLayer.getSource().setUrl(tileUrl);
-    });
+        closeSettingModal()
+        renderLegendPanel()
+      })
 
-    // 初始渲染
-    renderLegendPanel();
-  </script>
-</body>
+      /**
+       * @description Dark / Light 主题切换（同步切换底图瓦片风格）
+       */
+      const themeToggleBtn = document.getElementById('themeToggleBtn')
+      const themeLabel = document.getElementById('themeLabel')
+
+      themeToggleBtn.addEventListener('click', () => {
+        const root = document.documentElement
+        const isDark = root.getAttribute('data-theme') === 'dark'
+        const nextTheme = isDark ? 'light' : 'dark'
+        root.setAttribute('data-theme', nextTheme)
+        themeLabel.textContent = nextTheme === 'dark' ? 'Dark 模式' : 'Light 模式'
+
+        const tileUrl =
+          nextTheme === 'dark'
+            ? 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+            : 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        baseTileLayer.getSource().setUrl(tileUrl)
+      })
+
+      // 初始渲染
+      renderLegendPanel()
+    </script>
+  </body>
 </html>

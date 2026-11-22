@@ -5,9 +5,15 @@ describe('ResourceScopeImpl', () => {
   it('disposes resources in reverse order and supports unregistering', async () => {
     const scope = new ResourceScopeImpl()
     const order: string[] = []
-    scope.add(() => { order.push('first') })
-    const unregister = scope.add(() => { order.push('removed') })
-    scope.add(() => { order.push('last') })
+    scope.add(() => {
+      order.push('first')
+    })
+    const unregister = scope.add(() => {
+      order.push('removed')
+    })
+    scope.add(() => {
+      order.push('last')
+    })
     unregister()
 
     await scope.dispose()
@@ -17,8 +23,12 @@ describe('ResourceScopeImpl', () => {
 
   it('attempts every cleanup and aggregates errors', async () => {
     const scope = new ResourceScopeImpl()
-    const last = vi.fn(() => { throw new Error('last') })
-    const first = vi.fn(() => { throw new Error('first') })
+    const last = vi.fn(() => {
+      throw new Error('last')
+    })
+    const first = vi.fn(() => {
+      throw new Error('first')
+    })
     scope.add(first)
     scope.add(last)
 

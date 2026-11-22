@@ -8,7 +8,10 @@ export class EventServiceImpl implements EventService {
 
   constructor(private readonly onError?: GISAppOptions['onError']) {}
 
-  on<K extends keyof GISAppEvents>(event: K, listener: (payload: GISAppEvents[K]) => void): Unsubscribe {
+  on<K extends keyof GISAppEvents>(
+    event: K,
+    listener: (payload: GISAppEvents[K]) => void
+  ): Unsubscribe {
     if (this.closed) return () => {}
     let listeners = this.listeners.get(event)
     if (!listeners) {
@@ -19,7 +22,10 @@ export class EventServiceImpl implements EventService {
     return () => listeners?.delete(listener as (payload: never) => void)
   }
 
-  once<K extends keyof GISAppEvents>(event: K, listener: (payload: GISAppEvents[K]) => void): Unsubscribe {
+  once<K extends keyof GISAppEvents>(
+    event: K,
+    listener: (payload: GISAppEvents[K]) => void
+  ): Unsubscribe {
     let unsubscribe: Unsubscribe = () => undefined
     unsubscribe = this.on(event, (payload) => {
       unsubscribe()
@@ -31,16 +37,34 @@ export class EventServiceImpl implements EventService {
   emit<K extends keyof GISAppEvents>(event: K, payload: GISAppEvents[K]): void {
     if (this.closed) return
     for (const listener of [...(this.listeners.get(event) ?? [])]) {
-      try { listener(payload as never) } catch (cause) {
-        if (event !== 'app:error') this.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', message: `Observer for ${event} failed.`, stage: 'event-listener', cause }) })
+      try {
+        listener(payload as never)
+      } catch (cause) {
+        if (event !== 'app:error')
+          this.emit('app:error', {
+            error: new GISRuntimeError({
+              code: 'APP_INVALID_STATE',
+              message: `Observer for ${event} failed.`,
+              stage: 'event-listener',
+              cause,
+            }),
+          })
       }
     }
     if (event === 'app:error' && !this.reporting) {
       this.reporting = true
-      try { this.onError?.((payload as GISAppEvents['app:error']).error) } catch { /* Reporting cannot replace the operation's failure. */ }
-      finally { this.reporting = false }
+      try {
+        this.onError?.((payload as GISAppEvents['app:error']).error)
+      } catch {
+        /* Reporting cannot replace the operation's failure. */
+      } finally {
+        this.reporting = false
+      }
     }
   }
 
-  close(): void { this.closed = true; this.listeners.clear() }
+  close(): void {
+    this.closed = true
+    this.listeners.clear()
+  }
 }

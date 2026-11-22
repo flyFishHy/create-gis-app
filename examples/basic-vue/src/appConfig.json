@@ -1,34 +1,174 @@
 {
   "map": { "projection": "EPSG:3857", "center": [-10700000, 4700000], "zoom": 3 },
   "title": { "content": "空间态势工作台", "icon": "⌖", "subtitle": "多源数据监测" },
-  "layers": [{
-    "id": "states", "type": "geojson", "title": "美国州界", "visible": true, "zIndex": 0,
-    "legend": { "type": "category", "title": "州界", "useLayerStyle": true, "items": [{ "id": "state", "label": "美国州界", "color": "#38bdf8", "symbol": "fill" }] },
-    "source": { "type": "url", "url": "https://openlayers.org/data/vector/us-states.json" },
-    "style": { "fillColor": "#0ea5e940", "strokeColor": "#38bdf8", "strokeWidth": 1.6, "pointRadius": 6 }
-  }, {
-    "id": "routes", "type": "geojson", "title": "示例航线", "zIndex": 10,
-    "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "跨州航线" }, "geometry": { "type": "LineString", "coordinates": [[-122.42, 37.77], [-104.99, 39.74], [-74.01, 40.71]] } }] } },
-    "style": { "strokeColor": "#fbbf24", "strokeWidth": 3 },
-    "legend": { "type": "category", "useLayerStyle": true, "items": [{ "id": "route", "label": "示例航线", "symbol": "line" }] }
-  }, {
-    "id": "survey", "type": "GROUP", "title": "监测业务图层", "zIndex": 20,
-    "children": [{
-      "id": "survey-area", "type": "geojson", "title": "监测区域", "zIndex": 1,
-      "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "中部监测区域", "population": 150 }, "geometry": { "type": "Polygon", "coordinates": [[[-110, 33], [-95, 33], [-95, 45], [-110, 45], [-110, 33]]] } }] } },
-      "options": { "opacity": 0.65 }, "style": { "fillColor": "#a78bfa66", "strokeColor": "#a78bfa", "strokeWidth": 2 },
-      "legend": { "title": "区域人口", "type": "interval", "field": "population", "ranges": [{ "id": "low", "min": 0, "max": 100, "color": "#dbeafe" }, { "id": "medium", "min": 100, "max": 200, "color": "#60a5fa" }, { "id": "high", "min": 200, "max": 300, "color": "#2563eb" }] }
-    }, {
-      "id": "survey-sites", "type": "geojson", "title": "采样点", "zIndex": 2,
-      "source": { "type": "inline", "data": { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "旧金山站", "kind": "suburban", "observed_at": "2026-11-18" }, "geometry": { "type": "Point", "coordinates": [-122.42, 37.77] } }, { "type": "Feature", "properties": { "name": "丹佛站", "kind": "regional", "observed_at": "2026-11-19" }, "geometry": { "type": "Point", "coordinates": [-104.99, 39.74] } }, { "type": "Feature", "properties": { "name": "纽约站", "kind": "urban", "observed_at": "2026-11-20" }, "geometry": { "type": "Point", "coordinates": [-74.01, 40.71] } }] } },
-      "style": { "fillColor": "#34d399", "strokeColor": "#ffffff", "strokeWidth": 2, "pointRadius": 7 },
-      "legend": { "title": "采样站类型", "type": "category", "field": "kind", "items": [{ "id": "urban", "values": ["urban", "suburban"], "label": "城市站", "color": "#34d399" }, { "id": "regional", "values": ["regional"], "label": "区域站", "color": "#fbbf24" }] }
-    }]
-  }],
+  "layers": [
+    {
+      "id": "states",
+      "type": "geojson",
+      "title": "美国州界",
+      "visible": true,
+      "zIndex": 0,
+      "legend": {
+        "type": "category",
+        "title": "州界",
+        "useLayerStyle": true,
+        "items": [{ "id": "state", "label": "美国州界", "color": "#38bdf8", "symbol": "fill" }]
+      },
+      "source": { "type": "url", "url": "https://openlayers.org/data/vector/us-states.json" },
+      "style": {
+        "fillColor": "#0ea5e940",
+        "strokeColor": "#38bdf8",
+        "strokeWidth": 1.6,
+        "pointRadius": 6
+      }
+    },
+    {
+      "id": "routes",
+      "type": "geojson",
+      "title": "示例航线",
+      "zIndex": 10,
+      "source": {
+        "type": "inline",
+        "data": {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": { "name": "跨州航线" },
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [-122.42, 37.77],
+                  [-104.99, 39.74],
+                  [-74.01, 40.71]
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "style": { "strokeColor": "#fbbf24", "strokeWidth": 3 },
+      "legend": {
+        "type": "category",
+        "useLayerStyle": true,
+        "items": [{ "id": "route", "label": "示例航线", "symbol": "line" }]
+      }
+    },
+    {
+      "id": "survey",
+      "type": "GROUP",
+      "title": "监测业务图层",
+      "zIndex": 20,
+      "children": [
+        {
+          "id": "survey-area",
+          "type": "geojson",
+          "title": "监测区域",
+          "zIndex": 1,
+          "source": {
+            "type": "inline",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": { "name": "中部监测区域", "population": 150 },
+                  "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                      [
+                        [-110, 33],
+                        [-95, 33],
+                        [-95, 45],
+                        [-110, 45],
+                        [-110, 33]
+                      ]
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "options": { "opacity": 0.65 },
+          "style": { "fillColor": "#a78bfa66", "strokeColor": "#a78bfa", "strokeWidth": 2 },
+          "legend": {
+            "title": "区域人口",
+            "type": "interval",
+            "field": "population",
+            "ranges": [
+              { "id": "low", "min": 0, "max": 100, "color": "#dbeafe" },
+              { "id": "medium", "min": 100, "max": 200, "color": "#60a5fa" },
+              { "id": "high", "min": 200, "max": 300, "color": "#2563eb" }
+            ]
+          }
+        },
+        {
+          "id": "survey-sites",
+          "type": "geojson",
+          "title": "采样点",
+          "zIndex": 2,
+          "source": {
+            "type": "inline",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "name": "旧金山站",
+                    "kind": "suburban",
+                    "observed_at": "2026-11-18"
+                  },
+                  "geometry": { "type": "Point", "coordinates": [-122.42, 37.77] }
+                },
+                {
+                  "type": "Feature",
+                  "properties": {
+                    "name": "丹佛站",
+                    "kind": "regional",
+                    "observed_at": "2026-11-19"
+                  },
+                  "geometry": { "type": "Point", "coordinates": [-104.99, 39.74] }
+                },
+                {
+                  "type": "Feature",
+                  "properties": { "name": "纽约站", "kind": "urban", "observed_at": "2026-11-20" },
+                  "geometry": { "type": "Point", "coordinates": [-74.01, 40.71] }
+                }
+              ]
+            }
+          },
+          "style": {
+            "fillColor": "#34d399",
+            "strokeColor": "#ffffff",
+            "strokeWidth": 2,
+            "pointRadius": 7
+          },
+          "legend": {
+            "title": "采样站类型",
+            "type": "category",
+            "field": "kind",
+            "items": [
+              {
+                "id": "urban",
+                "values": ["urban", "suburban"],
+                "label": "城市站",
+                "color": "#34d399"
+              },
+              { "id": "regional", "values": ["regional"], "label": "区域站", "color": "#fbbf24" }
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "ui": {
-    "layout": "overlay-dashboard", "theme": "dark",
+    "layout": "overlay-dashboard",
+    "theme": "dark",
     "timePicker": {
-      "defaultGranularity": "day", "defaultMode": "single", "defaultTimeZone": "Asia/Shanghai",
+      "defaultGranularity": "day",
+      "defaultMode": "single",
+      "defaultTimeZone": "Asia/Shanghai",
       "granularities": ["hour", "day", "week", "month", "year"]
     },
     "panels": [

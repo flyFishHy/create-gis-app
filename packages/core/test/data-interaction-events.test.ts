@@ -5,7 +5,9 @@ import type { DataProcessor, GISPlugin, ToolDefinition } from '../src/types.js'
 describe('DataService', () => {
   it('loads inline data through a registered processor and disposes datasets', async () => {
     const app = createGISApp()
-    const process = vi.fn((input: unknown, _context: Parameters<DataProcessor['process']>[1]) => ({ result: input }))
+    const process = vi.fn((input: unknown, _context: Parameters<DataProcessor['process']>[1]) => ({
+      result: input,
+    }))
     const processor: DataProcessor = { process }
     const plugin: GISPlugin = {
       name: 'data-plugin',
@@ -15,7 +17,10 @@ describe('DataService', () => {
     }
     app.use(plugin)
     await app.init({})
-    const dataSet = await app.data.load({ type: 'inline', data: [1, 2] }, { id: 'numbers', processor: 'wrap' })
+    const dataSet = await app.data.load(
+      { type: 'inline', data: [1, 2] },
+      { id: 'numbers', processor: 'wrap' }
+    )
     expect(dataSet.status).toBe('ready')
     expect(dataSet.data).toEqual({ result: [1, 2] })
     expect(process).toHaveBeenCalledOnce()
@@ -28,9 +33,13 @@ describe('DataService', () => {
   it('records failed loads and rejects duplicate dataset ids', async () => {
     const app = createGISApp()
     await app.init({})
-    await expect(app.data.load({ type: 'url', url: '' }, { id: 'invalid' })).rejects.toMatchObject({ code: 'DATA_LOAD_FAILED' })
+    await expect(app.data.load({ type: 'url', url: '' }, { id: 'invalid' })).rejects.toMatchObject({
+      code: 'DATA_LOAD_FAILED',
+    })
     expect(app.data.get('invalid')?.status).toBe('error')
-    await expect(app.data.load({ type: 'inline', data: 1 }, { id: 'invalid' })).rejects.toMatchObject({ code: 'DATASET_DUPLICATE' })
+    await expect(
+      app.data.load({ type: 'inline', data: 1 }, { id: 'invalid' })
+    ).rejects.toMatchObject({ code: 'DATASET_DUPLICATE' })
     await app.dispose()
   })
 })
@@ -43,7 +52,9 @@ describe('InteractionService and EventService', () => {
     const select = app.interactions.onSelect((feature) => selections.push(feature))
     const event = vi.fn()
     app.events.on('feature:selected', event)
-    app.interactions.select({ feature: { id: 7, layerId: 'roads', properties: { class: 'primary' } } })
+    app.interactions.select({
+      feature: { id: 7, layerId: 'roads', properties: { class: 'primary' } },
+    })
     app.interactions.clearSelection()
     expect(selections).toHaveLength(2)
     expect(selections[0]).toMatchObject({ layerId: 'roads', id: 7 })
@@ -55,8 +66,24 @@ describe('InteractionService and EventService', () => {
   it('activates tools exclusively and deactivates an active tool during disposal', async () => {
     const app = createGISApp()
     const events: string[] = []
-    const first: ToolDefinition = { id: 'first', activate: () => { events.push('first+') }, deactivate: () => { events.push('first-') } }
-    const second: ToolDefinition = { id: 'second', activate: () => { events.push('second+') }, deactivate: () => { events.push('second-') } }
+    const first: ToolDefinition = {
+      id: 'first',
+      activate: () => {
+        events.push('first+')
+      },
+      deactivate: () => {
+        events.push('first-')
+      },
+    }
+    const second: ToolDefinition = {
+      id: 'second',
+      activate: () => {
+        events.push('second+')
+      },
+      deactivate: () => {
+        events.push('second-')
+      },
+    }
     app.use({
       name: 'tools',
       install(runtime, _options, resources) {
@@ -78,7 +105,10 @@ describe('InteractionService and EventService', () => {
     const calls: string[] = []
     app.events.once('app:ready', () => calls.push('once'))
     let stop: () => void = () => {}
-    stop = app.events.on('app:ready', () => { calls.push('normal'); stop() })
+    stop = app.events.on('app:ready', () => {
+      calls.push('normal')
+      stop()
+    })
     app.events.emit('app:ready', { appId: app.id })
     app.events.emit('app:ready', { appId: app.id })
     expect(calls).toEqual(['once', 'normal'])

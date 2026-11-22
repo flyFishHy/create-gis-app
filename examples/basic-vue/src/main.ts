@@ -15,8 +15,9 @@ function createApp() {
     .use(createVueUI({ workspaceStorageKey }))
 }
 let app = createApp()
-try { await app.init(saved) }
-catch (error) {
+try {
+  await app.init(saved)
+} catch (error) {
   if (saved === defaults) throw error
   await app.dispose()
   localStorage.removeItem(workspaceStorageKey)
@@ -27,4 +28,7 @@ catch (error) {
 
 await app.mount('#app')
 
-if (import.meta.hot) import.meta.hot.dispose(() => { void app.dispose() })
+if (import.meta.hot)
+  import.meta.hot.dispose(() => {
+    void app.dispose()
+  })

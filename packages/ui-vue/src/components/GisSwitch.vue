@@ -2,11 +2,14 @@
 import type { GisSwitchOption } from '../types.js'
 import SvgIcon from './SvgIcon.vue'
 
-withDefaults(defineProps<{
-  modelValue: string
-  options: readonly GisSwitchOption[]
-  groupLabel?: string
-}>(), { groupLabel: 'Switch' })
+withDefaults(
+  defineProps<{
+    modelValue: string
+    options: readonly GisSwitchOption[]
+    groupLabel?: string
+  }>(),
+  { groupLabel: 'Switch' }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]

@@ -1,7 +1,12 @@
 import type { JsonValue, Unsubscribe } from './types/common.js'
 import type { MapLocation } from './types/map.js'
 import type { AppContext } from './types/app.js'
-import type { FeaturePickCandidate, LayerIdentifyHit, LayerIdentifyQuery } from './types/interaction.js'
+import type {
+  FeaturePickCandidate,
+  FeatureReference,
+  LayerIdentifyHit,
+  LayerIdentifyQuery,
+} from './types/interaction.js'
 
 /** Map-domain legend description; contains no UI framework values. */
 export interface LegendDefinition {
@@ -77,7 +82,10 @@ export interface LayerConfig {
 }
 
 export interface MapLayerHandle {
-  identify?(query: LayerIdentifyQuery): readonly LayerIdentifyHit[] | Promise<readonly LayerIdentifyHit[]>
+  identify?(
+    query: LayerIdentifyQuery
+  ): readonly LayerIdentifyHit[] | Promise<readonly LayerIdentifyHit[]>
+  canSelectFeature?(feature: FeatureReference): boolean
   getStyle?(): LayerStyle | undefined
   getFields?(): readonly LayerField[]
   getFieldValues?(field: string): readonly LegendValue[]
@@ -149,7 +157,11 @@ export interface LayerTypeDefinition {
 }
 
 export interface LayerService {
-  identify(id: string, query: LayerIdentifyQuery): Promise<readonly FeaturePickCandidate[]> | undefined
+  canSelectFeature(feature: FeatureReference): boolean
+  identify(
+    id: string,
+    query: LayerIdentifyQuery
+  ): Promise<readonly FeaturePickCandidate[]> | undefined
   getDataLocation(id: string): MapLocation | undefined
   add(config: LayerConfig): Promise<LayerInstance>
   remove(id: string): Promise<void>
@@ -160,20 +172,71 @@ export interface LayerService {
   setVisibility(id: string, visible: boolean): void
   setOrder(ids: string[]): void
   clear(): Promise<void>
-  subscribe(listener: (event: { type: 'add' | 'remove' | 'update' | 'order' | 'visibility'; id?: string; visible?: boolean }) => void): Unsubscribe
+  subscribe(
+    listener: (event: {
+      type: 'add' | 'remove' | 'update' | 'order' | 'visibility'
+      id?: string
+      visible?: boolean
+    }) => void
+  ): Unsubscribe
 }
 
 export type LayerLegend = Omit<LegendDefinition, 'id' | 'layerId'> & { readonly id?: string }
 
 // Compatibility exports: consumers continue importing from types.ts or the package root.
-export type { AppStatus, JsonPrimitive, JsonValue, ReadonlyJsonValue, DeepReadonly, Unsubscribe } from './types/common.js'
+export type {
+  AppStatus,
+  JsonPrimitive,
+  JsonValue,
+  ReadonlyJsonValue,
+  DeepReadonly,
+  Unsubscribe,
+} from './types/common.js'
 export type { GISAppConfig, GISAppOptions, GISApp, AppContext } from './types/app.js'
 export type { GISPlugin, PluginInstance, ResourceScope } from './types/plugin.js'
-export type { MapStateSnapshot, LayerStateSnapshot, DataStateSnapshot, AppStateSnapshot, AppState, StateContributor } from './types/state.js'
-export type { PanelPosition, UIThemeConfig, UIConfig, UITimePickerConfig, PanelDescriptor, PanelConfig, UIAdapter } from './types/ui.js'
-export type { MapConfig, MapViewService, MapAdapter, MapService, MapLocation, MapOverlayAnchor } from './types/map.js'
-export type { DataSourceConfig, DataLoadOptions, DataSet, DataService, DataProcessor } from './types/data.js'
-export type { FeatureReference, SelectOptions, ToolDefinition, InteractionService, LayerIdentifyQuery, LayerIdentifyHit, FeaturePickCandidate, FeaturePickState, MapFeaturePick } from './types/interaction.js'
+export type {
+  MapStateSnapshot,
+  LayerStateSnapshot,
+  DataStateSnapshot,
+  AppStateSnapshot,
+  AppState,
+  StateContributor,
+} from './types/state.js'
+export type {
+  PanelPosition,
+  UIThemeConfig,
+  UIConfig,
+  UITimePickerConfig,
+  PanelDescriptor,
+  PanelConfig,
+  UIAdapter,
+} from './types/ui.js'
+export type {
+  MapConfig,
+  MapViewService,
+  MapAdapter,
+  MapService,
+  MapLocation,
+  MapOverlayAnchor,
+} from './types/map.js'
+export type {
+  DataSourceConfig,
+  DataLoadOptions,
+  DataSet,
+  DataService,
+  DataProcessor,
+} from './types/data.js'
+export type {
+  FeatureReference,
+  SelectOptions,
+  ToolDefinition,
+  InteractionService,
+  LayerIdentifyQuery,
+  LayerIdentifyHit,
+  FeaturePickCandidate,
+  FeaturePickState,
+  MapFeaturePick,
+} from './types/interaction.js'
 export type { GISAppEvents, EventService } from './types/events.js'
 export type { SearchResult, SearchQuery, SearchProvider, SearchService } from './types/search.js'
 export type { GISRuntimeErrorCode } from './errors.js'

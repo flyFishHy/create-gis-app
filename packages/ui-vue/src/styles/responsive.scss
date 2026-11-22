@@ -16,10 +16,11 @@
 
 @media (max-width: 800px) {
   .gis-ui-layout--docked {
-    .gis-ui-workspace, .gis-ui-workspace.is-right-hidden {
+    .gis-ui-workspace,
+    .gis-ui-workspace.is-right-hidden {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(300px, 1fr) auto minmax(320px, 35vh) minmax(220px, 30vh);
-      grid-template-areas: "actions" "map" "map-status" "left" "right";
+      grid-template-areas: 'actions' 'map' 'map-status' 'left' 'right';
       overflow: auto;
     }
 
@@ -32,11 +33,15 @@
     .gis-ui-workspace.is-right-hidden {
       grid-template-rows: auto minmax(300px, 1fr) auto minmax(320px, 35vh) minmax(0, 0px);
     }
-    .gis-ui-workspace.is-right-hidden .gis-ui-right-region { overflow: hidden; pointer-events: none; }
+    .gis-ui-workspace.is-right-hidden .gis-ui-right-region {
+      overflow: hidden;
+      pointer-events: none;
+    }
   }
-
 }
 
 @media (max-width: 767px) {
-  .gis-ui-brand-subtitle { display: none; }
+  .gis-ui-brand-subtitle {
+    display: none;
+  }
 }

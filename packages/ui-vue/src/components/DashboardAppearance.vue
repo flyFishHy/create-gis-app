@@ -23,9 +23,12 @@ const open = shallowRef(false)
 const workspaceError = shallowRef('')
 const importInput = useTemplateRef<HTMLInputElement>('workspaceImport')
 const tokens = computed(() => theme.get().tokens)
-const systemTheme = typeof window === 'undefined' ? undefined : window.matchMedia?.('(prefers-color-scheme: dark)')
+const systemTheme =
+  typeof window === 'undefined' ? undefined : window.matchMedia?.('(prefers-color-scheme: dark)')
 const systemDark = shallowRef(systemTheme?.matches ?? false)
-const updateSystemTheme = (event: MediaQueryListEvent) => { systemDark.value = event.matches }
+const updateSystemTheme = (event: MediaQueryListEvent) => {
+  systemDark.value = event.matches
+}
 systemTheme?.addEventListener('change', updateSystemTheme)
 onBeforeUnmount(() => systemTheme?.removeEventListener('change', updateSystemTheme))
 
@@ -46,29 +49,66 @@ const languageOptions: readonly GisSwitchOption[] = [
   { value: 'en', label: 'English' },
 ]
 const styles = ['frosted', 'liquid', 'solid'] as const
-const styleOptions = computed<readonly GisSwitchOption[]>(() => styles.map(value => ({ value, label: locale.t(`appearance.${value}`) })))
+const styleOptions = computed<readonly GisSwitchOption[]>(() =>
+  styles.map((value) => ({ value, label: locale.t(`appearance.${value}`) }))
+)
 const palette = [
-  ['blue', '#3b82f6'], ['emerald', '#10b981'], ['violet', '#8b5cf6'],
-  ['amber', '#f59e0b'], ['rose', '#ef4444'], ['cyan', '#06b6d4'],
+  ['blue', '#3b82f6'],
+  ['emerald', '#10b981'],
+  ['violet', '#8b5cf6'],
+  ['amber', '#f59e0b'],
+  ['rose', '#ef4444'],
+  ['cyan', '#06b6d4'],
 ] as const
 const primary = computed(() => tokens.value?.colorPrimary ?? palette[0][1])
 const pickerColor = computed(() => {
   const color = primary.value.toLowerCase()
   if (/^#[\da-f]{6}$/.test(color)) return color
-  if (/^#[\da-f]{3}$/.test(color)) return color.replace(/[\da-f]/g, channel => channel.repeat(2))
+  if (/^#[\da-f]{3}$/.test(color)) return color.replace(/[\da-f]/g, (channel) => channel.repeat(2))
   return palette[0][1]
 })
 const showHex = computed(() => /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(primary.value))
 
 type RangeToken = 'panelOpacity' | 'panelBlur' | 'panelSpecular'
-interface SettingRange { key: RangeToken; label: string; min: number; max: number; initial: number; unit: '%' | 'px'; disabled?: boolean }
+interface SettingRange {
+  key: RangeToken
+  label: string
+  min: number
+  max: number
+  initial: number
+  unit: '%' | 'px'
+  disabled?: boolean
+}
 const ranges = computed<SettingRange[]>(() => {
   const solid = props.panelStyle === 'solid'
   const controls: SettingRange[] = [
-    { key: 'panelOpacity', label: 'appearance.opacity', min: solid ? 94 : 15, max: 100, initial: 72, unit: '%' },
-    { key: 'panelBlur', label: 'appearance.blur', min: 0, max: 40, initial: 16, unit: 'px', disabled: solid },
+    {
+      key: 'panelOpacity',
+      label: 'appearance.opacity',
+      min: solid ? 94 : 15,
+      max: 100,
+      initial: 72,
+      unit: '%',
+    },
+    {
+      key: 'panelBlur',
+      label: 'appearance.blur',
+      min: 0,
+      max: 40,
+      initial: 16,
+      unit: 'px',
+      disabled: solid,
+    },
   ]
-  if (props.panelStyle === 'liquid') controls.push({ key: 'panelSpecular', label: 'appearance.specular', min: 0, max: 100, initial: 35, unit: '%' })
+  if (props.panelStyle === 'liquid')
+    controls.push({
+      key: 'panelSpecular',
+      label: 'appearance.specular',
+      min: 0,
+      max: 100,
+      initial: 35,
+      unit: '%',
+    })
   return controls
 })
 
@@ -78,7 +118,8 @@ function rangeValue({ key, initial, min, max }: SettingRange) {
 }
 
 function setStyle(value: string) {
-  if (value === 'frosted' || value === 'liquid' || value === 'solid') theme.set({ tokens: { panelStyle: value } })
+  if (value === 'frosted' || value === 'liquid' || value === 'solid')
+    theme.set({ tokens: { panelStyle: value } })
 }
 
 function setThemeMode(value: string) {
@@ -106,13 +147,17 @@ function exportWorkspace() {
   workspaceError.value = ''
   try {
     const config = captureWorkspaceConfig(app)
-    const url = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
+    )
     const link = document.createElement('a')
     link.href = url
     link.download = 'gis-workspace.json'
     link.click()
     setTimeout(() => URL.revokeObjectURL(url), 0)
-  } catch { workspaceError.value = locale.t('workspace.exportFailed') }
+  } catch {
+    workspaceError.value = locale.t('workspace.exportFailed')
+  }
 }
 
 async function importWorkspace() {
@@ -126,7 +171,9 @@ async function importWorkspace() {
     const config = parseGISAppConfig(JSON.parse(await file.text()))
     localStorage.setItem(key, JSON.stringify(config))
     window.location.reload()
-  } catch { workspaceError.value = locale.t('workspace.importFailed') }
+  } catch {
+    workspaceError.value = locale.t('workspace.importFailed')
+  }
 }
 
 function placePopover(event?: Event) {
@@ -165,73 +212,160 @@ function beforeToggle(event: ToggleEvent) {
 }
 
 onBeforeUnmount(stopPositioning)
-watch(() => props.layout, () => { if (open.value) placePopover() }, { flush: 'post' })
+watch(
+  () => props.layout,
+  () => {
+    if (open.value) placePopover()
+  },
+  { flush: 'post' }
+)
 </script>
 
 <template>
-  <button ref="trigger" class="gis-ui-appearance-trigger" type="button" v-bind="{ popovertarget: popoverId }" aria-haspopup="dialog"
-    :aria-expanded="open" :aria-label="locale.t('appearance.settings')" :title="locale.t('appearance.settings')">
+  <button
+    ref="trigger"
+    class="gis-ui-appearance-trigger"
+    type="button"
+    v-bind="{ popovertarget: popoverId }"
+    aria-haspopup="dialog"
+    :aria-expanded="open"
+    :aria-label="locale.t('appearance.settings')"
+    :title="locale.t('appearance.settings')"
+  >
     <SvgIcon name="settings" :size="17" />
   </button>
-  <section :id="popoverId" class="gis-ui-appearance" v-bind="{ popover: 'auto' }" role="dialog" :aria-labelledby="titleId"
-    :style="position" @beforetoggle="beforeToggle" @keydown.stop>
+  <section
+    :id="popoverId"
+    class="gis-ui-appearance"
+    v-bind="{ popover: 'auto' }"
+    role="dialog"
+    :aria-labelledby="titleId"
+    :style="position"
+    @beforetoggle="beforeToggle"
+    @keydown.stop
+  >
     <div class="gis-ui-appearance-heading">
       <span class="gis-ui-appearance-mark"><SvgIcon name="sliders-horizontal" :size="16" /></span>
       <h2 :id="titleId">{{ locale.t('appearance.title') }}</h2>
-      <button type="button" class="gis-ui-icon-button" v-bind="{ popovertarget: popoverId, popovertargetaction: 'hide' }"
-        :aria-label="locale.t('appearance.close')" autofocus><SvgIcon name="close" :size="16" /></button>
+      <button
+        type="button"
+        class="gis-ui-icon-button"
+        v-bind="{ popovertarget: popoverId, popovertargetaction: 'hide' }"
+        :aria-label="locale.t('appearance.close')"
+        autofocus
+      >
+        <SvgIcon name="close" :size="16" />
+      </button>
     </div>
     <div class="gis-ui-appearance-content">
       <h3><SvgIcon name="palette" :size="15" />{{ locale.t('appearance.group') }}</h3>
       <div class="gis-ui-appearance-card">
         <div class="gis-ui-appearance-row">
           <span>{{ locale.t('appearance.themeMode') }}</span>
-          <GisSwitch class="gis-ui-switch--theme" :model-value="themeMode" :options="themeOptions"
-            :group-label="locale.t('appearance.themeMode')" @update:model-value="setThemeMode" />
+          <GisSwitch
+            class="gis-ui-switch--theme"
+            :model-value="themeMode"
+            :options="themeOptions"
+            :group-label="locale.t('appearance.themeMode')"
+            @update:model-value="setThemeMode"
+          />
         </div>
         <div class="gis-ui-appearance-block">
           <span>{{ locale.t('appearance.panelStyle') }}</span>
-          <GisSwitch class="gis-ui-appearance-styles" :model-value="panelStyle" :options="styleOptions"
-            :group-label="locale.t('appearance.panelStyle')" @update:model-value="setStyle" />
-          <label v-for="range in ranges" :key="range.key" class="gis-ui-appearance-range" :class="{ 'is-disabled': range.disabled }">
+          <GisSwitch
+            class="gis-ui-appearance-styles"
+            :model-value="panelStyle"
+            :options="styleOptions"
+            :group-label="locale.t('appearance.panelStyle')"
+            @update:model-value="setStyle"
+          />
+          <label
+            v-for="range in ranges"
+            :key="range.key"
+            class="gis-ui-appearance-range"
+            :class="{ 'is-disabled': range.disabled }"
+          >
             <span>{{ locale.t(range.label) }}</span>
             <output aria-hidden="true">{{ rangeValue(range) }}{{ range.unit }}</output>
-            <input type="range" :min="range.min" :max="range.max" :value="rangeValue(range)" :disabled="range.disabled"
-              :aria-valuetext="`${rangeValue(range)}${range.unit}`" @input="updateRange(range, $event)">
+            <input
+              type="range"
+              :min="range.min"
+              :max="range.max"
+              :value="rangeValue(range)"
+              :disabled="range.disabled"
+              :aria-valuetext="`${rangeValue(range)}${range.unit}`"
+              @input="updateRange(range, $event)"
+            />
           </label>
         </div>
         <div class="gis-ui-appearance-block">
-          <div class="gis-ui-appearance-accent"><span>{{ locale.t('appearance.primary') }}</span><output>{{ showHex ? pickerColor.toUpperCase() : primary }}</output></div>
+          <div class="gis-ui-appearance-accent">
+            <span>{{ locale.t('appearance.primary') }}</span><output>{{
+              showHex ? pickerColor.toUpperCase() : primary
+            }}</output>
+          </div>
           <div class="gis-ui-appearance-colors">
-            <div class="gis-ui-appearance-swatches" role="group" :aria-label="locale.t('appearance.primary')">
-              <button v-for="[name, color] in palette" :key="name" type="button" :style="{ backgroundColor: color }"
-                :aria-label="locale.t(`appearance.color.${name}`)" :title="locale.t(`appearance.color.${name}`)"
-                :aria-pressed="showHex && pickerColor === color" @click="setColor(color)" />
+            <div
+              class="gis-ui-appearance-swatches"
+              role="group"
+              :aria-label="locale.t('appearance.primary')"
+            >
+              <button
+                v-for="[name, color] in palette"
+                :key="name"
+                type="button"
+                :style="{ backgroundColor: color }"
+                :aria-label="locale.t(`appearance.color.${name}`)"
+                :title="locale.t(`appearance.color.${name}`)"
+                :aria-pressed="showHex && pickerColor === color"
+                @click="setColor(color)"
+              />
             </div>
-            <input type="color" :value="pickerColor" :aria-label="locale.t('appearance.customColor')" :title="locale.t('appearance.customColor')"
-              @input="setColor(($event.target as HTMLInputElement).value)">
+            <input
+              type="color"
+              :value="pickerColor"
+              :aria-label="locale.t('appearance.customColor')"
+              :title="locale.t('appearance.customColor')"
+              @input="setColor(($event.target as HTMLInputElement).value)"
+            />
           </div>
         </div>
         <div v-if="changeLayout && layout" class="gis-ui-appearance-block gis-ui-appearance-row">
           <span>{{ locale.t('appearance.layout') }}</span>
-          <GisSwitch :model-value="layout" :options="layoutOptions"
-            :group-label="locale.t('appearance.layout')" @update:model-value="setLayout" />
+          <GisSwitch
+            :model-value="layout"
+            :options="layoutOptions"
+            :group-label="locale.t('appearance.layout')"
+            @update:model-value="setLayout"
+          />
         </div>
       </div>
       <div class="gis-ui-appearance-language">
         <h3><SvgIcon name="global" :size="15" />{{ locale.t('appearance.language') }}</h3>
         <div class="gis-ui-appearance-card gis-ui-appearance-row">
           <span>{{ locale.t('appearance.displayLanguage') }}</span>
-          <GisSwitch :model-value="locale.get()" :options="languageOptions"
-            :group-label="locale.t('appearance.language')" @update:model-value="setLocale" />
+          <GisSwitch
+            :model-value="locale.get()"
+            :options="languageOptions"
+            :group-label="locale.t('appearance.language')"
+            @update:model-value="setLocale"
+          />
         </div>
       </div>
       <div v-if="workspaceStorageKey" class="gis-ui-appearance-language">
         <h3><SvgIcon name="save" :size="15" />{{ locale.t('workspace.title') }}</h3>
         <div class="gis-ui-appearance-card gis-ui-workspace-actions">
           <button type="button" @click="exportWorkspace">{{ locale.t('workspace.export') }}</button>
-          <button type="button" @click="importInput?.click()">{{ locale.t('workspace.import') }}</button>
-          <input ref="workspaceImport" type="file" accept=".json,application/json" hidden @change="importWorkspace">
+          <button type="button" @click="importInput?.click()">
+            {{ locale.t('workspace.import') }}
+          </button>
+          <input
+            ref="workspaceImport"
+            type="file"
+            accept=".json,application/json"
+            hidden
+            @change="importWorkspace"
+          />
           <p v-if="workspaceError" class="gis-ui-error" role="alert">{{ workspaceError }}</p>
         </div>
       </div>

@@ -7,24 +7,40 @@ function mountTooltip() {
   return mount(Tooltip, {
     attachTo: document.body,
     props: { content: 'Zoom in' },
-    slots: { default: ({ describedBy }: { describedBy?: string }) =>
-      h('button', { 'aria-describedby': describedBy }, 'Action') },
+    slots: {
+      default: ({ describedBy }: { describedBy?: string }) =>
+        h('button', { 'aria-describedby': describedBy }, 'Action'),
+    },
   })
 }
 
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('Tooltip', () => {
   it('positions a horizontal toolbar tip above its trigger when there is no room below', async () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
       return this.classList.contains('gis-ui-tooltip-trigger')
-        ? { left: 100, right: 132, top: window.innerHeight - 40, bottom: window.innerHeight - 8, width: 32, height: 32 } as DOMRect
-        : { left: 0, right: 120, top: 0, bottom: 30, width: 120, height: 30 } as DOMRect
+        ? ({
+            left: 100,
+            right: 132,
+            top: window.innerHeight - 40,
+            bottom: window.innerHeight - 8,
+            width: 32,
+            height: 32,
+          } as DOMRect)
+        : ({ left: 0, right: 120, top: 0, bottom: 30, width: 120, height: 30 } as DOMRect)
     })
     const wrapper = mountTooltip()
     try {
       await wrapper.setProps({ placement: 'bottom' })
-      wrapper.get<HTMLElement>('.gis-ui-tooltip-trigger').element.style.setProperty('--gis-ui-font-size', '16px')
+      wrapper
+        .get<HTMLElement>('.gis-ui-tooltip-trigger')
+        .element.style.setProperty('--gis-ui-font-size', '16px')
       wrapper.get('button').element.focus()
       await nextTick()
       await nextTick()
@@ -59,10 +75,19 @@ describe('Tooltip', () => {
   })
 
   it('supports focus, accessible description, Escape dismissal, and viewport edge positioning', async () => {
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
       return this.classList.contains('gis-ui-tooltip-trigger')
-        ? { left: window.innerWidth - 40, right: window.innerWidth - 8, top: 10, bottom: 42, width: 32, height: 32 } as DOMRect
-        : { left: 0, right: 120, top: 0, bottom: 30, width: 120, height: 30 } as DOMRect
+        ? ({
+            left: window.innerWidth - 40,
+            right: window.innerWidth - 8,
+            top: 10,
+            bottom: 42,
+            width: 32,
+            height: 32,
+          } as DOMRect)
+        : ({ left: 0, right: 120, top: 0, bottom: 30, width: 120, height: 30 } as DOMRect)
     })
     const wrapper = mountTooltip()
     try {

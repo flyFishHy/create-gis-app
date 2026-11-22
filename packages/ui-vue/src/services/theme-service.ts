@@ -11,10 +11,16 @@ export class ThemeServiceImpl implements ThemeService {
     this.current = shallowRef(normalizeTheme(initial))
   }
 
-  get(): Readonly<ThemeOptions> { return this.current.value }
+  get(): Readonly<ThemeOptions> {
+    return this.current.value
+  }
 
   set(options: ThemeOptions): void {
-    this.current.value = normalizeTheme({ ...this.current.value, ...options, tokens: { ...this.current.value.tokens, ...options.tokens } })
+    this.current.value = normalizeTheme({
+      ...this.current.value,
+      ...options,
+      tokens: { ...this.current.value.tokens, ...options.tokens },
+    })
     for (const listener of [...this.listeners]) listener(this.current.value)
   }
 
@@ -23,7 +29,9 @@ export class ThemeServiceImpl implements ThemeService {
     return () => this.listeners.delete(listener)
   }
 
-  clear(): void { this.listeners.clear() }
+  clear(): void {
+    this.listeners.clear()
+  }
 }
 
 function normalizeTheme(theme: ThemeOptions): Readonly<ThemeOptions> {

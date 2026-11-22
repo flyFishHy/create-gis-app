@@ -154,7 +154,9 @@ GeoJSON layers provide built-in local attribute search through the OL adapter;
 other sources need their own providers and are not advertised as searchable by default.
 Escape, outside pointer input, blur or result selection dismisses dropdown results.
 Caller AbortSignals isolate queries; stale UI responses cannot replace newer ones.
-Result selection calls app.map.locate. An explicit result projection is transformed
+Result selection calls `app.map.locate`. When the result includes a `feature`, the
+panel then calls `app.interactions.select`, opening Properties under the existing
+panel policy and highlighting local vector geometry in OpenLayers. An explicit result projection is transformed
 by the map adapter; omission means current map projection, not implicit WGS84.
 Result suggestions and Select menus follow the dashboard panel material. They
 use the elevated surface with at least 80% opacity for legibility. Browsers

@@ -11,19 +11,30 @@ describe('Dashboard controls', () => {
     const search = vi.fn(async () => [{ id: 'found', title: 'Found feature' }])
     const action = vi.fn()
     app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }))
-    app.use(createVueUI({
-      config: { panels: [{ id: 'properties', visible: true }] },
-      toolbarItems: [{ id: 'save', title: 'Save', icon: 'save', onClick: action }],
-      panelDefinitions: [{ id: 'properties', title: 'Properties', position: 'right', defaultVisible: true,
-        component: defineComponent({ render: () => h('p', 'Select a feature') }) }],
-    }))
+    app.use(
+      createVueUI({
+        config: { panels: [{ id: 'properties', visible: true }] },
+        toolbarItems: [{ id: 'save', title: 'Save', icon: 'save', onClick: action }],
+        panelDefinitions: [
+          {
+            id: 'properties',
+            title: 'Properties',
+            position: 'right',
+            defaultVisible: true,
+            component: defineComponent({ render: () => h('p', 'Select a feature') }),
+          },
+        ],
+      })
+    )
     app.search.registerProvider({ id: 'test', search })
     const target = document.createElement('div')
     document.body.append(target)
     try {
       await app.init({ layers: [{ id: 'sample', title: 'Sample', type: 'test' }] })
       await app.mount(target)
-      const searchPanel = target.querySelector('.gis-ui-map-actions .gis-ui-panel-region--top .gis-ui-panel-host--search')!
+      const searchPanel = target.querySelector(
+        '.gis-ui-map-actions .gis-ui-panel-region--top .gis-ui-panel-host--search'
+      )!
       expect(searchPanel).not.toBeNull()
       expect(searchPanel.querySelector('header')).toBeNull()
       expect(searchPanel.querySelector('.gis-ui-panel-shell')).toBeNull()
@@ -43,12 +54,15 @@ describe('Dashboard controls', () => {
       await nextTick()
       expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
       const layerSelect = searchPanel.querySelector<HTMLButtonElement>('[role="combobox"]')!
-      layerSelect.focus(); await nextTick()
+      layerSelect.focus()
+      await nextTick()
       expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
-      layerSelect.click(); await nextTick()
+      layerSelect.click()
+      await nextTick()
       expect(searchPanel.querySelector('[role="listbox"]')).not.toBeNull()
       expect(searchPanel.querySelector('.gis-ui-search-feedback')).toBeNull()
-      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })); await nextTick()
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      await nextTick()
       expect(searchPanel.querySelector('[role="listbox"]')).toBeNull()
       input.focus()
       await nextTick()
@@ -82,7 +96,11 @@ describe('Dashboard controls', () => {
       tool.click()
       await flushPromises()
       expect(action).toHaveBeenCalledOnce()
-      expect(target.querySelector('.gis-ui-panel-region--right .gis-ui-panel-host--properties .gis-ui-panel-body')?.textContent).toContain('Select a feature')
+      expect(
+        target.querySelector(
+          '.gis-ui-panel-region--right .gis-ui-panel-host--properties .gis-ui-panel-body'
+        )?.textContent
+      ).toContain('Select a feature')
     } finally {
       await app.dispose()
       target.remove()

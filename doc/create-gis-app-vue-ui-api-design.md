@@ -741,6 +741,10 @@ OpenLayers 的选择器通过 MapService 挂到原生 `Overlay`，以点击坐�
 平移时跟随锚点，靠近边缘时调整弹框位置。缩放或旋转时关闭候选。其他适配器使用
 点击像素。
 
+地图点选、选择器确认以及带 `SearchResult.feature` 的搜索结果点击都提交同一个
+选中状态。右侧 Properties 展示该状态，OpenLayers 适配器为本地矢量要素绘制高亮。
+关闭属性面板保留选择。图层隐藏、数据替换和过滤导致选择失效时同步清理高亮。
+
 ### 7.6 KpiPanel 与 TimeController
 
 这两个面板偏业务能力，建议作为官方可选示例/扩展，不作为 Runtime

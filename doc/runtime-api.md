@@ -110,8 +110,10 @@ locations, and reads current source features after DataSet updates. It does not
 implement remote full-text search for tile/WMS services. Custom providers can be
 registered for those layers using the same public contract.
 
-SearchResult preserves id/title/subtitle/coordinate/extent/data and adds optional
-projection. Omission explicitly means the current map projection. Prefer declaring
+SearchResult can include a `feature` reference alongside its location. The built-in
+GeoJSON provider uses the same reference for map clicks and search results. The
+search result `id` identifies the list entry, and `feature` identifies the object
+to select. A missing `projection` means the current map projection. Prefer declaring
 projection for external providers. app.map.locate(result) delegates projection
 conversion to the adapter; OL supports transforming points/extents. Adapters without
 a conversion hook only accept their own projection. Existing setCenter/fit remain.
@@ -248,6 +250,15 @@ Tool results survive UI remounts. createOLAdapter installs base tools internally
 there is no public createOLTools factory. Use createOLAdapter({ tools: false }) to
 omit tool capability. Interactions and result layers are attached lazily as used.
 useOLTools still exposes the OL-specific programmatic result controller.
+
+`FeatureReference.featureKey` is an optional, opaque identity within the current
+layer data. The OL adapter uses it to find the exact local vector feature even
+when it has no business ID. The adapter paints a copy of the selected geometry
+in a private vector layer excluded from picking and layer management. Raster
+results can still be selected for properties. Their attribute-only results do
+not paint a highlight. Layers can implement `MapLayerHandle.canSelectFeature`
+to reject obsolete or filtered references. `LayerService` revalidates selection
+after layer changes, and the OL adapter clears obsolete references on data replacement.
 
 ### Map click picking
 

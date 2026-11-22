@@ -45,7 +45,11 @@ export interface GISApp {
   registerUIAdapter(adapter: UIAdapter, resources: ResourceScope): void
   registerMapAdapter(adapter: MapAdapter, resources: ResourceScope): void
   registerLayerType(type: string, definition: LayerTypeDefinition, resources: ResourceScope): void
-  registerDataProcessor<Input, Output>(name: string, processor: DataProcessor<Input, Output>, resources: ResourceScope): void
+  registerDataProcessor<Input, Output>(
+    name: string,
+    processor: DataProcessor<Input, Output>,
+    resources: ResourceScope
+  ): void
   registerTool(id: string, definition: ToolDefinition, resources: ResourceScope): void
   init(config: GISAppConfig): Promise<void>
   mount(target: Element | string): Promise<void>

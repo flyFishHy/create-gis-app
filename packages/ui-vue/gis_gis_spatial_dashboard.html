@@ -1,1753 +1,2227 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN" class="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GIS 空间数据智能看板 | Spatial GIS Dashboard</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Inter & JetBrains Mono Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIS 空间数据智能看板 | Spatial GIS Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter & JetBrains Mono Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              accent: 'var(--accent-color)',
+            },
           },
-          colors: {
-            accent: 'var(--accent-color)',
-          }
-        }
+        },
       }
-    }
-  </script>
+    </script>
 
-  <style>
-    :root {
-      --accent-color: #3b82f6;
-      --accent-rgb: 59, 130, 246;
-      --panel-bg-rgb: 15, 23, 42;
-      --panel-opacity: 0.72;
-      --panel-blur: 16px;
-      --panel-border-color: rgba(255, 255, 255, 0.14);
-      --liquid-specular: 0.35;
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
-    }
+    <style>
+      :root {
+        --accent-color: #3b82f6;
+        --accent-rgb: 59, 130, 246;
+        --panel-bg-rgb: 15, 23, 42;
+        --panel-opacity: 0.72;
+        --panel-blur: 16px;
+        --panel-border-color: rgba(255, 255, 255, 0.14);
+        --liquid-specular: 0.35;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
+      }
 
-    html.light {
-      --panel-bg-rgb: 255, 255, 255;
-      --panel-border-color: rgba(15, 23, 42, 0.12);
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --card-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12);
-    }
+      html.light {
+        --panel-bg-rgb: 255, 255, 255;
+        --panel-border-color: rgba(15, 23, 42, 0.12);
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --card-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12);
+      }
 
-    * {
-      box-sizing: border-box;
-      user-select: none;
-    }
+      * {
+        box-sizing: border-box;
+        user-select: none;
+      }
 
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
-      color: var(--text-primary);
-      background-color: #090d16;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Inter', sans-serif;
+        color: var(--text-primary);
+        background-color: #090d16;
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
+      }
 
-    html.light body {
-      background-color: #e2e8f0;
-    }
+      html.light body {
+        background-color: #e2e8f0;
+      }
 
-    /* 动态面板材质样式：磨砂玻璃 / 液态玻璃 / 实际颜色 */
-    .gis-panel {
-      background-color: rgba(var(--panel-bg-rgb), var(--panel-opacity));
-      backdrop-filter: blur(var(--panel-blur));
-      -webkit-backdrop-filter: blur(var(--panel-blur));
-      border: 1px solid var(--panel-border-color);
-      box-shadow: var(--card-shadow);
-      transition: background-color 0.2s ease, backdrop-filter 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-      position: relative;
-    }
+      /* 动态面板材质样式：磨砂玻璃 / 液态玻璃 / 实际颜色 */
+      .gis-panel {
+        background-color: rgba(var(--panel-bg-rgb), var(--panel-opacity));
+        backdrop-filter: blur(var(--panel-blur));
+        -webkit-backdrop-filter: blur(var(--panel-blur));
+        border: 1px solid var(--panel-border-color);
+        box-shadow: var(--card-shadow);
+        transition:
+          background-color 0.2s ease,
+          backdrop-filter 0.2s ease,
+          border-color 0.2s ease,
+          box-shadow 0.25s ease,
+          transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+          width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        position: relative;
+      }
 
-    /* 液态玻璃质感 (Liquid Glass)：高光折射边缘、立体内阴影与流动光泽 */
-    .gis-panel.style-liquid {
-      border: 1px solid rgba(255, 255, 255, calc(0.18 + var(--liquid-specular) * 0.45));
-      box-shadow:
-        0 14px 36px -6px rgba(0, 0, 0, 0.38),
-        inset 0 1.5px 1px 0 rgba(255, 255, 255, calc(0.25 + var(--liquid-specular) * 0.55)),
-        inset 0 -2px 6px 0 rgba(var(--accent-rgb), calc(0.08 + var(--liquid-specular) * 0.22)),
-        inset 1px 0 2px 0 rgba(255, 255, 255, calc(0.12 + var(--liquid-specular) * 0.25));
-      background-image: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, calc(0.06 + var(--liquid-specular) * 0.16)) 0%,
-        rgba(255, 255, 255, 0.0) 45%,
-        rgba(var(--accent-rgb), calc(0.04 + var(--liquid-specular) * 0.12)) 100%
-      );
-    }
+      /* 液态玻璃质感 (Liquid Glass)：高光折射边缘、立体内阴影与流动光泽 */
+      .gis-panel.style-liquid {
+        border: 1px solid rgba(255, 255, 255, calc(0.18 + var(--liquid-specular) * 0.45));
+        box-shadow:
+          0 14px 36px -6px rgba(0, 0, 0, 0.38),
+          inset 0 1.5px 1px 0 rgba(255, 255, 255, calc(0.25 + var(--liquid-specular) * 0.55)),
+          inset 0 -2px 6px 0 rgba(var(--accent-rgb), calc(0.08 + var(--liquid-specular) * 0.22)),
+          inset 1px 0 2px 0 rgba(255, 255, 255, calc(0.12 + var(--liquid-specular) * 0.25));
+        background-image: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, calc(0.06 + var(--liquid-specular) * 0.16)) 0%,
+          rgba(255, 255, 255, 0) 45%,
+          rgba(var(--accent-rgb), calc(0.04 + var(--liquid-specular) * 0.12)) 100%
+        );
+      }
 
-    html.light .gis-panel.style-liquid {
-      border: 1px solid rgba(255, 255, 255, 0.85);
-      box-shadow:
-        0 14px 34px -6px rgba(15, 23, 42, 0.14),
-        inset 0 2px 2px 0 rgba(255, 255, 255, 0.95),
-        inset 0 -2px 8px 0 rgba(var(--accent-rgb), calc(0.08 + var(--liquid-specular) * 0.2)),
-        0 0 0 1px rgba(15, 23, 42, 0.06);
-      background-image: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, calc(0.35 + var(--liquid-specular) * 0.4)) 0%,
-        rgba(255, 255, 255, 0.05) 55%,
-        rgba(var(--accent-rgb), calc(0.05 + var(--liquid-specular) * 0.15)) 100%
-      );
-    }
+      html.light .gis-panel.style-liquid {
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        box-shadow:
+          0 14px 34px -6px rgba(15, 23, 42, 0.14),
+          inset 0 2px 2px 0 rgba(255, 255, 255, 0.95),
+          inset 0 -2px 8px 0 rgba(var(--accent-rgb), calc(0.08 + var(--liquid-specular) * 0.2)),
+          0 0 0 1px rgba(15, 23, 42, 0.06);
+        background-image: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, calc(0.35 + var(--liquid-specular) * 0.4)) 0%,
+          rgba(255, 255, 255, 0.05) 55%,
+          rgba(var(--accent-rgb), calc(0.05 + var(--liquid-specular) * 0.15)) 100%
+        );
+      }
 
-    /* 实际颜色 (Solid Color) */
-    .gis-panel.style-solid {
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      background-image: none !important;
-    }
+      /* 实际颜色 (Solid Color) */
+      .gis-panel.style-solid {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background-image: none !important;
+      }
 
-    /* 自定义滑块样式 */
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(148, 163, 184, 0.28);
-      outline: none;
-      cursor: pointer;
-    }
+      /* 自定义滑块样式 */
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.28);
+        outline: none;
+        cursor: pointer;
+      }
 
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: var(--accent-color);
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-      cursor: pointer;
-      transition: transform 0.15s ease;
-    }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: var(--accent-color);
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
 
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.15);
-    }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+      }
 
-    /* 自定义颜色选择器 */
-    input[type="color"] {
-      -webkit-appearance: none;
-      border: none;
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      padding: 0;
-      background: transparent;
-      cursor: pointer;
-    }
-    input[type="color"]::-webkit-color-swatch-wrapper {
-      padding: 0;
-    }
-    input[type="color"]::-webkit-color-swatch {
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 8px;
-    }
+      /* 自定义颜色选择器 */
+      input[type='color'] {
+        -webkit-appearance: none;
+        border: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+      input[type='color']::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+      input[type='color']::-webkit-color-swatch {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+      }
 
-    /* 自定义滚动条 */
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.3);
-      border-radius: 999px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(148, 163, 184, 0.5);
-    }
+      /* 自定义滚动条 */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3);
+        border-radius: 999px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.5);
+      }
 
-    /* 主题色动态按钮 */
-    .btn-accent {
-      background-color: var(--accent-color);
-      color: #ffffff;
-      box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.38);
-    }
-    .btn-accent:hover {
-      filter: brightness(1.08);
-    }
+      /* 主题色动态按钮 */
+      .btn-accent {
+        background-color: var(--accent-color);
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.38);
+      }
+      .btn-accent:hover {
+        filter: brightness(1.08);
+      }
 
-    .text-accent-dynamic {
-      color: var(--accent-color);
-    }
-    .border-accent-dynamic {
-      border-color: var(--accent-color);
-    }
-    .bg-accent-soft {
-      background-color: rgba(var(--accent-rgb), 0.15);
-    }
+      .text-accent-dynamic {
+        color: var(--accent-color);
+      }
+      .border-accent-dynamic {
+        border-color: var(--accent-color);
+      }
+      .bg-accent-soft {
+        background-color: rgba(var(--accent-rgb), 0.15);
+      }
 
-    /* 设置抽屉动画 */
-    #settingsModal {
-      transform-origin: top right;
-      transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    #settingsModal.hidden-modal {
-      opacity: 0;
-      transform: scale(0.95) translateY(-8px);
-      pointer-events: none;
-    }
-    #settingsModal.visible-modal {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-      pointer-events: auto;
-    }
+      /* 设置抽屉动画 */
+      #settingsModal {
+        transform-origin: top right;
+        transition:
+          opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+          transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      #settingsModal.hidden-modal {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+        pointer-events: none;
+      }
+      #settingsModal.visible-modal {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
+      }
 
-    /* Toast 提示 */
-    #toastMessage {
-      transition: opacity 0.25s ease, transform 0.25s ease;
-    }
-  </style>
-</head>
-<body class="h-screen w-screen overflow-hidden flex flex-col">
+      /* Toast 提示 */
+      #toastMessage {
+        transition:
+          opacity 0.25s ease,
+          transform 0.25s ease;
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen overflow-hidden flex flex-col">
+    <!-- 交互式 GIS 地图画布层 (底层铺满，Docked 模式下自动计算视口中心) -->
+    <div id="mapViewport" class="fixed inset-0 z-0">
+      <canvas
+        id="gisCanvas"
+        class="w-full h-full block cursor-grab active:cursor-grabbing"
+      ></canvas>
+    </div>
 
-  <!-- 交互式 GIS 地图画布层 (底层铺满，Docked 模式下自动计算视口中心) -->
-  <div id="mapViewport" class="fixed inset-0 z-0">
-    <canvas id="gisCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
-  </div>
-
-  <!-- 顶部 Header 栏 -->
-  <header id="appHeader" class="gis-panel z-30 h-14 px-4 sm:px-6 flex items-center justify-between shrink-0 rounded-none border-x-0 border-t-0">
-    <!-- 左侧：Logo、标题与实时经纬度坐标 -->
-    <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-      <div class="w-9 h-9 rounded-xl btn-accent flex items-center justify-center shrink-0">
-        <i data-lucide="globe-2" class="w-5 h-5"></i>
+    <!-- 顶部 Header 栏 -->
+    <header
+      id="appHeader"
+      class="gis-panel z-30 h-14 px-4 sm:px-6 flex items-center justify-between shrink-0 rounded-none border-x-0 border-t-0"
+    >
+      <!-- 左侧：Logo、标题与实时经纬度坐标 -->
+      <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+        <div class="w-9 h-9 rounded-xl btn-accent flex items-center justify-center shrink-0">
+          <i data-lucide="globe-2" class="w-5 h-5"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 data-i18n="appTitle" class="font-bold text-sm sm:text-base tracking-tight truncate"
+              >GeoPulse 空间数据智能看板</h1
+            >
+            <span
+              class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-soft text-accent-dynamic border border-accent-dynamic/30"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+              <span data-i18n="liveStatus">实时遥感在线</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] font-mono opacity-75 truncate">
+            <span id="coordDisplay">LON: 103.8198° E LAT: 1.3521° N</span>
+            <span class="hidden sm:inline">|</span>
+            <span id="zoomDisplay" class="hidden sm:inline">ZOOM: 12.5x</span>
+          </div>
+        </div>
       </div>
-      <div class="min-w-0">
-        <div class="flex items-center gap-2">
-          <h1 data-i18n="appTitle" class="font-bold text-sm sm:text-base tracking-tight truncate">GeoPulse 空间数据智能看板</h1>
-          <span class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-soft text-accent-dynamic border border-accent-dynamic/30">
-            <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
-            <span data-i18n="liveStatus">实时遥感在线</span>
+
+      <!-- 中间快捷工具栏 (支持在地图上切换交互模式) -->
+      <div
+        class="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-slate-500/10 border border-slate-500/15"
+      >
+        <button
+          onclick="setActiveTool('pan')"
+          id="tool-pan"
+          class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all btn-accent"
+        >
+          <i data-lucide="hand" class="w-3.5 h-3.5"></i>
+          <span data-i18n="toolPan">漫游</span>
+        </button>
+        <button
+          onclick="setActiveTool('point')"
+          id="tool-point"
+          class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15"
+        >
+          <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+          <span data-i18n="toolDrawPoint">绘制点位</span>
+        </button>
+        <button
+          onclick="setActiveTool('measure')"
+          id="tool-measure"
+          class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15"
+        >
+          <i data-lucide="ruler" class="w-3.5 h-3.5"></i>
+          <span data-i18n="toolMeasure">面积测量</span>
+        </button>
+        <button
+          onclick="setActiveTool('highlight')"
+          id="tool-highlight"
+          class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15"
+        >
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span data-i18n="toolHighlight">要素高亮</span>
+        </button>
+      </div>
+
+      <!-- 右侧：快捷状态 & 设置按钮 -->
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <button
+          onclick="resetMapView()"
+          title="Reset View"
+          class="p-2 rounded-xl hover:bg-slate-500/15 transition-colors border border-transparent hover:border-slate-500/20"
+        >
+          <i data-lucide="compass" class="w-4 h-4"></i>
+        </button>
+
+        <!-- 核心设置触发按钮 -->
+        <button
+          id="settingsToggleBtn"
+          onclick="toggleSettingsModal()"
+          class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all btn-accent cursor-pointer"
+        >
+          <i
+            data-lucide="settings"
+            id="settingsGearIcon"
+            class="w-4 h-4 transition-transform duration-300"
+          ></i>
+          <span data-i18n="settingsBtn">设置</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主工作区容器：支持 Docked (停靠挤压) 与 Overlay (悬浮覆盖) 两种布局 -->
+    <main
+      id="workspaceContainer"
+      class="relative z-10 flex-1 flex justify-between pointer-events-none overflow-hidden"
+    >
+      <!-- 左侧看板栏：图层管理 + 空间指标监控 -->
+      <aside
+        id="leftSidebar"
+        class="pointer-events-auto flex flex-col gap-3 p-3 sm:p-4 w-72 sm:w-80 max-h-full overflow-y-auto custom-scrollbar transition-all duration-300"
+      >
+        <!-- 卡片 1：空间图层控制 -->
+        <section class="gis-panel rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-accent-dynamic"></i>
+              <h2
+                data-i18n="layerControlTitle"
+                class="text-xs font-semibold uppercase tracking-wider"
+                >空间图层控制</h2
+              >
+            </div>
+            <span
+              class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-accent-soft text-accent-dynamic"
+              >4 ACTIVE</span
+            >
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <label
+              class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors"
+            >
+              <div class="flex items-center gap-2.5">
+                <span
+                  class="w-2.5 h-2.5 rounded-full"
+                  id="legendPointDot"
+                  style="background: #3b82f6"
+                ></span>
+                <span data-i18n="layerPoints">物联网监测点位 (Points)</span>
+              </div>
+              <input
+                type="checkbox"
+                checked
+                onchange="toggleLayer('points', this.checked)"
+                class="accent-blue-500 w-4 h-4 rounded cursor-pointer"
+              />
+            </label>
+
+            <label
+              class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors"
+            >
+              <div class="flex items-center gap-2.5">
+                <span
+                  class="w-2.5 h-2.5 rounded-sm border"
+                  id="legendMeasureBox"
+                  style="background: rgba(59, 130, 246, 0.25); border-color: #3b82f6"
+                ></span>
+                <span data-i18n="layerMeasure">空间测绘多边形 (Measure)</span>
+              </div>
+              <input
+                type="checkbox"
+                checked
+                onchange="toggleLayer('measure', this.checked)"
+                class="accent-blue-500 w-4 h-4 rounded cursor-pointer"
+              />
+            </label>
+
+            <label
+              class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors"
+            >
+              <div class="flex items-center gap-2.5">
+                <span
+                  class="w-2.5 h-2.5 rounded-full animate-ping"
+                  id="legendHighlightDot"
+                  style="background: #f59e0b"
+                ></span>
+                <span data-i18n="layerHighlight">重点管控高亮区 (Highlight)</span>
+              </div>
+              <input
+                type="checkbox"
+                checked
+                onchange="toggleLayer('highlight', this.checked)"
+                class="accent-blue-500 w-4 h-4 rounded cursor-pointer"
+              />
+            </label>
+
+            <label
+              class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors"
+            >
+              <div class="flex items-center gap-2.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                <span data-i18n="layerGrid">经纬度坐标网格 (Graticule)</span>
+              </div>
+              <input
+                type="checkbox"
+                checked
+                onchange="toggleLayer('grid', this.checked)"
+                class="accent-blue-500 w-4 h-4 rounded cursor-pointer"
+              />
+            </label>
+          </div>
+        </section>
+
+        <!-- 卡片 2：核心遥感指标 -->
+        <section class="gis-panel rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-accent-dynamic"></i>
+              <h2 data-i18n="metricsTitle" class="text-xs font-semibold uppercase tracking-wider"
+                >区域实时监测指标</h2
+              >
+            </div>
+            <span class="text-[11px] opacity-60 font-mono">EPSG:4326</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10">
+              <div data-i18n="metricNodes" class="text-[11px] opacity-70 mb-1">在线传感节点</div>
+              <div id="statPointCount" class="text-lg font-bold font-mono text-accent-dynamic"
+                >06</div
+              >
+              <div class="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1">
+                <i data-lucide="trending-up" class="w-3 h-3"></i> +12.4%
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10">
+              <div data-i18n="metricArea" class="text-[11px] opacity-70 mb-1">测绘覆盖面积</div>
+              <div class="text-lg font-bold font-mono"
+                >42.8 <span class="text-xs font-normal opacity-70">km²</span></div
+              >
+              <div class="text-[10px] opacity-60 mt-0.5 font-mono">WGS84 / UTM</div>
+            </div>
+          </div>
+
+          <!-- 实时渲染参数同步指示条 -->
+          <div class="mt-3 pt-3 border-t border-slate-500/15 space-y-2">
+            <div class="flex justify-between text-[11px]">
+              <span data-i18n="signalIntegrity" class="opacity-75">空间拓扑完整度</span>
+              <span class="font-mono font-semibold text-accent-dynamic">98.4%</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-slate-500/20 overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-300"
+                style="width: 98.4%; background-color: var(--accent-color)"
+              ></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- 中间底部操作提示条 (手机端也可点击切换工具) -->
+      <div class="hidden sm:flex flex-col justify-end items-center pb-4 px-2 pointer-events-none">
+        <div
+          class="gis-panel pointer-events-auto px-4 py-2 rounded-full flex items-center gap-3 text-xs"
+        >
+          <span class="flex items-center gap-1.5 opacity-80">
+            <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-accent-dynamic"></i>
+            <span id="toolHintText" data-i18n="hintPan"
+              >拖拽平移底图 · 滚轮缩放 · 点击高亮要素查看属性</span
+            >
           </span>
-        </div>
-        <div class="flex items-center gap-3 text-[11px] font-mono opacity-75 truncate">
-          <span id="coordDisplay">LON: 103.8198° E  LAT: 1.3521° N</span>
-          <span class="hidden sm:inline">|</span>
-          <span id="zoomDisplay" class="hidden sm:inline">ZOOM: 12.5x</span>
+          <button
+            onclick="addRandomPoint()"
+            class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-accent-soft text-accent-dynamic hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            + <span data-i18n="quickAddPoint">新增采样点</span>
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- 中间快捷工具栏 (支持在地图上切换交互模式) -->
-    <div class="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-slate-500/10 border border-slate-500/15">
-      <button onclick="setActiveTool('pan')" id="tool-pan" class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all btn-accent">
-        <i data-lucide="hand" class="w-3.5 h-3.5"></i>
-        <span data-i18n="toolPan">漫游</span>
-      </button>
-      <button onclick="setActiveTool('point')" id="tool-point" class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15">
-        <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
-        <span data-i18n="toolDrawPoint">绘制点位</span>
-      </button>
-      <button onclick="setActiveTool('measure')" id="tool-measure" class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15">
-        <i data-lucide="ruler" class="w-3.5 h-3.5"></i>
-        <span data-i18n="toolMeasure">面积测量</span>
-      </button>
-      <button onclick="setActiveTool('highlight')" id="tool-highlight" class="tool-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all hover:bg-slate-500/15">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-        <span data-i18n="toolHighlight">要素高亮</span>
-      </button>
-    </div>
-
-    <!-- 右侧：快捷状态 & 设置按钮 -->
-    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-      <button onclick="resetMapView()" title="Reset View" class="p-2 rounded-xl hover:bg-slate-500/15 transition-colors border border-transparent hover:border-slate-500/20">
-        <i data-lucide="compass" class="w-4 h-4"></i>
-      </button>
-
-      <!-- 核心设置触发按钮 -->
-      <button id="settingsToggleBtn" onclick="toggleSettingsModal()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all btn-accent cursor-pointer">
-        <i data-lucide="settings" id="settingsGearIcon" class="w-4 h-4 transition-transform duration-300"></i>
-        <span data-i18n="settingsBtn">设置</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- 主工作区容器：支持 Docked (停靠挤压) 与 Overlay (悬浮覆盖) 两种布局 -->
-  <main id="workspaceContainer" class="relative z-10 flex-1 flex justify-between pointer-events-none overflow-hidden">
-
-    <!-- 左侧看板栏：图层管理 + 空间指标监控 -->
-    <aside id="leftSidebar" class="pointer-events-auto flex flex-col gap-3 p-3 sm:p-4 w-72 sm:w-80 max-h-full overflow-y-auto custom-scrollbar transition-all duration-300">
-      <!-- 卡片 1：空间图层控制 -->
-      <section class="gis-panel rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="layers" class="w-4 h-4 text-accent-dynamic"></i>
-            <h2 data-i18n="layerControlTitle" class="text-xs font-semibold uppercase tracking-wider">空间图层控制</h2>
+      <!-- 右侧看板栏：要素属性详情 + 空间统计图表 -->
+      <aside
+        id="rightSidebar"
+        class="hidden md:flex pointer-events-auto flex-col gap-3 p-3 sm:p-4 w-72 sm:w-80 max-h-full overflow-y-auto custom-scrollbar transition-all duration-300"
+      >
+        <!-- 卡片 3：当前选中/高亮要素属性 -->
+        <section class="gis-panel rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="scan-search" class="w-4 h-4 text-accent-dynamic"></i>
+              <h2
+                data-i18n="featureInspectorTitle"
+                class="text-xs font-semibold uppercase tracking-wider"
+                >高亮要素属性面板</h2
+              >
+            </div>
+            <span
+              id="selectedFeatureBadge"
+              class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30"
+              >ZONE-A1</span
+            >
           </div>
-          <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-accent-soft text-accent-dynamic">4 ACTIVE</span>
-        </div>
 
-        <div class="space-y-2 text-xs">
-          <label class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors">
-            <div class="flex items-center gap-2.5">
-              <span class="w-2.5 h-2.5 rounded-full" id="legendPointDot" style="background: #3b82f6;"></span>
-              <span data-i18n="layerPoints">物联网监测点位 (Points)</span>
+          <div id="featureDetailsContent" class="space-y-2 text-xs">
+            <div class="flex justify-between py-1.5 border-b border-slate-500/15">
+              <span data-i18n="propName" class="opacity-70">要素名称</span>
+              <span id="featName" class="font-medium">滨海智慧核心区 #01</span>
             </div>
-            <input type="checkbox" checked onchange="toggleLayer('points', this.checked)" class="accent-blue-500 w-4 h-4 rounded cursor-pointer">
-          </label>
-
-          <label class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors">
-            <div class="flex items-center gap-2.5">
-              <span class="w-2.5 h-2.5 rounded-sm border" id="legendMeasureBox" style="background: rgba(59,130,246,0.25); border-color: #3b82f6;"></span>
-              <span data-i18n="layerMeasure">空间测绘多边形 (Measure)</span>
+            <div class="flex justify-between py-1.5 border-b border-slate-500/15">
+              <span data-i18n="propType" class="opacity-70">几何类型</span>
+              <span id="featType" class="font-mono">Polygon (高亮选区)</span>
             </div>
-            <input type="checkbox" checked onchange="toggleLayer('measure', this.checked)" class="accent-blue-500 w-4 h-4 rounded cursor-pointer">
-          </label>
-
-          <label class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors">
-            <div class="flex items-center gap-2.5">
-              <span class="w-2.5 h-2.5 rounded-full animate-ping" id="legendHighlightDot" style="background: #f59e0b;"></span>
-              <span data-i18n="layerHighlight">重点管控高亮区 (Highlight)</span>
+            <div class="flex justify-between py-1.5 border-b border-slate-500/15">
+              <span data-i18n="propElevation" class="opacity-70">平均高程 / 密度</span>
+              <span id="featValue" class="font-mono text-accent-dynamic">34.2 m / 89%</span>
             </div>
-            <input type="checkbox" checked onchange="toggleLayer('highlight', this.checked)" class="accent-blue-500 w-4 h-4 rounded cursor-pointer">
-          </label>
-
-          <label class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-500/10 cursor-pointer transition-colors">
-            <div class="flex items-center gap-2.5">
-              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-              <span data-i18n="layerGrid">经纬度坐标网格 (Graticule)</span>
-            </div>
-            <input type="checkbox" checked onchange="toggleLayer('grid', this.checked)" class="accent-blue-500 w-4 h-4 rounded cursor-pointer">
-          </label>
-        </div>
-      </section>
-
-      <!-- 卡片 2：核心遥感指标 -->
-      <section class="gis-panel rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="activity" class="w-4 h-4 text-accent-dynamic"></i>
-            <h2 data-i18n="metricsTitle" class="text-xs font-semibold uppercase tracking-wider">区域实时监测指标</h2>
-          </div>
-          <span class="text-[11px] opacity-60 font-mono">EPSG:4326</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10">
-            <div data-i18n="metricNodes" class="text-[11px] opacity-70 mb-1">在线传感节点</div>
-            <div id="statPointCount" class="text-lg font-bold font-mono text-accent-dynamic">06</div>
-            <div class="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1">
-              <i data-lucide="trending-up" class="w-3 h-3"></i> +12.4%
+            <div class="flex justify-between py-1">
+              <span data-i18n="propStyleSync" class="opacity-70">当前样式状态</span>
+              <span data-i18n="propSynced" class="text-emerald-400 font-medium"
+                >实时参数联动中</span
+              >
             </div>
           </div>
+        </section>
 
-          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10">
-            <div data-i18n="metricArea" class="text-[11px] opacity-70 mb-1">测绘覆盖面积</div>
-            <div class="text-lg font-bold font-mono">42.8 <span class="text-xs font-normal opacity-70">km²</span></div>
-            <div class="text-[10px] opacity-60 mt-0.5 font-mono">WGS84 / UTM</div>
+        <!-- 卡片 4：空间频谱分析柱状图 -->
+        <section class="gis-panel rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-accent-dynamic"></i>
+              <h2 data-i18n="chartTitle" class="text-xs font-semibold uppercase tracking-wider"
+                >多光谱波段分布</h2
+              >
+            </div>
+            <span class="text-[11px] font-mono opacity-60">NDVI</span>
+          </div>
+
+          <div class="h-28 flex items-end justify-between gap-2 pt-4 px-1">
+            <div class="flex-1 flex flex-col items-center gap-1.5">
+              <div
+                class="w-full rounded-t-md transition-all duration-300"
+                style="height: 48px; background-color: var(--accent-color); opacity: 0.55"
+              ></div>
+              <span class="text-[10px] font-mono opacity-70">B1</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center gap-1.5">
+              <div
+                class="w-full rounded-t-md transition-all duration-300"
+                style="height: 76px; background-color: var(--accent-color); opacity: 0.75"
+              ></div>
+              <span class="text-[10px] font-mono opacity-70">B2</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center gap-1.5">
+              <div
+                class="w-full rounded-t-md transition-all duration-300"
+                style="height: 92px; background-color: var(--accent-color)"
+              ></div>
+              <span class="text-[10px] font-mono opacity-70">B3</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center gap-1.5">
+              <div
+                class="w-full rounded-t-md transition-all duration-300"
+                style="height: 64px; background-color: var(--accent-color); opacity: 0.8"
+              ></div>
+              <span class="text-[10px] font-mono opacity-70">B4</span>
+            </div>
+            <div class="flex-1 flex flex-col items-center gap-1.5">
+              <div
+                class="w-full rounded-t-md transition-all duration-300"
+                style="height: 84px; background-color: var(--accent-color); opacity: 0.9"
+              ></div>
+              <span class="text-[10px] font-mono opacity-70">NIR</span>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <!-- =====================================================================
+       看板设置弹框 (Settings Modal / Popover Drawer)
+       ===================================================================== -->
+    <div
+      id="settingsModal"
+      class="gis-panel hidden-modal fixed top-16 right-3 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-[410px] max-h-[calc(100vh-84px)] rounded-2xl flex flex-col overflow-hidden"
+    >
+      <!-- 弹框头部 -->
+      <div
+        class="px-5 py-3.5 border-b border-slate-500/15 flex items-center justify-between shrink-0"
+      >
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-7 h-7 rounded-lg bg-accent-soft text-accent-dynamic flex items-center justify-center"
+          >
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 data-i18n="settingsModalTitle" class="text-sm font-bold leading-tight">看板设置</h3>
+            <p data-i18n="settingsModalSub" class="text-[11px] opacity-65"
+              >Dashboard & GIS Style Configuration</p
+            >
+          </div>
+        </div>
+        <button
+          onclick="toggleSettingsModal(false)"
+          class="p-1.5 rounded-lg hover:bg-slate-500/15 transition-colors cursor-pointer"
+        >
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 弹框滚动内容体 -->
+      <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-5 text-xs">
+        <!-- =========================================================
+           1、外观设置 (Appearance Settings)
+           ========================================================= -->
+        <div class="space-y-3.5">
+          <div
+            class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic"
+          >
+            <i data-lucide="palette" class="w-3.5 h-3.5"></i>
+            <span data-i18n="secAppearance">1、外观设置</span>
+          </div>
+
+          <!-- Theme: Light / Dark -->
+          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span data-i18n="lblTheme" class="font-medium">主题模式 (Theme)</span>
+              <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
+                <button
+                  onclick="updateSetting('theme', 'light')"
+                  id="btn-theme-light"
+                  class="px-3 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <i data-lucide="sun" class="w-3 h-3"></i> Light
+                </button>
+                <button
+                  onclick="updateSetting('theme', 'dark')"
+                  id="btn-theme-dark"
+                  class="px-3 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all btn-accent cursor-pointer"
+                >
+                  <i data-lucide="moon" class="w-3 h-3"></i> Dark
+                </button>
+              </div>
+            </div>
+
+            <!-- 面板样式：[磨砂玻璃] [液态玻璃] [实际颜色] -->
+            <div class="pt-2 border-t border-slate-500/15 space-y-2">
+              <span data-i18n="lblPanelStyle" class="font-medium block"
+                >面板样式 (Panel Style)</span
+              >
+              <div class="grid grid-cols-3 gap-1.5">
+                <button
+                  onclick="updateSetting('panelStyle', 'frosted')"
+                  id="btn-style-frosted"
+                  class="py-1.5 px-2 rounded-lg text-[11px] font-medium border border-transparent transition-all btn-accent cursor-pointer"
+                  data-i18n="styleFrosted"
+                >
+                  磨砂玻璃
+                </button>
+                <button
+                  onclick="updateSetting('panelStyle', 'liquid')"
+                  id="btn-style-liquid"
+                  class="py-1.5 px-2 rounded-lg text-[11px] font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-all cursor-pointer"
+                  data-i18n="styleLiquid"
+                >
+                  液态玻璃
+                </button>
+                <button
+                  onclick="updateSetting('panelStyle', 'solid')"
+                  id="btn-style-solid"
+                  class="py-1.5 px-2 rounded-lg text-[11px] font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-all cursor-pointer"
+                  data-i18n="styleSolid"
+                >
+                  实际颜色
+                </button>
+              </div>
+
+              <!-- 面板具体参数配置：背景透明度、模糊半径、液态高光 -->
+              <div class="pt-2 space-y-2.5">
+                <!-- 背景透明度 -->
+                <div>
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span data-i18n="lblBgOpacity" class="opacity-80">背景透明度</span>
+                    <span id="val-opacity" class="font-mono text-accent-dynamic font-semibold"
+                      >72%</span
+                    >
+                  </div>
+                  <input
+                    type="range"
+                    id="input-opacity"
+                    min="15"
+                    max="100"
+                    value="72"
+                    oninput="updateSetting('opacity', this.value)"
+                    class="w-full"
+                  />
+                </div>
+
+                <!-- 模糊半径 -->
+                <div id="blurControlGroup">
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span data-i18n="lblBlurRadius" class="opacity-80">模糊半径</span>
+                    <span id="val-blur" class="font-mono text-accent-dynamic font-semibold"
+                      >16px</span
+                    >
+                  </div>
+                  <input
+                    type="range"
+                    id="input-blur"
+                    min="0"
+                    max="40"
+                    value="16"
+                    oninput="updateSetting('blur', this.value)"
+                    class="w-full"
+                  />
+                </div>
+
+                <!-- 液态玻璃折射高光强度 (仅液态玻璃显示) -->
+                <div id="liquidControlGroup" class="hidden">
+                  <div class="flex justify-between text-[11px] mb-1">
+                    <span data-i18n="lblLiquidSpecular" class="opacity-80">液态高光折射感</span>
+                    <span id="val-specular" class="font-mono text-accent-dynamic font-semibold"
+                      >35%</span
+                    >
+                  </div>
+                  <input
+                    type="range"
+                    id="input-specular"
+                    min="0"
+                    max="100"
+                    value="35"
+                    oninput="updateSetting('specular', this.value)"
+                    class="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 主题颜色：[Blue] + 多色预设 & 自定义 -->
+            <div class="pt-2 border-t border-slate-500/15 space-y-2">
+              <div class="flex items-center justify-between">
+                <span data-i18n="lblThemeColor" class="font-medium">主题颜色</span>
+                <span
+                  id="val-themeColorName"
+                  class="text-[11px] font-mono text-accent-dynamic font-semibold"
+                  >Blue (#3B82F6)</span
+                >
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <button
+                    onclick="setThemeColor('#3b82f6', 'Blue')"
+                    class="color-swatch w-6 h-6 rounded-full ring-2 ring-offset-2 ring-offset-slate-900 ring-white transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #3b82f6"
+                    title="Blue"
+                  ></button>
+                  <button
+                    onclick="setThemeColor('#10b981', 'Emerald')"
+                    class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #10b981"
+                    title="Emerald"
+                  ></button>
+                  <button
+                    onclick="setThemeColor('#8b5cf6', 'Violet')"
+                    class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #8b5cf6"
+                    title="Violet"
+                  ></button>
+                  <button
+                    onclick="setThemeColor('#f59e0b', 'Amber')"
+                    class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #f59e0b"
+                    title="Amber"
+                  ></button>
+                  <button
+                    onclick="setThemeColor('#ef4444', 'Rose')"
+                    class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #ef4444"
+                    title="Rose"
+                  ></button>
+                  <button
+                    onclick="setThemeColor('#06b6d4', 'Cyan')"
+                    class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                    style="background: #06b6d4"
+                    title="Cyan"
+                  ></button>
+                </div>
+                <input
+                  type="color"
+                  id="input-customThemeColor"
+                  value="#3b82f6"
+                  oninput="setThemeColor(this.value, 'Custom')"
+                  title="自定义主题色"
+                />
+              </div>
+            </div>
+
+            <!-- 排版布局：[Docked] [Overlay] -->
+            <div class="pt-2 border-t border-slate-500/15 flex items-center justify-between">
+              <span data-i18n="lblLayoutMode" class="font-medium">排版布局</span>
+              <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
+                <button
+                  onclick="updateSetting('layout', 'docked')"
+                  id="btn-layout-docked"
+                  class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer"
+                >
+                  Docked
+                </button>
+                <button
+                  onclick="updateSetting('layout', 'overlay')"
+                  id="btn-layout-overlay"
+                  class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all btn-accent cursor-pointer"
+                >
+                  Overlay
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 实时渲染参数同步指示条 -->
-        <div class="mt-3 pt-3 border-t border-slate-500/15 space-y-2">
-          <div class="flex justify-between text-[11px]">
-            <span data-i18n="signalIntegrity" class="opacity-75">空间拓扑完整度</span>
-            <span class="font-mono font-semibold text-accent-dynamic">98.4%</span>
+        <!-- =========================================================
+           2、语言设置 (Language)
+           ========================================================= -->
+        <div class="space-y-2.5">
+          <div
+            class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic"
+          >
+            <i data-lucide="languages" class="w-3.5 h-3.5"></i>
+            <span data-i18n="secLanguage">2、语言</span>
           </div>
-          <div class="w-full h-1.5 rounded-full bg-slate-500/20 overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-300" style="width: 98.4%; background-color: var(--accent-color);"></div>
+
+          <div
+            class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 flex items-center justify-between"
+          >
+            <span data-i18n="lblInterfaceLang" class="font-medium">界面显示语言</span>
+            <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
+              <button
+                onclick="updateSetting('lang', 'zh')"
+                id="btn-lang-zh"
+                class="px-3.5 py-1 rounded-md text-[11px] font-medium transition-all btn-accent cursor-pointer"
+              >
+                中文
+              </button>
+              <button
+                onclick="updateSetting('lang', 'en')"
+                id="btn-lang-en"
+                class="px-3.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer"
+              >
+                En
+              </button>
+            </div>
           </div>
         </div>
-      </section>
-    </aside>
 
-    <!-- 中间底部操作提示条 (手机端也可点击切换工具) -->
-    <div class="hidden sm:flex flex-col justify-end items-center pb-4 px-2 pointer-events-none">
-      <div class="gis-panel pointer-events-auto px-4 py-2 rounded-full flex items-center gap-3 text-xs">
-        <span class="flex items-center gap-1.5 opacity-80">
-          <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-accent-dynamic"></i>
-          <span id="toolHintText" data-i18n="hintPan">拖拽平移底图 · 滚轮缩放 · 点击高亮要素查看属性</span>
-        </span>
-        <button onclick="addRandomPoint()" class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-accent-soft text-accent-dynamic hover:opacity-80 transition-opacity cursor-pointer">
-          + <span data-i18n="quickAddPoint">新增采样点</span>
+        <!-- =========================================================
+           3、工具参数设置 (Tool Parameters)
+           ========================================================= -->
+        <div class="space-y-3">
+          <div
+            class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic"
+          >
+            <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i>
+            <span data-i18n="secToolParams">3、工具参数设置</span>
+          </div>
+
+          <!-- 3.1 绘制 -> 点 (Draw - Point) -->
+          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
+            <div class="flex items-center justify-between font-semibold text-xs">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-accent-dynamic"></span>
+                <span data-i18n="subDrawPoint">绘制 · 点 (Point)</span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <!-- 点颜色 -->
+              <div
+                class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg"
+              >
+                <span data-i18n="lblPointColor" class="text-[11px] opacity-80">颜色</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="val-pointColor" class="font-mono text-[10px] opacity-80">#3B82F6</span>
+                  <input
+                    type="color"
+                    id="input-pointColor"
+                    value="#3b82f6"
+                    oninput="updateToolParam('pointColor', this.value)"
+                  />
+                </div>
+              </div>
+
+              <!-- 点半径 -->
+              <div class="bg-slate-500/10 px-2.5 py-1.5 rounded-lg flex flex-col justify-center">
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblPointRadius" class="opacity-80">半径</span>
+                  <span id="val-pointRadius" class="font-mono text-accent-dynamic font-semibold"
+                    >8px</span
+                  >
+                </div>
+                <input
+                  type="range"
+                  id="input-pointRadius"
+                  min="4"
+                  max="22"
+                  value="8"
+                  oninput="updateToolParam('pointRadius', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <!-- 点 Label 标签 -->
+            <div class="flex items-center justify-between gap-2 pt-1">
+              <span data-i18n="lblPointLabel" class="text-[11px] opacity-80 shrink-0"
+                >Label 标签</span
+              >
+              <input
+                type="text"
+                id="input-pointLabel"
+                value="站点"
+                oninput="updateToolParam('pointLabel', this.value)"
+                class="w-44 px-2.5 py-1 rounded-lg text-xs bg-slate-500/15 border border-slate-500/20 focus:outline-none focus:border-accent-dynamic font-medium"
+              />
+            </div>
+          </div>
+
+          <!-- 3.2 测量 (Measure) -->
+          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
+            <div class="flex items-center justify-between font-semibold text-xs">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="pentagon" class="w-3.5 h-3.5 text-accent-dynamic"></i>
+                <span data-i18n="subMeasure">测量 (Measure)</span>
+              </span>
+            </div>
+
+            <!-- 填充色 & 描边色 -->
+            <div class="grid grid-cols-2 gap-3">
+              <div
+                class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg"
+              >
+                <span data-i18n="lblMeasureFill" class="text-[11px] opacity-80">填充色</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="val-measureFill" class="font-mono text-[10px] opacity-80">#10B981</span>
+                  <input
+                    type="color"
+                    id="input-measureFill"
+                    value="#10b981"
+                    oninput="updateToolParam('measureFill', this.value)"
+                  />
+                </div>
+              </div>
+
+              <div
+                class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg"
+              >
+                <span data-i18n="lblMeasureStroke" class="text-[11px] opacity-80">描边</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="val-measureStroke" class="font-mono text-[10px] opacity-80"
+                    >#10B981</span
+                  >
+                  <input
+                    type="color"
+                    id="input-measureStroke"
+                    value="#10b981"
+                    oninput="updateToolParam('measureStroke', this.value)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 填充透明度 & 描边宽度 -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblFillOpacity" class="opacity-80">填充透明度</span>
+                  <span id="val-measureFillAlpha" class="font-mono text-accent-dynamic">22%</span>
+                </div>
+                <input
+                  type="range"
+                  id="input-measureFillAlpha"
+                  min="0"
+                  max="80"
+                  value="22"
+                  oninput="updateToolParam('measureFillAlpha', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblStrokeWidth" class="opacity-80">描边宽度</span>
+                  <span id="val-measureStrokeWidth" class="font-mono text-accent-dynamic"
+                    >2.5px</span
+                  >
+                </div>
+                <input
+                  type="range"
+                  id="input-measureStrokeWidth"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value="2.5"
+                  oninput="updateToolParam('measureStrokeWidth', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <!-- 是否虚线 Toggle -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-500/15">
+              <span data-i18n="lblIsDashed" class="text-[11px] opacity-85">是否虚线</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="input-measureDashed"
+                  checked
+                  onchange="updateToolParam('measureDashed', this.checked)"
+                  class="sr-only peer"
+                />
+                <div
+                  class="w-9 h-5 bg-slate-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-color)]"
+                ></div>
+              </label>
+            </div>
+
+            <!-- 虚线参数 (Dash Array) -->
+            <div id="dashParamsGroup" class="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblDashLen" class="opacity-75">虚线长度</span>
+                  <span id="val-dashLen" class="font-mono text-accent-dynamic">10px</span>
+                </div>
+                <input
+                  type="range"
+                  id="input-dashLen"
+                  min="2"
+                  max="30"
+                  value="10"
+                  oninput="updateToolParam('dashLen', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblDashGap" class="opacity-75">虚线间隔</span>
+                  <span id="val-dashGap" class="font-mono text-accent-dynamic">6px</span>
+                </div>
+                <input
+                  type="range"
+                  id="input-dashGap"
+                  min="2"
+                  max="30"
+                  value="6"
+                  oninput="updateToolParam('dashGap', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.3 高亮参数 (Highlight Parameters) -->
+          <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
+            <div class="flex items-center justify-between font-semibold text-xs">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span data-i18n="subHighlight">高亮参数 (Highlight)</span>
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <!-- 高亮颜色 -->
+              <div
+                class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg"
+              >
+                <span data-i18n="lblHighlightColor" class="text-[11px] opacity-80">高亮色</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="val-highlightColor" class="font-mono text-[10px] opacity-80"
+                    >#F59E0B</span
+                  >
+                  <input
+                    type="color"
+                    id="input-highlightColor"
+                    value="#f59e0b"
+                    oninput="updateToolParam('highlightColor', this.value)"
+                  />
+                </div>
+              </div>
+
+              <!-- 光晕强度 -->
+              <div class="bg-slate-500/10 px-2.5 py-1.5 rounded-lg flex flex-col justify-center">
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblHighlightGlow" class="opacity-80">光晕半径</span>
+                  <span id="val-highlightGlow" class="font-mono text-accent-dynamic font-semibold"
+                    >18px</span
+                  >
+                </div>
+                <input
+                  type="range"
+                  id="input-highlightGlow"
+                  min="0"
+                  max="40"
+                  value="18"
+                  oninput="updateToolParam('highlightGlow', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+            </div>
+
+            <!-- 高亮线宽 & 呼吸脉冲动画 -->
+            <div class="grid grid-cols-2 gap-3 items-center pt-1">
+              <div>
+                <div class="flex justify-between text-[11px] mb-1">
+                  <span data-i18n="lblHighlightWidth" class="opacity-80">高亮线宽</span>
+                  <span id="val-highlightWidth" class="font-mono text-accent-dynamic">3px</span>
+                </div>
+                <input
+                  type="range"
+                  id="input-highlightWidth"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value="3"
+                  oninput="updateToolParam('highlightWidth', Number(this.value))"
+                  class="w-full"
+                />
+              </div>
+
+              <div class="flex items-center justify-between pl-2">
+                <span data-i18n="lblHighlightPulse" class="text-[11px] opacity-85">脉冲呼吸</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="input-highlightPulse"
+                    checked
+                    onchange="updateToolParam('highlightPulse', this.checked)"
+                    class="sr-only peer"
+                  />
+                  <div
+                    class="w-9 h-5 bg-slate-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-color)]"
+                  ></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 弹框底部操作栏 -->
+      <div
+        class="px-5 py-3 border-t border-slate-500/15 flex items-center justify-between gap-2 shrink-0 bg-slate-500/5"
+      >
+        <button
+          onclick="resetAllSettings()"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span data-i18n="btnReset">恢复默认</span>
+        </button>
+        <button
+          onclick="exportConfigJSON()"
+          class="px-3.5 py-1.5 rounded-lg text-xs font-medium btn-accent flex items-center gap-1.5 cursor-pointer"
+        >
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span data-i18n="btnExport">导出配置 JSON</span>
         </button>
       </div>
     </div>
 
-    <!-- 右侧看板栏：要素属性详情 + 空间统计图表 -->
-    <aside id="rightSidebar" class="hidden md:flex pointer-events-auto flex-col gap-3 p-3 sm:p-4 w-72 sm:w-80 max-h-full overflow-y-auto custom-scrollbar transition-all duration-300">
-      <!-- 卡片 3：当前选中/高亮要素属性 -->
-      <section class="gis-panel rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="scan-search" class="w-4 h-4 text-accent-dynamic"></i>
-            <h2 data-i18n="featureInspectorTitle" class="text-xs font-semibold uppercase tracking-wider">高亮要素属性面板</h2>
-          </div>
-          <span id="selectedFeatureBadge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30">ZONE-A1</span>
-        </div>
-
-        <div id="featureDetailsContent" class="space-y-2 text-xs">
-          <div class="flex justify-between py-1.5 border-b border-slate-500/15">
-            <span data-i18n="propName" class="opacity-70">要素名称</span>
-            <span id="featName" class="font-medium">滨海智慧核心区 #01</span>
-          </div>
-          <div class="flex justify-between py-1.5 border-b border-slate-500/15">
-            <span data-i18n="propType" class="opacity-70">几何类型</span>
-            <span id="featType" class="font-mono">Polygon (高亮选区)</span>
-          </div>
-          <div class="flex justify-between py-1.5 border-b border-slate-500/15">
-            <span data-i18n="propElevation" class="opacity-70">平均高程 / 密度</span>
-            <span id="featValue" class="font-mono text-accent-dynamic">34.2 m / 89%</span>
-          </div>
-          <div class="flex justify-between py-1">
-            <span data-i18n="propStyleSync" class="opacity-70">当前样式状态</span>
-            <span data-i18n="propSynced" class="text-emerald-400 font-medium">实时参数联动中</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 卡片 4：空间频谱分析柱状图 -->
-      <section class="gis-panel rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="bar-chart-3" class="w-4 h-4 text-accent-dynamic"></i>
-            <h2 data-i18n="chartTitle" class="text-xs font-semibold uppercase tracking-wider">多光谱波段分布</h2>
-          </div>
-          <span class="text-[11px] font-mono opacity-60">NDVI</span>
-        </div>
-
-        <div class="h-28 flex items-end justify-between gap-2 pt-4 px-1">
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full rounded-t-md transition-all duration-300" style="height: 48px; background-color: var(--accent-color); opacity: 0.55;"></div>
-            <span class="text-[10px] font-mono opacity-70">B1</span>
-          </div>
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full rounded-t-md transition-all duration-300" style="height: 76px; background-color: var(--accent-color); opacity: 0.75;"></div>
-            <span class="text-[10px] font-mono opacity-70">B2</span>
-          </div>
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full rounded-t-md transition-all duration-300" style="height: 92px; background-color: var(--accent-color);"></div>
-            <span class="text-[10px] font-mono opacity-70">B3</span>
-          </div>
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full rounded-t-md transition-all duration-300" style="height: 64px; background-color: var(--accent-color); opacity: 0.8;"></div>
-            <span class="text-[10px] font-mono opacity-70">B4</span>
-          </div>
-          <div class="flex-1 flex flex-col items-center gap-1.5">
-            <div class="w-full rounded-t-md transition-all duration-300" style="height: 84px; background-color: var(--accent-color); opacity: 0.9;"></div>
-            <span class="text-[10px] font-mono opacity-70">NIR</span>
-          </div>
-        </div>
-      </section>
-    </aside>
-  </main>
-
-  <!-- =====================================================================
-       看板设置弹框 (Settings Modal / Popover Drawer)
-       ===================================================================== -->
-  <div id="settingsModal" class="gis-panel hidden-modal fixed top-16 right-3 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-[410px] max-h-[calc(100vh-84px)] rounded-2xl flex flex-col overflow-hidden">
-    <!-- 弹框头部 -->
-    <div class="px-5 py-3.5 border-b border-slate-500/15 flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-2.5">
-        <div class="w-7 h-7 rounded-lg bg-accent-soft text-accent-dynamic flex items-center justify-center">
-          <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-        </div>
-        <div>
-          <h3 data-i18n="settingsModalTitle" class="text-sm font-bold leading-tight">看板设置</h3>
-          <p data-i18n="settingsModalSub" class="text-[11px] opacity-65">Dashboard & GIS Style Configuration</p>
-        </div>
-      </div>
-      <button onclick="toggleSettingsModal(false)" class="p-1.5 rounded-lg hover:bg-slate-500/15 transition-colors cursor-pointer">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
+    <!-- 消息提示 Toast -->
+    <div
+      id="toastMessage"
+      class="fixed bottom-5 right-5 z-50 gis-panel px-4 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 opacity-0 translate-y-3 pointer-events-none"
+    >
+      <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+      <span id="toastText">配置已更新</span>
     </div>
 
-    <!-- 弹框滚动内容体 -->
-    <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar space-y-5 text-xs">
-
-      <!-- =========================================================
-           1、外观设置 (Appearance Settings)
-           ========================================================= -->
-      <div class="space-y-3.5">
-        <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic">
-          <i data-lucide="palette" class="w-3.5 h-3.5"></i>
-          <span data-i18n="secAppearance">1、外观设置</span>
-        </div>
-
-        <!-- Theme: Light / Dark -->
-        <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span data-i18n="lblTheme" class="font-medium">主题模式 (Theme)</span>
-            <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
-              <button onclick="updateSetting('theme', 'light')" id="btn-theme-light" class="px-3 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all cursor-pointer">
-                <i data-lucide="sun" class="w-3 h-3"></i> Light
-              </button>
-              <button onclick="updateSetting('theme', 'dark')" id="btn-theme-dark" class="px-3 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-all btn-accent cursor-pointer">
-                <i data-lucide="moon" class="w-3 h-3"></i> Dark
-              </button>
-            </div>
-          </div>
-
-          <!-- 面板样式：[磨砂玻璃] [液态玻璃] [实际颜色] -->
-          <div class="pt-2 border-t border-slate-500/15 space-y-2">
-            <span data-i18n="lblPanelStyle" class="font-medium block">面板样式 (Panel Style)</span>
-            <div class="grid grid-cols-3 gap-1.5">
-              <button onclick="updateSetting('panelStyle', 'frosted')" id="btn-style-frosted" class="py-1.5 px-2 rounded-lg text-[11px] font-medium border border-transparent transition-all btn-accent cursor-pointer" data-i18n="styleFrosted">
-                磨砂玻璃
-              </button>
-              <button onclick="updateSetting('panelStyle', 'liquid')" id="btn-style-liquid" class="py-1.5 px-2 rounded-lg text-[11px] font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-all cursor-pointer" data-i18n="styleLiquid">
-                液态玻璃
-              </button>
-              <button onclick="updateSetting('panelStyle', 'solid')" id="btn-style-solid" class="py-1.5 px-2 rounded-lg text-[11px] font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-all cursor-pointer" data-i18n="styleSolid">
-                实际颜色
-              </button>
-            </div>
-
-            <!-- 面板具体参数配置：背景透明度、模糊半径、液态高光 -->
-            <div class="pt-2 space-y-2.5">
-              <!-- 背景透明度 -->
-              <div>
-                <div class="flex justify-between text-[11px] mb-1">
-                  <span data-i18n="lblBgOpacity" class="opacity-80">背景透明度</span>
-                  <span id="val-opacity" class="font-mono text-accent-dynamic font-semibold">72%</span>
-                </div>
-                <input type="range" id="input-opacity" min="15" max="100" value="72" oninput="updateSetting('opacity', this.value)" class="w-full">
-              </div>
-
-              <!-- 模糊半径 -->
-              <div id="blurControlGroup">
-                <div class="flex justify-between text-[11px] mb-1">
-                  <span data-i18n="lblBlurRadius" class="opacity-80">模糊半径</span>
-                  <span id="val-blur" class="font-mono text-accent-dynamic font-semibold">16px</span>
-                </div>
-                <input type="range" id="input-blur" min="0" max="40" value="16" oninput="updateSetting('blur', this.value)" class="w-full">
-              </div>
-
-              <!-- 液态玻璃折射高光强度 (仅液态玻璃显示) -->
-              <div id="liquidControlGroup" class="hidden">
-                <div class="flex justify-between text-[11px] mb-1">
-                  <span data-i18n="lblLiquidSpecular" class="opacity-80">液态高光折射感</span>
-                  <span id="val-specular" class="font-mono text-accent-dynamic font-semibold">35%</span>
-                </div>
-                <input type="range" id="input-specular" min="0" max="100" value="35" oninput="updateSetting('specular', this.value)" class="w-full">
-              </div>
-            </div>
-          </div>
-
-          <!-- 主题颜色：[Blue] + 多色预设 & 自定义 -->
-          <div class="pt-2 border-t border-slate-500/15 space-y-2">
-            <div class="flex items-center justify-between">
-              <span data-i18n="lblThemeColor" class="font-medium">主题颜色</span>
-              <span id="val-themeColorName" class="text-[11px] font-mono text-accent-dynamic font-semibold">Blue (#3B82F6)</span>
-            </div>
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <button onclick="setThemeColor('#3b82f6', 'Blue')" class="color-swatch w-6 h-6 rounded-full ring-2 ring-offset-2 ring-offset-slate-900 ring-white transition-transform hover:scale-110 cursor-pointer" style="background:#3b82f6" title="Blue"></button>
-                <button onclick="setThemeColor('#10b981', 'Emerald')" class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer" style="background:#10b981" title="Emerald"></button>
-                <button onclick="setThemeColor('#8b5cf6', 'Violet')" class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer" style="background:#8b5cf6" title="Violet"></button>
-                <button onclick="setThemeColor('#f59e0b', 'Amber')" class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer" style="background:#f59e0b" title="Amber"></button>
-                <button onclick="setThemeColor('#ef4444', 'Rose')" class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer" style="background:#ef4444" title="Rose"></button>
-                <button onclick="setThemeColor('#06b6d4', 'Cyan')" class="color-swatch w-6 h-6 rounded-full transition-transform hover:scale-110 cursor-pointer" style="background:#06b6d4" title="Cyan"></button>
-              </div>
-              <input type="color" id="input-customThemeColor" value="#3b82f6" oninput="setThemeColor(this.value, 'Custom')" title="自定义主题色">
-            </div>
-          </div>
-
-          <!-- 排版布局：[Docked] [Overlay] -->
-          <div class="pt-2 border-t border-slate-500/15 flex items-center justify-between">
-            <span data-i18n="lblLayoutMode" class="font-medium">排版布局</span>
-            <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
-              <button onclick="updateSetting('layout', 'docked')" id="btn-layout-docked" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer">
-                Docked
-              </button>
-              <button onclick="updateSetting('layout', 'overlay')" id="btn-layout-overlay" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all btn-accent cursor-pointer">
-                Overlay
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- =========================================================
-           2、语言设置 (Language)
-           ========================================================= -->
-      <div class="space-y-2.5">
-        <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic">
-          <i data-lucide="languages" class="w-3.5 h-3.5"></i>
-          <span data-i18n="secLanguage">2、语言</span>
-        </div>
-
-        <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 flex items-center justify-between">
-          <span data-i18n="lblInterfaceLang" class="font-medium">界面显示语言</span>
-          <div class="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-500/15">
-            <button onclick="updateSetting('lang', 'zh')" id="btn-lang-zh" class="px-3.5 py-1 rounded-md text-[11px] font-medium transition-all btn-accent cursor-pointer">
-              中文
-            </button>
-            <button onclick="updateSetting('lang', 'en')" id="btn-lang-en" class="px-3.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer">
-              En
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- =========================================================
-           3、工具参数设置 (Tool Parameters)
-           ========================================================= -->
-      <div class="space-y-3">
-        <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-accent-dynamic">
-          <i data-lucide="pen-tool" class="w-3.5 h-3.5"></i>
-          <span data-i18n="secToolParams">3、工具参数设置</span>
-        </div>
-
-        <!-- 3.1 绘制 -> 点 (Draw - Point) -->
-        <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
-          <div class="flex items-center justify-between font-semibold text-xs">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-accent-dynamic"></span>
-              <span data-i18n="subDrawPoint">绘制 · 点 (Point)</span>
-            </span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 pt-1">
-            <!-- 点颜色 -->
-            <div class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg">
-              <span data-i18n="lblPointColor" class="text-[11px] opacity-80">颜色</span>
-              <div class="flex items-center gap-1.5">
-                <span id="val-pointColor" class="font-mono text-[10px] opacity-80">#3B82F6</span>
-                <input type="color" id="input-pointColor" value="#3b82f6" oninput="updateToolParam('pointColor', this.value)">
-              </div>
-            </div>
-
-            <!-- 点半径 -->
-            <div class="bg-slate-500/10 px-2.5 py-1.5 rounded-lg flex flex-col justify-center">
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblPointRadius" class="opacity-80">半径</span>
-                <span id="val-pointRadius" class="font-mono text-accent-dynamic font-semibold">8px</span>
-              </div>
-              <input type="range" id="input-pointRadius" min="4" max="22" value="8" oninput="updateToolParam('pointRadius', Number(this.value))" class="w-full">
-            </div>
-          </div>
-
-          <!-- 点 Label 标签 -->
-          <div class="flex items-center justify-between gap-2 pt-1">
-            <span data-i18n="lblPointLabel" class="text-[11px] opacity-80 shrink-0">Label 标签</span>
-            <input type="text" id="input-pointLabel" value="站点" oninput="updateToolParam('pointLabel', this.value)"
-              class="w-44 px-2.5 py-1 rounded-lg text-xs bg-slate-500/15 border border-slate-500/20 focus:outline-none focus:border-accent-dynamic font-medium">
-          </div>
-        </div>
-
-        <!-- 3.2 测量 (Measure) -->
-        <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
-          <div class="flex items-center justify-between font-semibold text-xs">
-            <span class="flex items-center gap-1.5">
-              <i data-lucide="pentagon" class="w-3.5 h-3.5 text-accent-dynamic"></i>
-              <span data-i18n="subMeasure">测量 (Measure)</span>
-            </span>
-          </div>
-
-          <!-- 填充色 & 描边色 -->
-          <div class="grid grid-cols-2 gap-3">
-            <div class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg">
-              <span data-i18n="lblMeasureFill" class="text-[11px] opacity-80">填充色</span>
-              <div class="flex items-center gap-1.5">
-                <span id="val-measureFill" class="font-mono text-[10px] opacity-80">#10B981</span>
-                <input type="color" id="input-measureFill" value="#10b981" oninput="updateToolParam('measureFill', this.value)">
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg">
-              <span data-i18n="lblMeasureStroke" class="text-[11px] opacity-80">描边</span>
-              <div class="flex items-center gap-1.5">
-                <span id="val-measureStroke" class="font-mono text-[10px] opacity-80">#10B981</span>
-                <input type="color" id="input-measureStroke" value="#10b981" oninput="updateToolParam('measureStroke', this.value)">
-              </div>
-            </div>
-          </div>
-
-          <!-- 填充透明度 & 描边宽度 -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblFillOpacity" class="opacity-80">填充透明度</span>
-                <span id="val-measureFillAlpha" class="font-mono text-accent-dynamic">22%</span>
-              </div>
-              <input type="range" id="input-measureFillAlpha" min="0" max="80" value="22" oninput="updateToolParam('measureFillAlpha', Number(this.value))" class="w-full">
-            </div>
-
-            <div>
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblStrokeWidth" class="opacity-80">描边宽度</span>
-                <span id="val-measureStrokeWidth" class="font-mono text-accent-dynamic">2.5px</span>
-              </div>
-              <input type="range" id="input-measureStrokeWidth" min="1" max="10" step="0.5" value="2.5" oninput="updateToolParam('measureStrokeWidth', Number(this.value))" class="w-full">
-            </div>
-          </div>
-
-          <!-- 是否虚线 Toggle -->
-          <div class="flex items-center justify-between pt-1 border-t border-slate-500/15">
-            <span data-i18n="lblIsDashed" class="text-[11px] opacity-85">是否虚线</span>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="input-measureDashed" checked onchange="updateToolParam('measureDashed', this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-slate-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-color)]"></div>
-            </label>
-          </div>
-
-          <!-- 虚线参数 (Dash Array) -->
-          <div id="dashParamsGroup" class="grid grid-cols-2 gap-3 pt-1">
-            <div>
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblDashLen" class="opacity-75">虚线长度</span>
-                <span id="val-dashLen" class="font-mono text-accent-dynamic">10px</span>
-              </div>
-              <input type="range" id="input-dashLen" min="2" max="30" value="10" oninput="updateToolParam('dashLen', Number(this.value))" class="w-full">
-            </div>
-            <div>
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblDashGap" class="opacity-75">虚线间隔</span>
-                <span id="val-dashGap" class="font-mono text-accent-dynamic">6px</span>
-              </div>
-              <input type="range" id="input-dashGap" min="2" max="30" value="6" oninput="updateToolParam('dashGap', Number(this.value))" class="w-full">
-            </div>
-          </div>
-        </div>
-
-        <!-- 3.3 高亮参数 (Highlight Parameters) -->
-        <div class="p-3 rounded-xl bg-slate-500/10 border border-slate-500/10 space-y-2.5">
-          <div class="flex items-center justify-between font-semibold text-xs">
-            <span class="flex items-center gap-1.5">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
-              <span data-i18n="subHighlight">高亮参数 (Highlight)</span>
-            </span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <!-- 高亮颜色 -->
-            <div class="flex items-center justify-between bg-slate-500/10 px-2.5 py-1.5 rounded-lg">
-              <span data-i18n="lblHighlightColor" class="text-[11px] opacity-80">高亮色</span>
-              <div class="flex items-center gap-1.5">
-                <span id="val-highlightColor" class="font-mono text-[10px] opacity-80">#F59E0B</span>
-                <input type="color" id="input-highlightColor" value="#f59e0b" oninput="updateToolParam('highlightColor', this.value)">
-              </div>
-            </div>
-
-            <!-- 光晕强度 -->
-            <div class="bg-slate-500/10 px-2.5 py-1.5 rounded-lg flex flex-col justify-center">
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblHighlightGlow" class="opacity-80">光晕半径</span>
-                <span id="val-highlightGlow" class="font-mono text-accent-dynamic font-semibold">18px</span>
-              </div>
-              <input type="range" id="input-highlightGlow" min="0" max="40" value="18" oninput="updateToolParam('highlightGlow', Number(this.value))" class="w-full">
-            </div>
-          </div>
-
-          <!-- 高亮线宽 & 呼吸脉冲动画 -->
-          <div class="grid grid-cols-2 gap-3 items-center pt-1">
-            <div>
-              <div class="flex justify-between text-[11px] mb-1">
-                <span data-i18n="lblHighlightWidth" class="opacity-80">高亮线宽</span>
-                <span id="val-highlightWidth" class="font-mono text-accent-dynamic">3px</span>
-              </div>
-              <input type="range" id="input-highlightWidth" min="1" max="10" step="0.5" value="3" oninput="updateToolParam('highlightWidth', Number(this.value))" class="w-full">
-            </div>
-
-            <div class="flex items-center justify-between pl-2">
-              <span data-i18n="lblHighlightPulse" class="text-[11px] opacity-85">脉冲呼吸</span>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="input-highlightPulse" checked onchange="updateToolParam('highlightPulse', this.checked)" class="sr-only peer">
-                <div class="w-9 h-5 bg-slate-500/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-color)]"></div>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 弹框底部操作栏 -->
-    <div class="px-5 py-3 border-t border-slate-500/15 flex items-center justify-between gap-2 shrink-0 bg-slate-500/5">
-      <button onclick="resetAllSettings()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-500/15 hover:bg-slate-500/25 transition-colors flex items-center gap-1.5 cursor-pointer">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-        <span data-i18n="btnReset">恢复默认</span>
-      </button>
-      <button onclick="exportConfigJSON()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium btn-accent flex items-center gap-1.5 cursor-pointer">
-        <i data-lucide="download" class="w-3.5 h-3.5"></i>
-        <span data-i18n="btnExport">导出配置 JSON</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- 消息提示 Toast -->
-  <div id="toastMessage" class="fixed bottom-5 right-5 z-50 gis-panel px-4 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 opacity-0 translate-y-3 pointer-events-none">
-    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
-    <span id="toastText">配置已更新</span>
-  </div>
-
-  <script>
-    // =========================================================================
-    // 1. 多语言字典 (Chinese / English I18N)
-    // =========================================================================
-    const I18N = {
-      zh: {
-        appTitle: 'GeoPulse 空间数据智能看板',
-        liveStatus: '实时遥感在线',
-        toolPan: '漫游',
-        toolDrawPoint: '绘制点位',
-        toolMeasure: '面积测量',
-        toolHighlight: '要素高亮',
-        settingsBtn: '设置',
-        layerControlTitle: '空间图层控制',
-        layerPoints: '物联网监测点位 (Points)',
-        layerMeasure: '空间测绘多边形 (Measure)',
-        layerHighlight: '重点管控高亮区 (Highlight)',
-        layerGrid: '经纬度坐标网格 (Graticule)',
-        metricsTitle: '区域实时监测指标',
-        metricNodes: '在线传感节点',
-        metricArea: '测绘覆盖面积',
-        signalIntegrity: '空间拓扑完整度',
-        hintPan: '拖拽平移底图 · 滚轮缩放 · 点击高亮要素查看属性',
-        hintPoint: '点击地图任意位置绘制新点位 · 实时应用点样式',
-        hintMeasure: '点击地图添加测量顶点 · 右键或双击闭合测绘区',
-        hintHighlight: '点击地图上的选区或点位切换当前高亮对象',
-        quickAddPoint: '新增采样点',
-        featureInspectorTitle: '高亮要素属性面板',
-        propName: '要素名称',
-        propType: '几何类型',
-        propElevation: '平均高程 / 密度',
-        propStyleSync: '当前样式状态',
-        propSynced: '实时参数联动中',
-        chartTitle: '多光谱波段分布',
-        settingsModalTitle: '看板设置',
-        settingsModalSub: 'Dashboard & GIS Style Configuration',
-        secAppearance: '1、外观设置',
-        lblTheme: '主题模式 (Theme)',
-        lblPanelStyle: '面板样式 (Panel Style)',
-        styleFrosted: '磨砂玻璃',
-        styleLiquid: '液态玻璃',
-        styleSolid: '实际颜色',
-        lblBgOpacity: '背景透明度',
-        lblBlurRadius: '模糊半径',
-        lblLiquidSpecular: '液态高光折射感',
-        lblThemeColor: '主题颜色',
-        lblLayoutMode: '排版布局',
-        secLanguage: '2、语言',
-        lblInterfaceLang: '界面显示语言',
-        secToolParams: '3、工具参数设置',
-        subDrawPoint: '绘制 · 点 (Point)',
-        lblPointColor: '颜色',
-        lblPointRadius: '半径',
-        lblPointLabel: 'Label 标签',
-        subMeasure: '测量 (Measure)',
-        lblMeasureFill: '填充色',
-        lblMeasureStroke: '描边',
-        lblFillOpacity: '填充透明度',
-        lblStrokeWidth: '描边宽度',
-        lblIsDashed: '是否虚线',
-        lblDashLen: '虚线长度',
-        lblDashGap: '虚线间隔',
-        subHighlight: '高亮参数 (Highlight)',
-        lblHighlightColor: '高亮色',
-        lblHighlightGlow: '光晕半径',
-        lblHighlightWidth: '高亮线宽',
-        lblHighlightPulse: '脉冲呼吸',
-        btnReset: '恢复默认',
-        btnExport: '导出配置 JSON',
-        toastReset: '已恢复所有默认看板设置',
-        toastExport: '配置 JSON 已复制到剪贴板',
-        toastPointAdded: '已在地图上新增监测点位'
-      },
-      en: {
-        appTitle: 'GeoPulse Spatial Intelligence',
-        liveStatus: 'Telemetry Live',
-        toolPan: 'Pan',
-        toolDrawPoint: 'Draw Point',
-        toolMeasure: 'Measure',
-        toolHighlight: 'Highlight',
-        settingsBtn: 'Settings',
-        layerControlTitle: 'Spatial Layer Control',
-        layerPoints: 'IoT Sensor Points',
-        layerMeasure: 'Measure Polygons',
-        layerHighlight: 'Highlight Zones',
-        layerGrid: 'Lat/Lon Graticule',
-        metricsTitle: 'Regional Live Metrics',
-        metricNodes: 'Active Nodes',
-        metricArea: 'Surveyed Area',
-        signalIntegrity: 'Topology Integrity',
-        hintPan: 'Drag to pan · Scroll to zoom · Click features to inspect',
-        hintPoint: 'Click anywhere on map to place a point with live style',
-        hintMeasure: 'Click to add measure vertices · Double-click to finish',
-        hintHighlight: 'Click any zone or point on map to highlight',
-        quickAddPoint: 'Add Sample Point',
-        featureInspectorTitle: 'Feature Inspector',
-        propName: 'Feature Name',
-        propType: 'Geometry Type',
-        propElevation: 'Elevation / Density',
-        propStyleSync: 'Render Status',
-        propSynced: 'Live Sync Active',
-        chartTitle: 'Multispectral Band Dist.',
-        settingsModalTitle: 'Dashboard Settings',
-        settingsModalSub: 'Appearance, Locale & GIS Tools',
-        secAppearance: '1. Appearance Settings',
-        lblTheme: 'Theme Mode',
-        lblPanelStyle: 'Panel Style',
-        styleFrosted: 'Frosted Glass',
-        styleLiquid: 'Liquid Glass',
-        styleSolid: 'Solid Color',
-        lblBgOpacity: 'Background Opacity',
-        lblBlurRadius: 'Blur Radius',
-        lblLiquidSpecular: 'Liquid Specular Glow',
-        lblThemeColor: 'Theme Color',
-        lblLayoutMode: 'Layout Mode',
-        secLanguage: '2. Language',
-        lblInterfaceLang: 'Interface Language',
-        secToolParams: '3. Tool Parameters',
-        subDrawPoint: 'Draw · Point',
-        lblPointColor: 'Color',
-        lblPointRadius: 'Radius',
-        lblPointLabel: 'Label Prefix',
-        subMeasure: 'Measure Polygon',
-        lblMeasureFill: 'Fill Color',
-        lblMeasureStroke: 'Stroke Color',
-        lblFillOpacity: 'Fill Opacity',
-        lblStrokeWidth: 'Stroke Width',
-        lblIsDashed: 'Dashed Line',
-        lblDashLen: 'Dash Length',
-        lblDashGap: 'Dash Gap',
-        subHighlight: 'Highlight Parameters',
-        lblHighlightColor: 'Highlight Color',
-        lblHighlightGlow: 'Glow Radius',
-        lblHighlightWidth: 'Stroke Width',
-        lblHighlightPulse: 'Pulse Animation',
-        btnReset: 'Reset Default',
-        btnExport: 'Export JSON',
-        toastReset: 'Restored default dashboard settings',
-        toastExport: 'Configuration JSON copied to clipboard',
-        toastPointAdded: 'Added new sensor point on map'
-      }
-    };
-
-    // =========================================================================
-    // 2. 全局状态配置 (Default & Live State)
-    // =========================================================================
-    const DEFAULT_STATE = {
-      theme: 'dark',           // 'light' | 'dark'
-      panelStyle: 'frosted',   // 'frosted' | 'liquid' | 'solid'
-      opacity: 72,             // 15 - 100
-      blur: 16,                // 0 - 40
-      specular: 35,            // 0 - 100 (液态玻璃折射强度)
-      themeColor: '#3b82f6',
-      themeColorName: 'Blue',
-      layout: 'overlay',       // 'docked' | 'overlay'
-      lang: 'zh',              // 'zh' | 'en'
-      tools: {
-        pointColor: '#3b82f6',
-        pointRadius: 8,
-        pointLabel: '站点',
-        measureFill: '#10b981',
-        measureFillAlpha: 22,
-        measureStroke: '#10b981',
-        measureStrokeWidth: 2.5,
-        measureDashed: true,
-        dashLen: 10,
-        dashGap: 6,
-        highlightColor: '#f59e0b',
-        highlightGlow: 18,
-        highlightWidth: 3,
-        highlightPulse: true
-      }
-    };
-
-    let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    let isSettingsOpen = false;
-    let activeTool = 'pan';
-
-    // 图层可见性
-    const layers = {
-      points: true,
-      measure: true,
-      highlight: true,
-      grid: true
-    };
-
-    // =========================================================================
-    // 3. 虚拟 GIS 地图与空间数据模型
-    // =========================================================================
-    const canvas = document.getElementById('gisCanvas');
-    const ctx = canvas.getContext('2d');
-
-    let viewport = {
-      offsetX: 0,
-      offsetY: 0,
-      scale: 1.0,
-      isDragging: false,
-      dragStartX: 0,
-      dragStartY: 0
-    };
-
-    // 预置空间点位数据 (世界坐标相对于地图中心)
-    let gisPoints = [
-      { id: 1, x: -140, y: -90, code: '01', elevation: '42.1m' },
-      { id: 2, x: 95, y: -115, code: '02', elevation: '18.5m' },
-      { id: 3, x: -45, y: 35, code: '03', elevation: '29.0m' },
-      { id: 4, x: 165, y: 65, code: '04', elevation: '51.4m' },
-      { id: 5, x: -195, y: 110, code: '05', elevation: '12.8m' },
-      { id: 6, x: 35, y: 155, code: '06', elevation: '36.7m' }
-    ];
-
-    // 预置测量多边形 (Measure Polygon)
-    let measurePolygons = [
-      {
-        id: 'M-01',
-        areaText: '18.42 km²',
-        vertices: [
-          { x: -210, y: -150 },
-          { x: -30, y: -170 },
-          { x: 10, y: -30 },
-          { x: -160, y: -10 }
-        ]
-      },
-      {
-        id: 'M-02',
-        areaText: '24.38 km²',
-        vertices: [
-          { x: 50, y: 20 },
-          { x: 220, y: -10 },
-          { x: 245, y: 145 },
-          { x: 80, y: 175 }
-        ]
-      }
-    ];
-
-    // 正在绘制中的临时测量顶点
-    let activeMeasureDraft = [];
-
-    // 预置高亮选区 (Highlight Zones)
-    let highlightZones = [
-      {
-        id: 'ZONE-A1',
-        nameZh: '滨海智慧核心区 #01',
-        nameEn: 'Marina Smart Core #01',
-        val: '34.2 m / 89%',
-        vertices: [
-          { x: -85, y: -45 },
-          { x: 65, y: -60 },
-          { x: 85, y: 65 },
-          { x: -60, y: 80 }
-        ]
-      },
-      {
-        id: 'ZONE-B2',
-        nameZh: '北部生态数字走廊 #02',
-        nameEn: 'North Eco Corridor #02',
-        val: '61.5 m / 94%',
-        vertices: [
-          { x: 115, y: -165 },
-          { x: 240, y: -150 },
-          { x: 225, y: -45 },
-          { x: 110, y: -65 }
-        ]
-      }
-    ];
-
-    let selectedHighlightIndex = 0;
-
-    // 模拟城市道路网络与水系轮廓
-    const waterPolygon = [
-      { x: -600, y: 220 },
-      { x: -220, y: 185 },
-      { x: -40, y: 240 },
-      { x: 190, y: 210 },
-      { x: 600, y: 260 },
-      { x: 600, y: 550 },
-      { x: -600, y: 550 }
-    ];
-
-    const roadSegments = [
-      [ { x: -500, y: -220 }, { x: -120, y: -80 }, { x: 180, y: -130 }, { x: 520, y: -200 } ],
-      [ { x: -480, y: 40 }, { x: -90, y: 20 }, { x: 150, y: 90 }, { x: 500, y: 50 } ],
-      [ { x: -160, y: -380 }, { x: -110, y: -50 }, { x: -140, y: 180 } ],
-      [ { x: 90, y: -380 }, { x: 65, y: -20 }, { x: 110, y: 210 } ],
-      [ { x: -320, y: -320 }, { x: 260, y: 190 } ]
-    ];
-
-    // =========================================================================
-    // 4. 设置面板控制与样式实时联动逻辑
-    // =========================================================================
-    function toggleSettingsModal(forceState) {
-      isSettingsOpen = typeof forceState === 'boolean' ? forceState : !isSettingsOpen;
-      const modal = document.getElementById('settingsModal');
-      const gear = document.getElementById('settingsGearIcon');
-
-      if (isSettingsOpen) {
-        modal.classList.remove('hidden-modal');
-        modal.classList.add('visible-modal');
-        gear.style.transform = 'rotate(90deg)';
-      } else {
-        modal.classList.remove('visible-modal');
-        modal.classList.add('hidden-modal');
-        gear.style.transform = 'rotate(0deg)';
-      }
-    }
-
-    function hexToRgb(hex) {
-      const clean = hex.replace('#', '');
-      const bigint = parseInt(clean, 16);
-      const r = (bigint >> 16) & 255;
-      const g = (bigint >> 8) & 255;
-      const b = bigint & 255;
-      return `${r}, ${g}, ${b}`;
-    }
-
-    function updateSetting(key, value) {
-      state[key] = value;
-      applyVisualSettings();
-    }
-
-    function setThemeColor(hex, name) {
-      state.themeColor = hex;
-      state.themeColorName = name;
-      document.getElementById('input-customThemeColor').value = hex;
-      document.getElementById('val-themeColorName').textContent = `${name} (${hex.toUpperCase()})`;
-      applyVisualSettings();
-    }
-
-    function updateToolParam(paramKey, value) {
-      state.tools[paramKey] = value;
-
-      // 同步 UI 数值显示
-      if (paramKey === 'pointColor') {
-        document.getElementById('val-pointColor').textContent = value.toUpperCase();
-        document.getElementById('legendPointDot').style.background = value;
-      } else if (paramKey === 'pointRadius') {
-        document.getElementById('val-pointRadius').textContent = `${value}px`;
-      } else if (paramKey === 'measureFill') {
-        document.getElementById('val-measureFill').textContent = value.toUpperCase();
-        document.getElementById('legendMeasureBox').style.background = value + '44';
-      } else if (paramKey === 'measureStroke') {
-        document.getElementById('val-measureStroke').textContent = value.toUpperCase();
-        document.getElementById('legendMeasureBox').style.borderColor = value;
-      } else if (paramKey === 'measureFillAlpha') {
-        document.getElementById('val-measureFillAlpha').textContent = `${value}%`;
-      } else if (paramKey === 'measureStrokeWidth') {
-        document.getElementById('val-measureStrokeWidth').textContent = `${value}px`;
-      } else if (paramKey === 'measureDashed') {
-        const dashGroup = document.getElementById('dashParamsGroup');
-        dashGroup.style.opacity = value ? '1' : '0.4';
-        dashGroup.style.pointerEvents = value ? 'auto' : 'none';
-      } else if (paramKey === 'dashLen') {
-        document.getElementById('val-dashLen').textContent = `${value}px`;
-      } else if (paramKey === 'dashGap') {
-        document.getElementById('val-dashGap').textContent = `${value}px`;
-      } else if (paramKey === 'highlightColor') {
-        document.getElementById('val-highlightColor').textContent = value.toUpperCase();
-        document.getElementById('legendHighlightDot').style.background = value;
-      } else if (paramKey === 'highlightGlow') {
-        document.getElementById('val-highlightGlow').textContent = `${value}px`;
-      } else if (paramKey === 'highlightWidth') {
-        document.getElementById('val-highlightWidth').textContent = `${value}px`;
-      }
-    }
-
-    function applyVisualSettings() {
-      const htmlEl = document.documentElement;
-      const rootStyle = htmlEl.style;
-
-      // 1. Light / Dark 主题
-      if (state.theme === 'light') {
-        htmlEl.classList.remove('dark');
-        htmlEl.classList.add('light');
-      } else {
-        htmlEl.classList.remove('light');
-        htmlEl.classList.add('dark');
+    <script>
+      // =========================================================================
+      // 1. 多语言字典 (Chinese / English I18N)
+      // =========================================================================
+      const I18N = {
+        zh: {
+          appTitle: 'GeoPulse 空间数据智能看板',
+          liveStatus: '实时遥感在线',
+          toolPan: '漫游',
+          toolDrawPoint: '绘制点位',
+          toolMeasure: '面积测量',
+          toolHighlight: '要素高亮',
+          settingsBtn: '设置',
+          layerControlTitle: '空间图层控制',
+          layerPoints: '物联网监测点位 (Points)',
+          layerMeasure: '空间测绘多边形 (Measure)',
+          layerHighlight: '重点管控高亮区 (Highlight)',
+          layerGrid: '经纬度坐标网格 (Graticule)',
+          metricsTitle: '区域实时监测指标',
+          metricNodes: '在线传感节点',
+          metricArea: '测绘覆盖面积',
+          signalIntegrity: '空间拓扑完整度',
+          hintPan: '拖拽平移底图 · 滚轮缩放 · 点击高亮要素查看属性',
+          hintPoint: '点击地图任意位置绘制新点位 · 实时应用点样式',
+          hintMeasure: '点击地图添加测量顶点 · 右键或双击闭合测绘区',
+          hintHighlight: '点击地图上的选区或点位切换当前高亮对象',
+          quickAddPoint: '新增采样点',
+          featureInspectorTitle: '高亮要素属性面板',
+          propName: '要素名称',
+          propType: '几何类型',
+          propElevation: '平均高程 / 密度',
+          propStyleSync: '当前样式状态',
+          propSynced: '实时参数联动中',
+          chartTitle: '多光谱波段分布',
+          settingsModalTitle: '看板设置',
+          settingsModalSub: 'Dashboard & GIS Style Configuration',
+          secAppearance: '1、外观设置',
+          lblTheme: '主题模式 (Theme)',
+          lblPanelStyle: '面板样式 (Panel Style)',
+          styleFrosted: '磨砂玻璃',
+          styleLiquid: '液态玻璃',
+          styleSolid: '实际颜色',
+          lblBgOpacity: '背景透明度',
+          lblBlurRadius: '模糊半径',
+          lblLiquidSpecular: '液态高光折射感',
+          lblThemeColor: '主题颜色',
+          lblLayoutMode: '排版布局',
+          secLanguage: '2、语言',
+          lblInterfaceLang: '界面显示语言',
+          secToolParams: '3、工具参数设置',
+          subDrawPoint: '绘制 · 点 (Point)',
+          lblPointColor: '颜色',
+          lblPointRadius: '半径',
+          lblPointLabel: 'Label 标签',
+          subMeasure: '测量 (Measure)',
+          lblMeasureFill: '填充色',
+          lblMeasureStroke: '描边',
+          lblFillOpacity: '填充透明度',
+          lblStrokeWidth: '描边宽度',
+          lblIsDashed: '是否虚线',
+          lblDashLen: '虚线长度',
+          lblDashGap: '虚线间隔',
+          subHighlight: '高亮参数 (Highlight)',
+          lblHighlightColor: '高亮色',
+          lblHighlightGlow: '光晕半径',
+          lblHighlightWidth: '高亮线宽',
+          lblHighlightPulse: '脉冲呼吸',
+          btnReset: '恢复默认',
+          btnExport: '导出配置 JSON',
+          toastReset: '已恢复所有默认看板设置',
+          toastExport: '配置 JSON 已复制到剪贴板',
+          toastPointAdded: '已在地图上新增监测点位',
+        },
+        en: {
+          appTitle: 'GeoPulse Spatial Intelligence',
+          liveStatus: 'Telemetry Live',
+          toolPan: 'Pan',
+          toolDrawPoint: 'Draw Point',
+          toolMeasure: 'Measure',
+          toolHighlight: 'Highlight',
+          settingsBtn: 'Settings',
+          layerControlTitle: 'Spatial Layer Control',
+          layerPoints: 'IoT Sensor Points',
+          layerMeasure: 'Measure Polygons',
+          layerHighlight: 'Highlight Zones',
+          layerGrid: 'Lat/Lon Graticule',
+          metricsTitle: 'Regional Live Metrics',
+          metricNodes: 'Active Nodes',
+          metricArea: 'Surveyed Area',
+          signalIntegrity: 'Topology Integrity',
+          hintPan: 'Drag to pan · Scroll to zoom · Click features to inspect',
+          hintPoint: 'Click anywhere on map to place a point with live style',
+          hintMeasure: 'Click to add measure vertices · Double-click to finish',
+          hintHighlight: 'Click any zone or point on map to highlight',
+          quickAddPoint: 'Add Sample Point',
+          featureInspectorTitle: 'Feature Inspector',
+          propName: 'Feature Name',
+          propType: 'Geometry Type',
+          propElevation: 'Elevation / Density',
+          propStyleSync: 'Render Status',
+          propSynced: 'Live Sync Active',
+          chartTitle: 'Multispectral Band Dist.',
+          settingsModalTitle: 'Dashboard Settings',
+          settingsModalSub: 'Appearance, Locale & GIS Tools',
+          secAppearance: '1. Appearance Settings',
+          lblTheme: 'Theme Mode',
+          lblPanelStyle: 'Panel Style',
+          styleFrosted: 'Frosted Glass',
+          styleLiquid: 'Liquid Glass',
+          styleSolid: 'Solid Color',
+          lblBgOpacity: 'Background Opacity',
+          lblBlurRadius: 'Blur Radius',
+          lblLiquidSpecular: 'Liquid Specular Glow',
+          lblThemeColor: 'Theme Color',
+          lblLayoutMode: 'Layout Mode',
+          secLanguage: '2. Language',
+          lblInterfaceLang: 'Interface Language',
+          secToolParams: '3. Tool Parameters',
+          subDrawPoint: 'Draw · Point',
+          lblPointColor: 'Color',
+          lblPointRadius: 'Radius',
+          lblPointLabel: 'Label Prefix',
+          subMeasure: 'Measure Polygon',
+          lblMeasureFill: 'Fill Color',
+          lblMeasureStroke: 'Stroke Color',
+          lblFillOpacity: 'Fill Opacity',
+          lblStrokeWidth: 'Stroke Width',
+          lblIsDashed: 'Dashed Line',
+          lblDashLen: 'Dash Length',
+          lblDashGap: 'Dash Gap',
+          subHighlight: 'Highlight Parameters',
+          lblHighlightColor: 'Highlight Color',
+          lblHighlightGlow: 'Glow Radius',
+          lblHighlightWidth: 'Stroke Width',
+          lblHighlightPulse: 'Pulse Animation',
+          btnReset: 'Reset Default',
+          btnExport: 'Export JSON',
+          toastReset: 'Restored default dashboard settings',
+          toastExport: 'Configuration JSON copied to clipboard',
+          toastPointAdded: 'Added new sensor point on map',
+        },
       }
 
-      // 更新主题按钮激活态
-      setToggleBtnState('btn-theme-light', state.theme === 'light');
-      setToggleBtnState('btn-theme-dark', state.theme === 'dark');
+      // =========================================================================
+      // 2. 全局状态配置 (Default & Live State)
+      // =========================================================================
+      const DEFAULT_STATE = {
+        theme: 'dark', // 'light' | 'dark'
+        panelStyle: 'frosted', // 'frosted' | 'liquid' | 'solid'
+        opacity: 72, // 15 - 100
+        blur: 16, // 0 - 40
+        specular: 35, // 0 - 100 (液态玻璃折射强度)
+        themeColor: '#3b82f6',
+        themeColorName: 'Blue',
+        layout: 'overlay', // 'docked' | 'overlay'
+        lang: 'zh', // 'zh' | 'en'
+        tools: {
+          pointColor: '#3b82f6',
+          pointRadius: 8,
+          pointLabel: '站点',
+          measureFill: '#10b981',
+          measureFillAlpha: 22,
+          measureStroke: '#10b981',
+          measureStrokeWidth: 2.5,
+          measureDashed: true,
+          dashLen: 10,
+          dashGap: 6,
+          highlightColor: '#f59e0b',
+          highlightGlow: 18,
+          highlightWidth: 3,
+          highlightPulse: true,
+        },
+      }
 
-      // 2. 面板样式 (磨砂玻璃 / 液态玻璃 / 实际颜色)
-      const panels = document.querySelectorAll('.gis-panel');
-      panels.forEach(p => {
-        p.classList.remove('style-frosted', 'style-liquid', 'style-solid');
-        p.classList.add(`style-${state.panelStyle}`);
-      });
+      let state = JSON.parse(JSON.stringify(DEFAULT_STATE))
+      let isSettingsOpen = false
+      let activeTool = 'pan'
 
-      setToggleBtnState('btn-style-frosted', state.panelStyle === 'frosted');
-      setToggleBtnState('btn-style-liquid', state.panelStyle === 'liquid');
-      setToggleBtnState('btn-style-solid', state.panelStyle === 'solid');
+      // 图层可见性
+      const layers = {
+        points: true,
+        measure: true,
+        highlight: true,
+        grid: true,
+      }
 
-      // 控制参数滑块显隐与数值
-      const blurGroup = document.getElementById('blurControlGroup');
-      const liquidGroup = document.getElementById('liquidControlGroup');
+      // =========================================================================
+      // 3. 虚拟 GIS 地图与空间数据模型
+      // =========================================================================
+      const canvas = document.getElementById('gisCanvas')
+      const ctx = canvas.getContext('2d')
 
-      if (state.panelStyle === 'solid') {
-        blurGroup.style.opacity = '0.4';
-        blurGroup.style.pointerEvents = 'none';
-        liquidGroup.classList.add('hidden');
-        // 实际颜色模式下自动保证较高不透明度（若用户没手动调低则默认饱满实色）
-        rootStyle.setProperty('--panel-opacity', Math.max(state.opacity / 100, 0.94));
-      } else {
-        blurGroup.style.opacity = '1';
-        blurGroup.style.pointerEvents = 'auto';
-        rootStyle.setProperty('--panel-opacity', state.opacity / 100);
-        if (state.panelStyle === 'liquid') {
-          liquidGroup.classList.remove('hidden');
+      let viewport = {
+        offsetX: 0,
+        offsetY: 0,
+        scale: 1.0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+      }
+
+      // 预置空间点位数据 (世界坐标相对于地图中心)
+      let gisPoints = [
+        { id: 1, x: -140, y: -90, code: '01', elevation: '42.1m' },
+        { id: 2, x: 95, y: -115, code: '02', elevation: '18.5m' },
+        { id: 3, x: -45, y: 35, code: '03', elevation: '29.0m' },
+        { id: 4, x: 165, y: 65, code: '04', elevation: '51.4m' },
+        { id: 5, x: -195, y: 110, code: '05', elevation: '12.8m' },
+        { id: 6, x: 35, y: 155, code: '06', elevation: '36.7m' },
+      ]
+
+      // 预置测量多边形 (Measure Polygon)
+      let measurePolygons = [
+        {
+          id: 'M-01',
+          areaText: '18.42 km²',
+          vertices: [
+            { x: -210, y: -150 },
+            { x: -30, y: -170 },
+            { x: 10, y: -30 },
+            { x: -160, y: -10 },
+          ],
+        },
+        {
+          id: 'M-02',
+          areaText: '24.38 km²',
+          vertices: [
+            { x: 50, y: 20 },
+            { x: 220, y: -10 },
+            { x: 245, y: 145 },
+            { x: 80, y: 175 },
+          ],
+        },
+      ]
+
+      // 正在绘制中的临时测量顶点
+      let activeMeasureDraft = []
+
+      // 预置高亮选区 (Highlight Zones)
+      let highlightZones = [
+        {
+          id: 'ZONE-A1',
+          nameZh: '滨海智慧核心区 #01',
+          nameEn: 'Marina Smart Core #01',
+          val: '34.2 m / 89%',
+          vertices: [
+            { x: -85, y: -45 },
+            { x: 65, y: -60 },
+            { x: 85, y: 65 },
+            { x: -60, y: 80 },
+          ],
+        },
+        {
+          id: 'ZONE-B2',
+          nameZh: '北部生态数字走廊 #02',
+          nameEn: 'North Eco Corridor #02',
+          val: '61.5 m / 94%',
+          vertices: [
+            { x: 115, y: -165 },
+            { x: 240, y: -150 },
+            { x: 225, y: -45 },
+            { x: 110, y: -65 },
+          ],
+        },
+      ]
+
+      let selectedHighlightIndex = 0
+
+      // 模拟城市道路网络与水系轮廓
+      const waterPolygon = [
+        { x: -600, y: 220 },
+        { x: -220, y: 185 },
+        { x: -40, y: 240 },
+        { x: 190, y: 210 },
+        { x: 600, y: 260 },
+        { x: 600, y: 550 },
+        { x: -600, y: 550 },
+      ]
+
+      const roadSegments = [
+        [
+          { x: -500, y: -220 },
+          { x: -120, y: -80 },
+          { x: 180, y: -130 },
+          { x: 520, y: -200 },
+        ],
+        [
+          { x: -480, y: 40 },
+          { x: -90, y: 20 },
+          { x: 150, y: 90 },
+          { x: 500, y: 50 },
+        ],
+        [
+          { x: -160, y: -380 },
+          { x: -110, y: -50 },
+          { x: -140, y: 180 },
+        ],
+        [
+          { x: 90, y: -380 },
+          { x: 65, y: -20 },
+          { x: 110, y: 210 },
+        ],
+        [
+          { x: -320, y: -320 },
+          { x: 260, y: 190 },
+        ],
+      ]
+
+      // =========================================================================
+      // 4. 设置面板控制与样式实时联动逻辑
+      // =========================================================================
+      function toggleSettingsModal(forceState) {
+        isSettingsOpen = typeof forceState === 'boolean' ? forceState : !isSettingsOpen
+        const modal = document.getElementById('settingsModal')
+        const gear = document.getElementById('settingsGearIcon')
+
+        if (isSettingsOpen) {
+          modal.classList.remove('hidden-modal')
+          modal.classList.add('visible-modal')
+          gear.style.transform = 'rotate(90deg)'
         } else {
-          liquidGroup.classList.add('hidden');
+          modal.classList.remove('visible-modal')
+          modal.classList.add('hidden-modal')
+          gear.style.transform = 'rotate(0deg)'
         }
       }
 
-      rootStyle.setProperty('--panel-blur', `${state.blur}px`);
-      rootStyle.setProperty('--liquid-specular', state.specular / 100);
-
-      document.getElementById('val-opacity').textContent = `${state.opacity}%`;
-      document.getElementById('val-blur').textContent = `${state.blur}px`;
-      document.getElementById('val-specular').textContent = `${state.specular}%`;
-
-      // 3. 主题颜色
-      rootStyle.setProperty('--accent-color', state.themeColor);
-      rootStyle.setProperty('--accent-rgb', hexToRgb(state.themeColor));
-
-      // 4. 排版布局 (Docked vs Overlay)
-      const leftSidebar = document.getElementById('leftSidebar');
-      const rightSidebar = document.getElementById('rightSidebar');
-      const workspace = document.getElementById('workspaceContainer');
-
-      setToggleBtnState('btn-layout-docked', state.layout === 'docked');
-      setToggleBtnState('btn-layout-overlay', state.layout === 'overlay');
-
-      if (state.layout === 'docked') {
-        // Docked 模式：面板无圆角贴边停靠，带有边框分隔，地图中心自动偏移适配中间可视区
-        workspace.classList.add('bg-transparent');
-        leftSidebar.classList.remove('p-3', 'sm:p-4', 'gap-3');
-        leftSidebar.classList.add('p-3', 'gap-3', 'gis-panel', 'rounded-none', 'border-y-0', 'border-l-0');
-        rightSidebar.classList.remove('p-3', 'sm:p-4', 'gap-3');
-        rightSidebar.classList.add('p-3', 'gap-3', 'gis-panel', 'rounded-none', 'border-y-0', 'border-r-0');
-      } else {
-        // Overlay 模式：地图铺满全屏，面板带间距圆角悬浮在地图之上
-        leftSidebar.classList.remove('gis-panel', 'rounded-none', 'border-y-0', 'border-l-0');
-        leftSidebar.classList.add('p-3', 'sm:p-4', 'gap-3');
-        rightSidebar.classList.remove('gis-panel', 'rounded-none', 'border-y-0', 'border-r-0');
-        rightSidebar.classList.add('p-3', 'sm:p-4', 'gap-3');
+      function hexToRgb(hex) {
+        const clean = hex.replace('#', '')
+        const bigint = parseInt(clean, 16)
+        const r = (bigint >> 16) & 255
+        const g = (bigint >> 8) & 255
+        const b = bigint & 255
+        return `${r}, ${g}, ${b}`
       }
 
-      // 5. 语言切换 (中文 / En)
-      setToggleBtnState('btn-lang-zh', state.lang === 'zh');
-      setToggleBtnState('btn-lang-en', state.lang === 'en');
-      applyLanguage();
-      updateSelectedFeatureInspector();
-    }
-
-    function setToggleBtnState(btnId, isActive) {
-      const btn = document.getElementById(btnId);
-      if (!btn) return;
-      if (isActive) {
-        btn.classList.add('btn-accent');
-        btn.classList.remove('bg-slate-500/15', 'hover:bg-slate-500/25');
-      } else {
-        btn.classList.remove('btn-accent');
-        btn.classList.add('bg-slate-500/15', 'hover:bg-slate-500/25');
+      function updateSetting(key, value) {
+        state[key] = value
+        applyVisualSettings()
       }
-    }
 
-    function applyLanguage() {
-      const dict = I18N[state.lang];
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (dict[key]) {
-          el.textContent = dict[key];
+      function setThemeColor(hex, name) {
+        state.themeColor = hex
+        state.themeColorName = name
+        document.getElementById('input-customThemeColor').value = hex
+        document.getElementById('val-themeColorName').textContent = `${name} (${hex.toUpperCase()})`
+        applyVisualSettings()
+      }
+
+      function updateToolParam(paramKey, value) {
+        state.tools[paramKey] = value
+
+        // 同步 UI 数值显示
+        if (paramKey === 'pointColor') {
+          document.getElementById('val-pointColor').textContent = value.toUpperCase()
+          document.getElementById('legendPointDot').style.background = value
+        } else if (paramKey === 'pointRadius') {
+          document.getElementById('val-pointRadius').textContent = `${value}px`
+        } else if (paramKey === 'measureFill') {
+          document.getElementById('val-measureFill').textContent = value.toUpperCase()
+          document.getElementById('legendMeasureBox').style.background = value + '44'
+        } else if (paramKey === 'measureStroke') {
+          document.getElementById('val-measureStroke').textContent = value.toUpperCase()
+          document.getElementById('legendMeasureBox').style.borderColor = value
+        } else if (paramKey === 'measureFillAlpha') {
+          document.getElementById('val-measureFillAlpha').textContent = `${value}%`
+        } else if (paramKey === 'measureStrokeWidth') {
+          document.getElementById('val-measureStrokeWidth').textContent = `${value}px`
+        } else if (paramKey === 'measureDashed') {
+          const dashGroup = document.getElementById('dashParamsGroup')
+          dashGroup.style.opacity = value ? '1' : '0.4'
+          dashGroup.style.pointerEvents = value ? 'auto' : 'none'
+        } else if (paramKey === 'dashLen') {
+          document.getElementById('val-dashLen').textContent = `${value}px`
+        } else if (paramKey === 'dashGap') {
+          document.getElementById('val-dashGap').textContent = `${value}px`
+        } else if (paramKey === 'highlightColor') {
+          document.getElementById('val-highlightColor').textContent = value.toUpperCase()
+          document.getElementById('legendHighlightDot').style.background = value
+        } else if (paramKey === 'highlightGlow') {
+          document.getElementById('val-highlightGlow').textContent = `${value}px`
+        } else if (paramKey === 'highlightWidth') {
+          document.getElementById('val-highlightWidth').textContent = `${value}px`
         }
-      });
-      updateToolHint();
-    }
+      }
 
-    // =========================================================================
-    // 5. 地图交互工具与要素控制
-    // =========================================================================
-    function setActiveTool(tool) {
-      activeTool = tool;
-      ['pan', 'point', 'measure', 'highlight'].forEach(t => {
-        const btn = document.getElementById(`tool-${t}`);
-        if (btn) {
-          if (t === tool) {
-            btn.classList.add('btn-accent');
-            btn.classList.remove('hover:bg-slate-500/15');
+      function applyVisualSettings() {
+        const htmlEl = document.documentElement
+        const rootStyle = htmlEl.style
+
+        // 1. Light / Dark 主题
+        if (state.theme === 'light') {
+          htmlEl.classList.remove('dark')
+          htmlEl.classList.add('light')
+        } else {
+          htmlEl.classList.remove('light')
+          htmlEl.classList.add('dark')
+        }
+
+        // 更新主题按钮激活态
+        setToggleBtnState('btn-theme-light', state.theme === 'light')
+        setToggleBtnState('btn-theme-dark', state.theme === 'dark')
+
+        // 2. 面板样式 (磨砂玻璃 / 液态玻璃 / 实际颜色)
+        const panels = document.querySelectorAll('.gis-panel')
+        panels.forEach((p) => {
+          p.classList.remove('style-frosted', 'style-liquid', 'style-solid')
+          p.classList.add(`style-${state.panelStyle}`)
+        })
+
+        setToggleBtnState('btn-style-frosted', state.panelStyle === 'frosted')
+        setToggleBtnState('btn-style-liquid', state.panelStyle === 'liquid')
+        setToggleBtnState('btn-style-solid', state.panelStyle === 'solid')
+
+        // 控制参数滑块显隐与数值
+        const blurGroup = document.getElementById('blurControlGroup')
+        const liquidGroup = document.getElementById('liquidControlGroup')
+
+        if (state.panelStyle === 'solid') {
+          blurGroup.style.opacity = '0.4'
+          blurGroup.style.pointerEvents = 'none'
+          liquidGroup.classList.add('hidden')
+          // 实际颜色模式下自动保证较高不透明度（若用户没手动调低则默认饱满实色）
+          rootStyle.setProperty('--panel-opacity', Math.max(state.opacity / 100, 0.94))
+        } else {
+          blurGroup.style.opacity = '1'
+          blurGroup.style.pointerEvents = 'auto'
+          rootStyle.setProperty('--panel-opacity', state.opacity / 100)
+          if (state.panelStyle === 'liquid') {
+            liquidGroup.classList.remove('hidden')
           } else {
-            btn.classList.remove('btn-accent');
-            btn.classList.add('hover:bg-slate-500/15');
+            liquidGroup.classList.add('hidden')
           }
         }
-      });
 
-      canvas.style.cursor = tool === 'pan' ? 'grab' : 'crosshair';
-      if (tool !== 'measure') activeMeasureDraft = [];
-      updateToolHint();
-    }
+        rootStyle.setProperty('--panel-blur', `${state.blur}px`)
+        rootStyle.setProperty('--liquid-specular', state.specular / 100)
 
-    function updateToolHint() {
-      const dict = I18N[state.lang];
-      const hintEl = document.getElementById('toolHintText');
-      if (!hintEl) return;
-      if (activeTool === 'pan') hintEl.textContent = dict.hintPan;
-      if (activeTool === 'point') hintEl.textContent = dict.hintPoint;
-      if (activeTool === 'measure') hintEl.textContent = dict.hintMeasure;
-      if (activeTool === 'highlight') hintEl.textContent = dict.hintHighlight;
-    }
+        document.getElementById('val-opacity').textContent = `${state.opacity}%`
+        document.getElementById('val-blur').textContent = `${state.blur}px`
+        document.getElementById('val-specular').textContent = `${state.specular}%`
 
-    function toggleLayer(layerKey, isVisible) {
-      layers[layerKey] = isVisible;
-    }
+        // 3. 主题颜色
+        rootStyle.setProperty('--accent-color', state.themeColor)
+        rootStyle.setProperty('--accent-rgb', hexToRgb(state.themeColor))
 
-    function resetMapView() {
-      viewport.offsetX = 0;
-      viewport.offsetY = 0;
-      viewport.scale = 1.0;
-    }
+        // 4. 排版布局 (Docked vs Overlay)
+        const leftSidebar = document.getElementById('leftSidebar')
+        const rightSidebar = document.getElementById('rightSidebar')
+        const workspace = document.getElementById('workspaceContainer')
 
-    function addRandomPoint() {
-      const rx = Math.round((Math.random() - 0.5) * 320);
-      const ry = Math.round((Math.random() - 0.5) * 240);
-      const nextNum = String(gisPoints.length + 1).padStart(2, '0');
-      gisPoints.push({
-        id: Date.now(),
-        x: rx,
-        y: ry,
-        code: nextNum,
-        elevation: `${(15 + Math.random() * 45).toFixed(1)}m`
-      });
-      document.getElementById('statPointCount').textContent = String(gisPoints.length).padStart(2, '0');
-      showToast(I18N[state.lang].toastPointAdded);
-    }
+        setToggleBtnState('btn-layout-docked', state.layout === 'docked')
+        setToggleBtnState('btn-layout-overlay', state.layout === 'overlay')
 
-    function updateSelectedFeatureInspector() {
-      const zone = highlightZones[selectedHighlightIndex];
-      if (!zone) return;
-      document.getElementById('selectedFeatureBadge').textContent = zone.id;
-      document.getElementById('featName').textContent = state.lang === 'zh' ? zone.nameZh : zone.nameEn;
-      document.getElementById('featValue').textContent = zone.val;
-    }
+        if (state.layout === 'docked') {
+          // Docked 模式：面板无圆角贴边停靠，带有边框分隔，地图中心自动偏移适配中间可视区
+          workspace.classList.add('bg-transparent')
+          leftSidebar.classList.remove('p-3', 'sm:p-4', 'gap-3')
+          leftSidebar.classList.add(
+            'p-3',
+            'gap-3',
+            'gis-panel',
+            'rounded-none',
+            'border-y-0',
+            'border-l-0'
+          )
+          rightSidebar.classList.remove('p-3', 'sm:p-4', 'gap-3')
+          rightSidebar.classList.add(
+            'p-3',
+            'gap-3',
+            'gis-panel',
+            'rounded-none',
+            'border-y-0',
+            'border-r-0'
+          )
+        } else {
+          // Overlay 模式：地图铺满全屏，面板带间距圆角悬浮在地图之上
+          leftSidebar.classList.remove('gis-panel', 'rounded-none', 'border-y-0', 'border-l-0')
+          leftSidebar.classList.add('p-3', 'sm:p-4', 'gap-3')
+          rightSidebar.classList.remove('gis-panel', 'rounded-none', 'border-y-0', 'border-r-0')
+          rightSidebar.classList.add('p-3', 'sm:p-4', 'gap-3')
+        }
 
-    function resetAllSettings() {
-      state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-
-      // 还原输入框 DOM 值
-      document.getElementById('input-opacity').value = state.opacity;
-      document.getElementById('input-blur').value = state.blur;
-      document.getElementById('input-specular').value = state.specular;
-      document.getElementById('input-customThemeColor').value = state.themeColor;
-      document.getElementById('val-themeColorName').textContent = 'Blue (#3B82F6)';
-
-      document.getElementById('input-pointColor').value = state.tools.pointColor;
-      document.getElementById('input-pointRadius').value = state.tools.pointRadius;
-      document.getElementById('input-pointLabel').value = state.tools.pointLabel;
-
-      document.getElementById('input-measureFill').value = state.tools.measureFill;
-      document.getElementById('input-measureStroke').value = state.tools.measureStroke;
-      document.getElementById('input-measureFillAlpha').value = state.tools.measureFillAlpha;
-      document.getElementById('input-measureStrokeWidth').value = state.tools.measureStrokeWidth;
-      document.getElementById('input-measureDashed').checked = state.tools.measureDashed;
-      document.getElementById('input-dashLen').value = state.tools.dashLen;
-      document.getElementById('input-dashGap').value = state.tools.dashGap;
-
-      document.getElementById('input-highlightColor').value = state.tools.highlightColor;
-      document.getElementById('input-highlightGlow').value = state.tools.highlightGlow;
-      document.getElementById('input-highlightWidth').value = state.tools.highlightWidth;
-      document.getElementById('input-highlightPulse').checked = state.tools.highlightPulse;
-
-      // 触发参数同步
-      Object.keys(state.tools).forEach(k => updateToolParam(k, state.tools[k]));
-      applyVisualSettings();
-      showToast(I18N[state.lang].toastReset);
-    }
-
-    function exportConfigJSON() {
-      const jsonStr = JSON.stringify(state, null, 2);
-      const textarea = document.createElement('textarea');
-      textarea.value = jsonStr;
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-      } catch (e) {}
-      document.body.removeChild(textarea);
-      showToast(I18N[state.lang].toastExport);
-    }
-
-    let toastTimer = null;
-    function showToast(msg) {
-      const toast = document.getElementById('toastMessage');
-      const text = document.getElementById('toastText');
-      text.textContent = msg;
-      toast.classList.remove('opacity-0', 'translate-y-3');
-      toast.classList.add('opacity-100', 'translate-y-0');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        toast.classList.remove('opacity-100', 'translate-y-0');
-        toast.classList.add('opacity-0', 'translate-y-3');
-      }, 2400);
-    }
-
-    // =========================================================================
-    // 6. HTML5 Canvas 交互式 GIS 底图与矢量渲染引擎
-    // =========================================================================
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function screenToWorld(sx, sy) {
-      const cx = window.innerWidth / 2 + viewport.offsetX;
-      const cy = window.innerHeight / 2 + viewport.offsetY;
-      return {
-        x: (sx - cx) / viewport.scale,
-        y: (sy - cy) / viewport.scale
-      };
-    }
-
-    function worldToScreen(wx, wy) {
-      const cx = window.innerWidth / 2 + viewport.offsetX;
-      const cy = window.innerHeight / 2 + viewport.offsetY;
-      return {
-        x: cx + wx * viewport.scale,
-        y: cy + wy * viewport.scale
-      };
-    }
-
-    // 射线法判断点是否在多边形内
-    function isPointInPolygon(pt, vs) {
-      let inside = false;
-      for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-        const xi = vs[i].x, yi = vs[i].y;
-        const xj = vs[j].x, yj = vs[j].y;
-        const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
-          (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi + 1e-9) + xi);
-        if (intersect) inside = !inside;
+        // 5. 语言切换 (中文 / En)
+        setToggleBtnState('btn-lang-zh', state.lang === 'zh')
+        setToggleBtnState('btn-lang-en', state.lang === 'en')
+        applyLanguage()
+        updateSelectedFeatureInspector()
       }
-      return inside;
-    }
 
-    function renderMapLoop(timestamp) {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const isDark = state.theme === 'dark';
-
-      // 1. 底图背景色
-      ctx.fillStyle = isDark ? '#080d1a' : '#eef2f6';
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.save();
-      const cx = w / 2 + viewport.offsetX;
-      const cy = h / 2 + viewport.offsetY;
-      ctx.translate(cx, cy);
-      ctx.scale(viewport.scale, viewport.scale);
-
-      // 2. 绘制模拟地理水系与地形块
-      ctx.beginPath();
-      waterPolygon.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.closePath();
-      ctx.fillStyle = isDark ? '#0d1b33' : '#cfe2f7';
-      ctx.fill();
-
-      // 3. 绘制经纬度网格 (Graticule)
-      if (layers.grid) {
-        const gridStep = 60;
-        const span = 1200;
-        ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.08)' : 'rgba(15, 23, 42, 0.07)';
-        ctx.lineWidth = 1 / viewport.scale;
-
-        ctx.beginPath();
-        for (let gx = -span; gx <= span; gx += gridStep) {
-          ctx.moveTo(gx, -span);
-          ctx.lineTo(gx, span);
-        }
-        for (let gy = -span; gy <= span; gy += gridStep) {
-          ctx.moveTo(-span, gy);
-          ctx.lineTo(span, gy);
-        }
-        ctx.stroke();
-
-        // 网格经纬度刻度文字
-        ctx.fillStyle = isDark ? 'rgba(148, 163, 184, 0.32)' : 'rgba(71, 85, 105, 0.45)';
-        ctx.font = `${10 / viewport.scale}px "JetBrains Mono", monospace`;
-        for (let gx = -360; gx <= 360; gx += 120) {
-          const lon = (103.8198 + gx * 0.001).toFixed(3);
-          ctx.fillText(`${lon}°E`, gx + 4, -220);
+      function setToggleBtnState(btnId, isActive) {
+        const btn = document.getElementById(btnId)
+        if (!btn) return
+        if (isActive) {
+          btn.classList.add('btn-accent')
+          btn.classList.remove('bg-slate-500/15', 'hover:bg-slate-500/25')
+        } else {
+          btn.classList.remove('btn-accent')
+          btn.classList.add('bg-slate-500/15', 'hover:bg-slate-500/25')
         }
       }
 
-      // 4. 绘制城市路网骨架
-      ctx.strokeStyle = isDark ? 'rgba(100, 116, 139, 0.25)' : 'rgba(148, 163, 184, 0.55)';
-      ctx.lineWidth = 3 / viewport.scale;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      roadSegments.forEach(road => {
-        ctx.beginPath();
-        road.forEach((pt, idx) => idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y));
-        ctx.stroke();
-      });
-
-      // 5. 绘制【测量多边形 Measure】 -> 实时受工具设置控制
-      if (layers.measure) {
-        const t = state.tools;
-        const fillRgb = hexToRgb(t.measureFill);
-        const alpha = t.measureFillAlpha / 100;
-
-        measurePolygons.forEach(poly => {
-          ctx.save();
-          ctx.beginPath();
-          poly.vertices.forEach((v, i) => i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y));
-          ctx.closePath();
-
-          // 填充色 + 透明度
-          ctx.fillStyle = `rgba(${fillRgb}, ${alpha})`;
-          ctx.fill();
-
-          // 描边 + 描边宽度 + 虚线参数
-          ctx.strokeStyle = t.measureStroke;
-          ctx.lineWidth = t.measureStrokeWidth / viewport.scale;
-          if (t.measureDashed) {
-            ctx.setLineDash([t.dashLen / viewport.scale, t.dashGap / viewport.scale]);
-          } else {
-            ctx.setLineDash([]);
+      function applyLanguage() {
+        const dict = I18N[state.lang]
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+          const key = el.getAttribute('data-i18n')
+          if (dict[key]) {
+            el.textContent = dict[key]
           }
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          // 顶点节点
-          poly.vertices.forEach(v => {
-            ctx.beginPath();
-            ctx.arc(v.x, v.y, 3.5 / viewport.scale, 0, Math.PI * 2);
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-            ctx.strokeStyle = t.measureStroke;
-            ctx.lineWidth = 1.5 / viewport.scale;
-            ctx.stroke();
-          });
-
-          // 中心面积标注
-          const center = poly.vertices.reduce((acc, v) => ({ x: acc.x + v.x / poly.vertices.length, y: acc.y + v.y / poly.vertices.length }), { x: 0, y: 0 });
-          ctx.font = `600 ${11 / viewport.scale}px "JetBrains Mono", monospace`;
-          ctx.textAlign = 'center';
-          ctx.fillStyle = isDark ? '#e2e8f0' : '#0f172a';
-          ctx.fillText(poly.areaText, center.x, center.y);
-          ctx.restore();
-        });
-
-        // 正在绘制中的临时测量线段
-        if (activeMeasureDraft.length > 0) {
-          ctx.save();
-          ctx.beginPath();
-          activeMeasureDraft.forEach((v, i) => i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y));
-          ctx.strokeStyle = t.measureStroke;
-          ctx.lineWidth = t.measureStrokeWidth / viewport.scale;
-          if (t.measureDashed) {
-            ctx.setLineDash([t.dashLen / viewport.scale, t.dashGap / viewport.scale]);
-          }
-          ctx.stroke();
-          ctx.restore();
-        }
+        })
+        updateToolHint()
       }
 
-      // 6. 绘制【高亮选区 Highlight】 -> 实时受高亮参数控制
-      if (layers.highlight) {
-        const t = state.tools;
-        const hlRgb = hexToRgb(t.highlightColor);
-        const pulseFactor = t.highlightPulse ? (0.75 + 0.25 * Math.sin(timestamp / 360)) : 1.0;
-
-        highlightZones.forEach((zone, idx) => {
-          const isSelected = idx === selectedHighlightIndex;
-          ctx.save();
-          ctx.beginPath();
-          zone.vertices.forEach((v, i) => i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y));
-          ctx.closePath();
-
-          // 内部半透明高亮填充
-          const fillAlpha = isSelected ? (0.22 * pulseFactor) : 0.08;
-          ctx.fillStyle = `rgba(${hlRgb}, ${fillAlpha})`;
-          ctx.fill();
-
-          // 发光光晕与边框
-          if (isSelected) {
-            ctx.shadowColor = t.highlightColor;
-            ctx.shadowBlur = t.highlightGlow * pulseFactor;
-          }
-          ctx.strokeStyle = isSelected ? t.highlightColor : `rgba(${hlRgb}, 0.55)`;
-          ctx.lineWidth = (isSelected ? t.highlightWidth : 1.5) / viewport.scale;
-          ctx.stroke();
-          ctx.restore();
-
-          // 区域标识徽章
-          const center = zone.vertices.reduce((acc, v) => ({ x: acc.x + v.x / zone.vertices.length, y: acc.y + v.y / zone.vertices.length }), { x: 0, y: 0 });
-          ctx.save();
-          ctx.font = `700 ${11 / viewport.scale}px "Inter", sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.fillStyle = isSelected ? t.highlightColor : (isDark ? '#cbd5e1' : '#334155');
-          ctx.fillText(zone.id, center.x, center.y);
-          ctx.restore();
-        });
-      }
-
-      // 7. 绘制【点位要素 Draw -> Point】 -> 实时受点颜色、半径、Label控制
-      if (layers.points) {
-        const t = state.tools;
-        const ptRgb = hexToRgb(t.pointColor);
-        const r = t.pointRadius / viewport.scale;
-
-        gisPoints.forEach(pt => {
-          ctx.save();
-          // 外圈波纹光环
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, r * 1.65, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${ptRgb}, 0.22)`;
-          ctx.fill();
-
-          // 核心点位圆
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-          ctx.fillStyle = t.pointColor;
-          ctx.fill();
-          ctx.lineWidth = 2 / viewport.scale;
-          ctx.strokeStyle = '#ffffff';
-          ctx.stroke();
-
-          // 渲染 Label 标签 (实时拼接用户输入的 label 文本)
-          const labelPrefix = t.pointLabel.trim();
-          if (labelPrefix.length > 0) {
-            const fullLabel = `${labelPrefix}-${pt.code}`;
-            const fontSize = Math.max(10, Math.min(14, t.pointRadius + 3)) / viewport.scale;
-            ctx.font = `600 ${fontSize}px "Inter", sans-serif`;
-            const textMetrics = ctx.measureText(fullLabel);
-            const padX = 6 / viewport.scale;
-            const boxH = fontSize + 6 / viewport.scale;
-            const boxX = pt.x + r + 6 / viewport.scale;
-            const boxY = pt.y - boxH / 2;
-
-            // 标签胶囊背景
-            ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.92)';
-            ctx.beginPath();
-            ctx.roundRect(boxX, boxY, textMetrics.width + padX * 2, boxH, 4 / viewport.scale);
-            ctx.fill();
-            ctx.strokeStyle = `rgba(${ptRgb}, 0.5)`;
-            ctx.lineWidth = 1 / viewport.scale;
-            ctx.stroke();
-
-            // 标签文字
-            ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(fullLabel, boxX + padX, pt.y);
-          }
-          ctx.restore();
-        });
-      }
-
-      ctx.restore();
-      requestAnimationFrame(renderMapLoop);
-    }
-
-    // =========================================================================
-    // 7. 鼠标与触摸事件绑定 (拖拽、滚轮缩放、点击绘制/高亮)
-    // =========================================================================
-    let pointerDownPos = { x: 0, y: 0 };
-
-    canvas.addEventListener('mousedown', (e) => {
-      pointerDownPos = { x: e.clientX, y: e.clientY };
-      if (activeTool === 'pan') {
-        viewport.isDragging = true;
-        viewport.dragStartX = e.clientX - viewport.offsetX;
-        viewport.dragStartY = e.clientY - viewport.offsetY;
-      }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      // 更新 Header 实时经纬度
-      const worldPt = screenToWorld(e.clientX, e.clientY);
-      const lon = (103.8198 + worldPt.x * 0.001).toFixed(4);
-      const lat = (1.3521 - worldPt.y * 0.001).toFixed(4);
-      document.getElementById('coordDisplay').textContent = `LON: ${lon}° E  LAT: ${lat}° N`;
-
-      if (viewport.isDragging) {
-        viewport.offsetX = e.clientX - viewport.dragStartX;
-        viewport.offsetY = e.clientY - viewport.dragStartY;
-      }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-      viewport.isDragging = false;
-
-      // 判定为点击 (非拖拽)
-      if (dist < 5 && e.target === canvas) {
-        const wPt = screenToWorld(e.clientX, e.clientY);
-
-        if (activeTool === 'point') {
-          const nextNum = String(gisPoints.length + 1).padStart(2, '0');
-          gisPoints.push({
-            id: Date.now(),
-            x: Math.round(wPt.x),
-            y: Math.round(wPt.y),
-            code: nextNum,
-            elevation: `${(20 + Math.random() * 40).toFixed(1)}m`
-          });
-          document.getElementById('statPointCount').textContent = String(gisPoints.length).padStart(2, '0');
-        } else if (activeTool === 'measure') {
-          activeMeasureDraft.push({ x: Math.round(wPt.x), y: Math.round(wPt.y) });
-        } else if (activeTool === 'highlight' || activeTool === 'pan') {
-          // 检测是否点击了某个高亮区
-          highlightZones.forEach((z, idx) => {
-            if (isPointInPolygon(wPt, z.vertices)) {
-              selectedHighlightIndex = idx;
-              updateSelectedFeatureInspector();
+      // =========================================================================
+      // 5. 地图交互工具与要素控制
+      // =========================================================================
+      function setActiveTool(tool) {
+        activeTool = tool
+        ;['pan', 'point', 'measure', 'highlight'].forEach((t) => {
+          const btn = document.getElementById(`tool-${t}`)
+          if (btn) {
+            if (t === tool) {
+              btn.classList.add('btn-accent')
+              btn.classList.remove('hover:bg-slate-500/15')
+            } else {
+              btn.classList.remove('btn-accent')
+              btn.classList.add('hover:bg-slate-500/15')
             }
-          });
+          }
+        })
+
+        canvas.style.cursor = tool === 'pan' ? 'grab' : 'crosshair'
+        if (tool !== 'measure') activeMeasureDraft = []
+        updateToolHint()
+      }
+
+      function updateToolHint() {
+        const dict = I18N[state.lang]
+        const hintEl = document.getElementById('toolHintText')
+        if (!hintEl) return
+        if (activeTool === 'pan') hintEl.textContent = dict.hintPan
+        if (activeTool === 'point') hintEl.textContent = dict.hintPoint
+        if (activeTool === 'measure') hintEl.textContent = dict.hintMeasure
+        if (activeTool === 'highlight') hintEl.textContent = dict.hintHighlight
+      }
+
+      function toggleLayer(layerKey, isVisible) {
+        layers[layerKey] = isVisible
+      }
+
+      function resetMapView() {
+        viewport.offsetX = 0
+        viewport.offsetY = 0
+        viewport.scale = 1.0
+      }
+
+      function addRandomPoint() {
+        const rx = Math.round((Math.random() - 0.5) * 320)
+        const ry = Math.round((Math.random() - 0.5) * 240)
+        const nextNum = String(gisPoints.length + 1).padStart(2, '0')
+        gisPoints.push({
+          id: Date.now(),
+          x: rx,
+          y: ry,
+          code: nextNum,
+          elevation: `${(15 + Math.random() * 45).toFixed(1)}m`,
+        })
+        document.getElementById('statPointCount').textContent = String(gisPoints.length).padStart(
+          2,
+          '0'
+        )
+        showToast(I18N[state.lang].toastPointAdded)
+      }
+
+      function updateSelectedFeatureInspector() {
+        const zone = highlightZones[selectedHighlightIndex]
+        if (!zone) return
+        document.getElementById('selectedFeatureBadge').textContent = zone.id
+        document.getElementById('featName').textContent =
+          state.lang === 'zh' ? zone.nameZh : zone.nameEn
+        document.getElementById('featValue').textContent = zone.val
+      }
+
+      function resetAllSettings() {
+        state = JSON.parse(JSON.stringify(DEFAULT_STATE))
+
+        // 还原输入框 DOM 值
+        document.getElementById('input-opacity').value = state.opacity
+        document.getElementById('input-blur').value = state.blur
+        document.getElementById('input-specular').value = state.specular
+        document.getElementById('input-customThemeColor').value = state.themeColor
+        document.getElementById('val-themeColorName').textContent = 'Blue (#3B82F6)'
+
+        document.getElementById('input-pointColor').value = state.tools.pointColor
+        document.getElementById('input-pointRadius').value = state.tools.pointRadius
+        document.getElementById('input-pointLabel').value = state.tools.pointLabel
+
+        document.getElementById('input-measureFill').value = state.tools.measureFill
+        document.getElementById('input-measureStroke').value = state.tools.measureStroke
+        document.getElementById('input-measureFillAlpha').value = state.tools.measureFillAlpha
+        document.getElementById('input-measureStrokeWidth').value = state.tools.measureStrokeWidth
+        document.getElementById('input-measureDashed').checked = state.tools.measureDashed
+        document.getElementById('input-dashLen').value = state.tools.dashLen
+        document.getElementById('input-dashGap').value = state.tools.dashGap
+
+        document.getElementById('input-highlightColor').value = state.tools.highlightColor
+        document.getElementById('input-highlightGlow').value = state.tools.highlightGlow
+        document.getElementById('input-highlightWidth').value = state.tools.highlightWidth
+        document.getElementById('input-highlightPulse').checked = state.tools.highlightPulse
+
+        // 触发参数同步
+        Object.keys(state.tools).forEach((k) => updateToolParam(k, state.tools[k]))
+        applyVisualSettings()
+        showToast(I18N[state.lang].toastReset)
+      }
+
+      function exportConfigJSON() {
+        const jsonStr = JSON.stringify(state, null, 2)
+        const textarea = document.createElement('textarea')
+        textarea.value = jsonStr
+        document.body.appendChild(textarea)
+        textarea.select()
+        try {
+          document.execCommand('copy')
+        } catch (e) {}
+        document.body.removeChild(textarea)
+        showToast(I18N[state.lang].toastExport)
+      }
+
+      let toastTimer = null
+      function showToast(msg) {
+        const toast = document.getElementById('toastMessage')
+        const text = document.getElementById('toastText')
+        text.textContent = msg
+        toast.classList.remove('opacity-0', 'translate-y-3')
+        toast.classList.add('opacity-100', 'translate-y-0')
+        clearTimeout(toastTimer)
+        toastTimer = setTimeout(() => {
+          toast.classList.remove('opacity-100', 'translate-y-0')
+          toast.classList.add('opacity-0', 'translate-y-3')
+        }, 2400)
+      }
+
+      // =========================================================================
+      // 6. HTML5 Canvas 交互式 GIS 底图与矢量渲染引擎
+      // =========================================================================
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1
+        canvas.width = window.innerWidth * dpr
+        canvas.height = window.innerHeight * dpr
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      }
+
+      function screenToWorld(sx, sy) {
+        const cx = window.innerWidth / 2 + viewport.offsetX
+        const cy = window.innerHeight / 2 + viewport.offsetY
+        return {
+          x: (sx - cx) / viewport.scale,
+          y: (sy - cy) / viewport.scale,
         }
       }
-    });
 
-    canvas.addEventListener('dblclick', (e) => {
-      if (activeTool === 'measure' && activeMeasureDraft.length >= 3) {
-        const fakeArea = (8 + Math.random() * 25).toFixed(2);
-        measurePolygons.push({
-          id: `M-0${measurePolygons.length + 1}`,
-          areaText: `${fakeArea} km²`,
-          vertices: [...activeMeasureDraft]
-        });
-        activeMeasureDraft = [];
+      function worldToScreen(wx, wy) {
+        const cx = window.innerWidth / 2 + viewport.offsetX
+        const cy = window.innerHeight / 2 + viewport.offsetY
+        return {
+          x: cx + wx * viewport.scale,
+          y: cy + wy * viewport.scale,
+        }
       }
-    });
 
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-      const nextScale = Math.min(4.0, Math.max(0.45, viewport.scale * zoomFactor));
-      viewport.scale = nextScale;
-      document.getElementById('zoomDisplay').textContent = `ZOOM: ${(12.5 * viewport.scale).toFixed(1)}x`;
-    }, { passive: false });
+      // 射线法判断点是否在多边形内
+      function isPointInPolygon(pt, vs) {
+        let inside = false
+        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+          const xi = vs[i].x,
+            yi = vs[i].y
+          const xj = vs[j].x,
+            yj = vs[j].y
+          const intersect =
+            yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi + 1e-9) + xi
+          if (intersect) inside = !inside
+        }
+        return inside
+      }
 
-    // 初始化启动
-    window.addEventListener('resize', resizeCanvas);
-    window.onload = function () {
-      lucide.createIcons();
-      resizeCanvas();
-      applyVisualSettings();
-      requestAnimationFrame(renderMapLoop);
-    };
-  </script>
-</body>
+      function renderMapLoop(timestamp) {
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const isDark = state.theme === 'dark'
+
+        // 1. 底图背景色
+        ctx.fillStyle = isDark ? '#080d1a' : '#eef2f6'
+        ctx.fillRect(0, 0, w, h)
+
+        ctx.save()
+        const cx = w / 2 + viewport.offsetX
+        const cy = h / 2 + viewport.offsetY
+        ctx.translate(cx, cy)
+        ctx.scale(viewport.scale, viewport.scale)
+
+        // 2. 绘制模拟地理水系与地形块
+        ctx.beginPath()
+        waterPolygon.forEach((p, idx) => (idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+        ctx.closePath()
+        ctx.fillStyle = isDark ? '#0d1b33' : '#cfe2f7'
+        ctx.fill()
+
+        // 3. 绘制经纬度网格 (Graticule)
+        if (layers.grid) {
+          const gridStep = 60
+          const span = 1200
+          ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.08)' : 'rgba(15, 23, 42, 0.07)'
+          ctx.lineWidth = 1 / viewport.scale
+
+          ctx.beginPath()
+          for (let gx = -span; gx <= span; gx += gridStep) {
+            ctx.moveTo(gx, -span)
+            ctx.lineTo(gx, span)
+          }
+          for (let gy = -span; gy <= span; gy += gridStep) {
+            ctx.moveTo(-span, gy)
+            ctx.lineTo(span, gy)
+          }
+          ctx.stroke()
+
+          // 网格经纬度刻度文字
+          ctx.fillStyle = isDark ? 'rgba(148, 163, 184, 0.32)' : 'rgba(71, 85, 105, 0.45)'
+          ctx.font = `${10 / viewport.scale}px "JetBrains Mono", monospace`
+          for (let gx = -360; gx <= 360; gx += 120) {
+            const lon = (103.8198 + gx * 0.001).toFixed(3)
+            ctx.fillText(`${lon}°E`, gx + 4, -220)
+          }
+        }
+
+        // 4. 绘制城市路网骨架
+        ctx.strokeStyle = isDark ? 'rgba(100, 116, 139, 0.25)' : 'rgba(148, 163, 184, 0.55)'
+        ctx.lineWidth = 3 / viewport.scale
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        roadSegments.forEach((road) => {
+          ctx.beginPath()
+          road.forEach((pt, idx) => (idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)))
+          ctx.stroke()
+        })
+
+        // 5. 绘制【测量多边形 Measure】 -> 实时受工具设置控制
+        if (layers.measure) {
+          const t = state.tools
+          const fillRgb = hexToRgb(t.measureFill)
+          const alpha = t.measureFillAlpha / 100
+
+          measurePolygons.forEach((poly) => {
+            ctx.save()
+            ctx.beginPath()
+            poly.vertices.forEach((v, i) => (i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y)))
+            ctx.closePath()
+
+            // 填充色 + 透明度
+            ctx.fillStyle = `rgba(${fillRgb}, ${alpha})`
+            ctx.fill()
+
+            // 描边 + 描边宽度 + 虚线参数
+            ctx.strokeStyle = t.measureStroke
+            ctx.lineWidth = t.measureStrokeWidth / viewport.scale
+            if (t.measureDashed) {
+              ctx.setLineDash([t.dashLen / viewport.scale, t.dashGap / viewport.scale])
+            } else {
+              ctx.setLineDash([])
+            }
+            ctx.stroke()
+            ctx.setLineDash([])
+
+            // 顶点节点
+            poly.vertices.forEach((v) => {
+              ctx.beginPath()
+              ctx.arc(v.x, v.y, 3.5 / viewport.scale, 0, Math.PI * 2)
+              ctx.fillStyle = '#ffffff'
+              ctx.fill()
+              ctx.strokeStyle = t.measureStroke
+              ctx.lineWidth = 1.5 / viewport.scale
+              ctx.stroke()
+            })
+
+            // 中心面积标注
+            const center = poly.vertices.reduce(
+              (acc, v) => ({
+                x: acc.x + v.x / poly.vertices.length,
+                y: acc.y + v.y / poly.vertices.length,
+              }),
+              { x: 0, y: 0 }
+            )
+            ctx.font = `600 ${11 / viewport.scale}px "JetBrains Mono", monospace`
+            ctx.textAlign = 'center'
+            ctx.fillStyle = isDark ? '#e2e8f0' : '#0f172a'
+            ctx.fillText(poly.areaText, center.x, center.y)
+            ctx.restore()
+          })
+
+          // 正在绘制中的临时测量线段
+          if (activeMeasureDraft.length > 0) {
+            ctx.save()
+            ctx.beginPath()
+            activeMeasureDraft.forEach((v, i) =>
+              i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y)
+            )
+            ctx.strokeStyle = t.measureStroke
+            ctx.lineWidth = t.measureStrokeWidth / viewport.scale
+            if (t.measureDashed) {
+              ctx.setLineDash([t.dashLen / viewport.scale, t.dashGap / viewport.scale])
+            }
+            ctx.stroke()
+            ctx.restore()
+          }
+        }
+
+        // 6. 绘制【高亮选区 Highlight】 -> 实时受高亮参数控制
+        if (layers.highlight) {
+          const t = state.tools
+          const hlRgb = hexToRgb(t.highlightColor)
+          const pulseFactor = t.highlightPulse ? 0.75 + 0.25 * Math.sin(timestamp / 360) : 1.0
+
+          highlightZones.forEach((zone, idx) => {
+            const isSelected = idx === selectedHighlightIndex
+            ctx.save()
+            ctx.beginPath()
+            zone.vertices.forEach((v, i) => (i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y)))
+            ctx.closePath()
+
+            // 内部半透明高亮填充
+            const fillAlpha = isSelected ? 0.22 * pulseFactor : 0.08
+            ctx.fillStyle = `rgba(${hlRgb}, ${fillAlpha})`
+            ctx.fill()
+
+            // 发光光晕与边框
+            if (isSelected) {
+              ctx.shadowColor = t.highlightColor
+              ctx.shadowBlur = t.highlightGlow * pulseFactor
+            }
+            ctx.strokeStyle = isSelected ? t.highlightColor : `rgba(${hlRgb}, 0.55)`
+            ctx.lineWidth = (isSelected ? t.highlightWidth : 1.5) / viewport.scale
+            ctx.stroke()
+            ctx.restore()
+
+            // 区域标识徽章
+            const center = zone.vertices.reduce(
+              (acc, v) => ({
+                x: acc.x + v.x / zone.vertices.length,
+                y: acc.y + v.y / zone.vertices.length,
+              }),
+              { x: 0, y: 0 }
+            )
+            ctx.save()
+            ctx.font = `700 ${11 / viewport.scale}px "Inter", sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillStyle = isSelected ? t.highlightColor : isDark ? '#cbd5e1' : '#334155'
+            ctx.fillText(zone.id, center.x, center.y)
+            ctx.restore()
+          })
+        }
+
+        // 7. 绘制【点位要素 Draw -> Point】 -> 实时受点颜色、半径、Label控制
+        if (layers.points) {
+          const t = state.tools
+          const ptRgb = hexToRgb(t.pointColor)
+          const r = t.pointRadius / viewport.scale
+
+          gisPoints.forEach((pt) => {
+            ctx.save()
+            // 外圈波纹光环
+            ctx.beginPath()
+            ctx.arc(pt.x, pt.y, r * 1.65, 0, Math.PI * 2)
+            ctx.fillStyle = `rgba(${ptRgb}, 0.22)`
+            ctx.fill()
+
+            // 核心点位圆
+            ctx.beginPath()
+            ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2)
+            ctx.fillStyle = t.pointColor
+            ctx.fill()
+            ctx.lineWidth = 2 / viewport.scale
+            ctx.strokeStyle = '#ffffff'
+            ctx.stroke()
+
+            // 渲染 Label 标签 (实时拼接用户输入的 label 文本)
+            const labelPrefix = t.pointLabel.trim()
+            if (labelPrefix.length > 0) {
+              const fullLabel = `${labelPrefix}-${pt.code}`
+              const fontSize = Math.max(10, Math.min(14, t.pointRadius + 3)) / viewport.scale
+              ctx.font = `600 ${fontSize}px "Inter", sans-serif`
+              const textMetrics = ctx.measureText(fullLabel)
+              const padX = 6 / viewport.scale
+              const boxH = fontSize + 6 / viewport.scale
+              const boxX = pt.x + r + 6 / viewport.scale
+              const boxY = pt.y - boxH / 2
+
+              // 标签胶囊背景
+              ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.92)'
+              ctx.beginPath()
+              ctx.roundRect(boxX, boxY, textMetrics.width + padX * 2, boxH, 4 / viewport.scale)
+              ctx.fill()
+              ctx.strokeStyle = `rgba(${ptRgb}, 0.5)`
+              ctx.lineWidth = 1 / viewport.scale
+              ctx.stroke()
+
+              // 标签文字
+              ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a'
+              ctx.textBaseline = 'middle'
+              ctx.fillText(fullLabel, boxX + padX, pt.y)
+            }
+            ctx.restore()
+          })
+        }
+
+        ctx.restore()
+        requestAnimationFrame(renderMapLoop)
+      }
+
+      // =========================================================================
+      // 7. 鼠标与触摸事件绑定 (拖拽、滚轮缩放、点击绘制/高亮)
+      // =========================================================================
+      let pointerDownPos = { x: 0, y: 0 }
+
+      canvas.addEventListener('mousedown', (e) => {
+        pointerDownPos = { x: e.clientX, y: e.clientY }
+        if (activeTool === 'pan') {
+          viewport.isDragging = true
+          viewport.dragStartX = e.clientX - viewport.offsetX
+          viewport.dragStartY = e.clientY - viewport.offsetY
+        }
+      })
+
+      window.addEventListener('mousemove', (e) => {
+        // 更新 Header 实时经纬度
+        const worldPt = screenToWorld(e.clientX, e.clientY)
+        const lon = (103.8198 + worldPt.x * 0.001).toFixed(4)
+        const lat = (1.3521 - worldPt.y * 0.001).toFixed(4)
+        document.getElementById('coordDisplay').textContent = `LON: ${lon}° E  LAT: ${lat}° N`
+
+        if (viewport.isDragging) {
+          viewport.offsetX = e.clientX - viewport.dragStartX
+          viewport.offsetY = e.clientY - viewport.dragStartY
+        }
+      })
+
+      window.addEventListener('mouseup', (e) => {
+        const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y)
+        viewport.isDragging = false
+
+        // 判定为点击 (非拖拽)
+        if (dist < 5 && e.target === canvas) {
+          const wPt = screenToWorld(e.clientX, e.clientY)
+
+          if (activeTool === 'point') {
+            const nextNum = String(gisPoints.length + 1).padStart(2, '0')
+            gisPoints.push({
+              id: Date.now(),
+              x: Math.round(wPt.x),
+              y: Math.round(wPt.y),
+              code: nextNum,
+              elevation: `${(20 + Math.random() * 40).toFixed(1)}m`,
+            })
+            document.getElementById('statPointCount').textContent = String(
+              gisPoints.length
+            ).padStart(2, '0')
+          } else if (activeTool === 'measure') {
+            activeMeasureDraft.push({ x: Math.round(wPt.x), y: Math.round(wPt.y) })
+          } else if (activeTool === 'highlight' || activeTool === 'pan') {
+            // 检测是否点击了某个高亮区
+            highlightZones.forEach((z, idx) => {
+              if (isPointInPolygon(wPt, z.vertices)) {
+                selectedHighlightIndex = idx
+                updateSelectedFeatureInspector()
+              }
+            })
+          }
+        }
+      })
+
+      canvas.addEventListener('dblclick', (e) => {
+        if (activeTool === 'measure' && activeMeasureDraft.length >= 3) {
+          const fakeArea = (8 + Math.random() * 25).toFixed(2)
+          measurePolygons.push({
+            id: `M-0${measurePolygons.length + 1}`,
+            areaText: `${fakeArea} km²`,
+            vertices: [...activeMeasureDraft],
+          })
+          activeMeasureDraft = []
+        }
+      })
+
+      canvas.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault()
+          const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89
+          const nextScale = Math.min(4.0, Math.max(0.45, viewport.scale * zoomFactor))
+          viewport.scale = nextScale
+          document.getElementById('zoomDisplay').textContent =
+            `ZOOM: ${(12.5 * viewport.scale).toFixed(1)}x`
+        },
+        { passive: false }
+      )
+
+      // 初始化启动
+      window.addEventListener('resize', resizeCanvas)
+      window.onload = function () {
+        lucide.createIcons()
+        resizeCanvas()
+        applyVisualSettings()
+        requestAnimationFrame(renderMapLoop)
+      }
+    </script>
+  </body>
 </html>

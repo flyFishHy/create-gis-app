@@ -33,9 +33,23 @@ export { default as FeatureDetails } from './components/FeatureDetails.vue'
 export { default as PropertiesPanel } from './panels/PropertiesPanel.vue'
 export { default as KpiPanel } from './panels/KpiPanel.vue'
 export { default as TimeController } from './panels/TimeController.vue'
-export { default as TimeFilterPicker, default as TimePicker } from './components/time-picker/TimeFilterPicker.vue'
-export type { TimeFilterPickerProps, TimeFilterPickerEmits, TimeGranularity, TimeSelectionMode, TimeSelection, TimeRange } from './components/time-picker/types.js'
-export { startOfPeriod, addPeriod, normalizeTimeSelection } from './components/time-picker/time-period.js'
+export {
+  default as TimeFilterPicker,
+  default as TimePicker,
+} from './components/time-picker/TimeFilterPicker.vue'
+export type {
+  TimeFilterPickerProps,
+  TimeFilterPickerEmits,
+  TimeGranularity,
+  TimeSelectionMode,
+  TimeSelection,
+  TimeRange,
+} from './components/time-picker/types.js'
+export {
+  startOfPeriod,
+  addPeriod,
+  normalizeTimeSelection,
+} from './components/time-picker/time-period.js'
 export { formatTimeSelection, resolveShortcut } from './components/time-picker/time-display.js'
 export type { TimeShortcut } from './components/time-picker/time-display.js'
 export type {

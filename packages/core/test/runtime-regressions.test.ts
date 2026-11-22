@@ -5,10 +5,13 @@ import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from '
 it('keeps services available after UI mount and unmount', async () => {
   const app = createGISApp()
   app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }))
-  app.use({ name: 'ui', install(a, _, scope) {
-    a.registerUIAdapter({ mount() {}, unmount() {}, dispose() {} }, scope)
-    a.registerTool('draw', { id: 'draw', activate() {} }, scope)
-  } })
+  app.use({
+    name: 'ui',
+    install(a, _, scope) {
+      a.registerUIAdapter({ mount() {}, unmount() {}, dispose() {} }, scope)
+      a.registerTool('draw', { id: 'draw', activate() {} }, scope)
+    },
+  })
   await app.init({})
   try {
     await app.mount(document.createElement('div'))
@@ -18,27 +21,42 @@ it('keeps services available after UI mount and unmount', async () => {
     await app.unmount()
     await app.layers.add({ id: 'unmounted', type: 'test' })
     expect(app.layers.list()).toHaveLength(2)
-  } finally { await app.dispose() }
+  } finally {
+    await app.dispose()
+  }
 })
 
 it('reserves pending ids, synchronizes ordering, and isolates observer failures', async () => {
   const app = createGISApp()
   const adapter = new FakeMapAdapter()
-  app.use(createFakeMapPlugin(adapter, { test: { async create() {
-    await Promise.resolve()
-    return { setVisible() {}, setZIndex() {}, dispose() {} }
-  } } }))
+  app.use(
+    createFakeMapPlugin(adapter, {
+      test: {
+        async create() {
+          await Promise.resolve()
+          return { setVisible() {}, setZIndex() {}, dispose() {} }
+        },
+      },
+    })
+  )
   await app.init({})
   try {
-    const results = await Promise.allSettled([app.layers.add({ id: 'a', type: 'test' }), app.layers.add({ id: 'a', type: 'test' })])
-    expect(results.map(r => r.status)).toEqual(['fulfilled', 'rejected'])
+    const results = await Promise.allSettled([
+      app.layers.add({ id: 'a', type: 'test' }),
+      app.layers.add({ id: 'a', type: 'test' }),
+    ])
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'rejected'])
     expect(adapter.handles).toHaveLength(1)
-    app.events.on('layer:added', () => { throw new Error('consumer') })
+    app.events.on('layer:added', () => {
+      throw new Error('consumer')
+    })
     await app.layers.add({ id: 'b', type: 'test' })
     app.layers.setOrder(['b', 'a'])
-    expect(app.layers.list().map(l => l.id)).toEqual(['b', 'a'])
+    expect(app.layers.list().map((l) => l.id)).toEqual(['b', 'a'])
     expect(adapter.handles).toHaveLength(2)
-  } finally { await app.dispose() }
+  } finally {
+    await app.dispose()
+  }
 })
 
 it('updates group metadata after child removal and cleans parent idempotently', async () => {

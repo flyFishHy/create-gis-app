@@ -6,7 +6,8 @@ export class FeatureRendererServiceImpl implements FeatureRendererService {
 
   register(definition: FeatureRendererDefinition): () => void {
     if (!definition.id.trim()) throw new Error('Feature renderer id must be a non-empty string.')
-    if (this.definitions.has(definition.id)) throw new Error(`Feature renderer "${definition.id}" is already registered.`)
+    if (this.definitions.has(definition.id))
+      throw new Error(`Feature renderer "${definition.id}" is already registered.`)
     this.definitions.set(definition.id, Object.freeze({ ...definition }))
     let registered = true
     return () => {
@@ -22,5 +23,7 @@ export class FeatureRendererServiceImpl implements FeatureRendererService {
       .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id))[0]
   }
 
-  clear(): void { this.definitions.clear() }
+  clear(): void {
+    this.definitions.clear()
+  }
 }

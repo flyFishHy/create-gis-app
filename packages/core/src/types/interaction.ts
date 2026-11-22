@@ -7,6 +7,8 @@ export interface FeatureReference {
   /** Selection owner; omitted means a business layer. Other owners manage their own invalidation. */
   readonly source?: string
   readonly id?: string | number
+  /** Opaque identity within the current layer data. It is separate from the business ID. */
+  readonly featureKey?: string
   readonly layerId: string
   readonly properties?: Readonly<Record<string, unknown>>
   readonly geometryType?: string
@@ -20,7 +22,9 @@ export interface LayerIdentifyQuery {
   readonly signal: AbortSignal
 }
 
-export type LayerIdentifyHit = Omit<FeatureReference, 'layerId' | 'source'> & { readonly title?: string }
+export type LayerIdentifyHit = Omit<FeatureReference, 'layerId' | 'source'> & {
+  readonly title?: string
+}
 export type FeaturePickCandidate = FeatureReference & { readonly title?: string }
 
 /** Layer IDs are supplied in front-to-back rendering order. */
@@ -31,9 +35,16 @@ export interface MapFeaturePick {
   readonly candidates: readonly FeaturePickCandidate[]
 }
 
-export type FeaturePickState = { readonly pixel: MapFeaturePick['pixel']; readonly anchor?: MapOverlayAnchor } & (
+export type FeaturePickState = {
+  readonly pixel: MapFeaturePick['pixel']
+  readonly anchor?: MapOverlayAnchor
+} & (
   | { readonly status: 'loading' | 'failed' }
-  | { readonly status: 'choices'; readonly candidates: readonly FeaturePickCandidate[]; readonly incomplete: boolean }
+  | {
+      readonly status: 'choices'
+      readonly candidates: readonly FeaturePickCandidate[]
+      readonly incomplete: boolean
+    }
 )
 
 export interface SelectOptions {

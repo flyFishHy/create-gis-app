@@ -2,7 +2,12 @@ import { GISRuntimeError } from './errors.js'
 import type { ResourceScope, Unsubscribe } from './types.js'
 
 export function assertResourceScopeActive(scope: ResourceScope): void {
-  if (scope.disposed) throw new GISRuntimeError({ code: 'APP_DISPOSED', message: 'Cannot register in a disposed resource scope.', stage: 'resource-registration' })
+  if (scope.disposed)
+    throw new GISRuntimeError({
+      code: 'APP_DISPOSED',
+      message: 'Cannot register in a disposed resource scope.',
+      stage: 'resource-registration',
+    })
 }
 
 export class ResourceScopeImpl implements ResourceScope {

@@ -1,12 +1,14 @@
 import type { MapLocation } from './map.js'
 import type { ResourceScope } from './plugin.js'
 import type { Unsubscribe } from './common.js'
+import type { FeatureReference } from './interaction.js'
 
 export interface SearchResult<T = unknown> extends MapLocation {
   readonly layerId?: string
   readonly id: string
   readonly title: string
   readonly subtitle?: string
+  readonly feature?: FeatureReference
   readonly data?: T
 }
 

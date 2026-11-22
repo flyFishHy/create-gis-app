@@ -30,8 +30,17 @@ see the [UI API](doc/vue-ui-api.md) for lifecycle and ownership rules.
 
 Install workspace dependencies with `pnpm install`, then build all packages
 with `pnpm build`. Run package type checks with `pnpm typecheck`, the unit,
-component, and integration suite with `pnpm test`, or the complete quality gate
-with `pnpm check`.
+component, and integration suite with `pnpm test`.
+
+- `pnpm lint` checks JavaScript, TypeScript, and Vue SFCs with the root ESLint flat config.
+- `pnpm lint:fix` applies ESLint's automatic fixes.
+- `pnpm format` formats source, tests, examples, templates, styles, HTML, and project JSON/YAML.
+- `pnpm format:check` verifies formatting without writing files.
+- `pnpm check` runs lint, formatting verification, type checks, tests, and builds.
+
+Prettier uses single quotes, two-space indentation, no semicolons where JavaScript
+allows it, a print width of 100, ES5 trailing commas, and LF line endings. The
+formatting scripts skip generated files and the pnpm lockfile.
 
 ## Resources
 

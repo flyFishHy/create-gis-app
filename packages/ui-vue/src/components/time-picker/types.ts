@@ -3,8 +3,8 @@ import type { UITimePickerConfig } from '@joinmap/gis-core'
 export const timeGranularities = ['hour', 'day', 'week', 'month', 'year'] as const
 export const timeSelectionModes = ['single', 'range', 'custom-range'] as const
 
-export type TimeGranularity = typeof timeGranularities[number]
-export type TimeSelectionMode = typeof timeSelectionModes[number]
+export type TimeGranularity = (typeof timeGranularities)[number]
+export type TimeSelectionMode = (typeof timeSelectionModes)[number]
 
 export interface TimeRange {
   start: number

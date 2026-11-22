@@ -219,7 +219,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     'tool.draw-polygon': 'Draw polygon',
     'tool.delete-result': 'Delete selected result',
     'tool.modify-result': 'Edit selected result',
-    'tool.hint.modify-result': 'Drag vertices to edit and snap to existing results. Press Esc to exit.',
+    'tool.hint.modify-result':
+      'Drag vertices to edit and snap to existing results. Press Esc to exit.',
     'tool.clear-results': 'Clear all results',
     'tool.results': 'Drawing and measurement results',
     'tool.hint.draw-point': 'Click the map to add a point; press Esc to exit',
@@ -336,7 +337,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     'editor.item': 'Item label',
     'editor.color': 'Legend color',
     'editor.follow': 'Follow map style',
-    'editor.presentation': 'Legend text and standalone swatches affect the legend only. Map colors are edited above.',
+    'editor.presentation':
+      'Legend text and standalone swatches affect the legend only. Map colors are edited above.',
     'editor.image': 'Image',
     'editor.apply': 'Apply',
     'editor.cancel': 'Cancel',
@@ -360,7 +362,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     'layer.state.disposed': 'Removed',
     'legend.empty': 'No legend definitions',
     'properties.emptyTitle': 'No Feature Selected',
-    'properties.empty': 'Click any sensor, pipeline, or zone on the map, or use drawing tools above to create new spatial features.',
+    'properties.empty':
+      'Click any sensor, pipeline, or zone on the map, or use drawing tools above to create new spatial features.',
     'layer.emptyDescription': 'Add layers to manage their order, visibility and opacity here.',
     'legend.emptyDescription': 'Enable a layer with a legend to view its symbols and metrics here.',
     'properties.layer': 'Layer',
@@ -390,12 +393,14 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     'editor.type': 'Classification type',
     'editor.generate': 'Generate rules',
     'editor.generationEmpty': 'This field has no suitable values.',
-    'editor.generationLimit': 'Automatic categories support up to 12 distinct values. Choose another field or add rules manually.',
+    'editor.generationLimit':
+      'Automatic categories support up to 12 distinct values. Choose another field or add rules manually.',
     'workspace.title': 'Workspace configuration',
     'workspace.export': 'Export configuration',
     'workspace.import': 'Import and reload',
     'workspace.exportFailed': 'Could not export the workspace configuration.',
-    'workspace.importFailed': 'Could not import the configuration. Check the JSON file and browser storage.',
+    'workspace.importFailed':
+      'Could not import the configuration. Check the JSON file and browser storage.',
     'status.scale': 'Scale',
     'status.projection': 'Projection',
     'status.movePointer': 'Move pointer over map',

@@ -8,5 +8,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "vitest/globals", "vite/client"]
   },
-  "include": ["packages/**/*.test.ts", "packages/**/test/**/*.ts", "packages/ui-vue/test/vue-shim.d.ts", "vitest.config.ts"]
+  "include": [
+    "packages/**/*.test.ts",
+    "packages/**/test/**/*.ts",
+    "packages/ui-vue/test/vue-shim.d.ts",
+    "vitest.config.ts"
+  ]
 }

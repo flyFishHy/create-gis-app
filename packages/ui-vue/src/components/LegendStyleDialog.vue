@@ -38,7 +38,13 @@ function apply() {
 </script>
 
 <template>
-  <dialog ref="dialog" class="gis-ui-legend-style-dialog" :aria-labelledby="titleId" @keydown.stop @cancel.prevent.stop="close">
+  <dialog
+    ref="dialog"
+    class="gis-ui-legend-style-dialog"
+    :aria-labelledby="titleId"
+    @keydown.stop
+    @cancel.prevent.stop="close"
+  >
     <header class="gis-ui-legend-style-header">
       <h3 :id="titleId">{{ text('moreStyle') }}</h3>
       <LegendAction icon="close" :label="text('cancel')" @click="close" />
@@ -46,7 +52,7 @@ function apply() {
     <form class="gis-ui-legend-style-form" @submit.prevent="apply">
       <label v-if="symbol !== 'line' && symbol !== 'circle'">
         <span>{{ text('fillOpacity') }}</span>
-        <input v-model.number="fillPercent" type="number" min="0" max="100" step="any" required>
+        <input v-model.number="fillPercent" type="number" min="0" max="100" step="any" required />
       </label>
       <div v-if="symbol !== 'line'" class="gis-ui-legend-style-field">
         <span>{{ text('strokeColor') }}</span>
@@ -54,11 +60,17 @@ function apply() {
       </div>
       <label>
         <span>{{ text(symbol === 'line' ? 'lineWidth' : 'strokeWidth') }}</span>
-        <input v-model.number="draft.strokeWidth" type="number" min="0.01" step="any" required>
+        <input v-model.number="draft.strokeWidth" type="number" min="0.01" step="any" required />
       </label>
       <label v-if="symbol !== 'circle'">
         <span>{{ text('lineDash') }}</span>
-        <select :value="draft.lineDash ?? 'solid'" @change="draft.lineDash = ($event.target as HTMLSelectElement).value as UniformLayerStyle['lineDash']">
+        <select
+          :value="draft.lineDash ?? 'solid'"
+          @change="
+            draft.lineDash = ($event.target as HTMLSelectElement)
+              .value as UniformLayerStyle['lineDash']
+          "
+        >
           <option value="solid">{{ text('solid') }}</option>
           <option value="dashed">{{ text('dashed') }}</option>
           <option value="dotted">{{ text('dotted') }}</option>
@@ -66,7 +78,13 @@ function apply() {
       </label>
       <label v-if="symbol === 'line'">
         <span>{{ text('lineCap') }}</span>
-        <select :value="draft.lineCap ?? 'round'" @change="draft.lineCap = ($event.target as HTMLSelectElement).value as UniformLayerStyle['lineCap']">
+        <select
+          :value="draft.lineCap ?? 'round'"
+          @change="
+            draft.lineCap = ($event.target as HTMLSelectElement)
+              .value as UniformLayerStyle['lineCap']
+          "
+        >
           <option value="round">{{ text('round') }}</option>
           <option value="butt">{{ text('butt') }}</option>
           <option value="square">{{ text('square') }}</option>
@@ -74,7 +92,7 @@ function apply() {
       </label>
       <label v-if="symbol === 'circle'">
         <span>{{ text('pointRadius') }}</span>
-        <input v-model.number="draft.pointRadius" type="number" min="0.01" step="any" required>
+        <input v-model.number="draft.pointRadius" type="number" min="0.01" step="any" required />
       </label>
       <footer>
         <button type="button" @click="close">{{ text('dismissStyle') }}</button>

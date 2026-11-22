@@ -10,9 +10,20 @@ const Content = defineComponent({ render: () => h('p', 'Panel content') })
 
 describe('Vue panel system', () => {
   it('applies config overrides and supports registration cleanup and panel state changes', () => {
-    const registry = new PanelRegistry([{ id: 'summary', visible: true, position: 'right', order: 7 }])
-    const unregister = registry.register({ id: 'summary', title: 'Summary', component: Content, defaultVisible: false })
-    expect(registry.getState('summary')).toMatchObject({ visible: true, position: 'right', order: 7 })
+    const registry = new PanelRegistry([
+      { id: 'summary', visible: true, position: 'right', order: 7 },
+    ])
+    const unregister = registry.register({
+      id: 'summary',
+      title: 'Summary',
+      component: Content,
+      defaultVisible: false,
+    })
+    expect(registry.getState('summary')).toMatchObject({
+      visible: true,
+      position: 'right',
+      order: 7,
+    })
     registry.collapse('summary')
     expect(registry.getState('summary')?.collapsed).toBe(true)
     registry.expand('summary')
@@ -28,7 +39,9 @@ describe('Vue panel system', () => {
     const registry = new PanelRegistry()
     registry.register({ id: 'one', title: 'One', component: Content })
     registry.register({ id: 'two', title: 'Two', component: Content })
-    expect(() => registry.register({ id: 'one', title: 'Duplicate', component: Content })).toThrow(/already registered/)
+    expect(() => registry.register({ id: 'one', title: 'Duplicate', component: Content })).toThrow(
+      /already registered/
+    )
     expect(() => registry.setOrder(['one', 'one'])).toThrow(/more than once/)
     expect(() => registry.setOrder(['missing'])).toThrow(/not registered/)
   })
@@ -50,12 +63,27 @@ describe('Vue panel system', () => {
   it('mounts, unmounts, and remounts the official Vue UI with the runtime', async () => {
     const app = createGISApp()
     const extensionCleanup = vi.fn()
-    app.use(createVueUI({
-      extensions: [{ name: 'test-extension', install: (ui) => {
-        const unregister = ui.panels.register({ id: 'test-panel', title: 'Test', component: Content, defaultVisible: true })
-        return () => { unregister(); extensionCleanup() }
-      } }],
-    }))
+    app.use(
+      createVueUI({
+        extensions: [
+          {
+            name: 'test-extension',
+            install: (ui) => {
+              const unregister = ui.panels.register({
+                id: 'test-panel',
+                title: 'Test',
+                component: Content,
+                defaultVisible: true,
+              })
+              return () => {
+                unregister()
+                extensionCleanup()
+              }
+            },
+          },
+        ],
+      })
+    )
     await app.init({ ui: { layout: 'docked-dashboard' } })
 
     const firstTarget = document.createElement('div')

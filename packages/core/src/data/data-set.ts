@@ -9,11 +9,23 @@ export class DataSetImpl<T> implements DataSet<T> {
   private currentData?: T
   private currentError?: Error
 
-  constructor(readonly id: string, readonly cancel?: () => void, private readonly report?: (cause: unknown) => void, private readonly changed?: () => void, private readonly assertWritable?: () => void) {}
+  constructor(
+    readonly id: string,
+    readonly cancel?: () => void,
+    private readonly report?: (cause: unknown) => void,
+    private readonly changed?: () => void,
+    private readonly assertWritable?: () => void
+  ) {}
 
-  get status(): DataSet<T>['status'] { return this.currentStatus }
-  get data(): T | undefined { return this.currentData }
-  get error(): Error | undefined { return this.currentError }
+  get status(): DataSet<T>['status'] {
+    return this.currentStatus
+  }
+  get data(): T | undefined {
+    return this.currentData
+  }
+  get error(): Error | undefined {
+    return this.currentError
+  }
 
   setReady(data: T): void {
     this.assertActive()
@@ -42,7 +54,11 @@ export class DataSetImpl<T> implements DataSet<T> {
     for (const validator of [...this.validators]) validator(data)
     this.setReady(data)
     for (const listener of [...this.listeners]) {
-      try { listener(data) } catch (cause) { this.report?.(cause) }
+      try {
+        listener(data)
+      } catch (cause) {
+        this.report?.(cause)
+      }
     }
   }
 

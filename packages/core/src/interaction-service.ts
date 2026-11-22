@@ -19,36 +19,72 @@ import type {
 const identifyTimeout = 2000
 
 export class InteractionServiceImpl implements InteractionService {
-  private get selection(): FeatureReference | undefined { return this.dependencies.state.interactions.selection ?? undefined }
-  private set selection(selection: FeatureReference | undefined) { this.dependencies.state.setInteractions({ selection: selection ?? null }) }
+  private get selection(): FeatureReference | undefined {
+    return this.dependencies.state.interactions.selection ?? undefined
+  }
+  private set selection(selection: FeatureReference | undefined) {
+    this.dependencies.state.setInteractions({ selection: selection ?? null })
+  }
   private readonly selectionListeners = new Set<(feature: FeatureReference | undefined) => void>()
   private featurePicker?: (pick: FeaturePickState | undefined) => void
   private featurePick?: { controller: AbortController; stop: Unsubscribe; anchoredChoices: boolean }
   private readonly tools = new Map<string, ToolDefinition>()
-  private get activeToolId(): string | undefined { return this.dependencies.state.interactions.activeToolId ?? undefined }
-  private set activeToolId(id: string | undefined) { this.dependencies.state.setInteractions({ activeToolId: id ?? null }) }
+  private get activeToolId(): string | undefined {
+    return this.dependencies.state.interactions.activeToolId ?? undefined
+  }
+  private set activeToolId(id: string | undefined) {
+    this.dependencies.state.setInteractions({ activeToolId: id ?? null })
+  }
   private transition: Promise<void> = Promise.resolve()
   private closed = false
 
-  constructor(private readonly dependencies: InteractionDependencies, private readonly events: EventService) {}
-  private get context(): AppContext { return this.dependencies.context() }
+  constructor(
+    private readonly dependencies: InteractionDependencies,
+    private readonly events: EventService
+  ) {}
+  private get context(): AppContext {
+    return this.dependencies.context()
+  }
 
   select(options?: SelectOptions): void {
-    assertRuntimeStatus(this.dependencies.state.status, 'change selection', 'feature-selection', options?.feature
-      ? writableStatuses : [...writableStatuses, 'disposing', 'error'])
+    assertRuntimeStatus(
+      this.dependencies.state.status,
+      'change selection',
+      'feature-selection',
+      options?.feature ? writableStatuses : [...writableStatuses, 'disposing', 'error']
+    )
     this.cancelFeaturePick()
     const feature = options?.feature
-    this.selection = feature
-      ? Object.freeze({ ...feature, properties: feature.properties ? Object.freeze({ ...feature.properties }) : undefined })
-      : undefined
+    this.selection =
+      feature && this.context.layers.canSelectFeature(feature)
+        ? Object.freeze({
+            ...feature,
+            properties: feature.properties ? Object.freeze({ ...feature.properties }) : undefined,
+          })
+        : undefined
     for (const listener of [...this.selectionListeners]) {
-      try { listener(this.selection) } catch (cause) { this.events.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Selection observer failed.', stage: 'event-listener', cause }) }) }
+      try {
+        listener(this.selection)
+      } catch (cause) {
+        this.events.emit('app:error', {
+          error: new GISRuntimeError({
+            code: 'APP_INVALID_STATE',
+            message: 'Selection observer failed.',
+            stage: 'event-listener',
+            cause,
+          }),
+        })
+      }
     }
     this.events.emit('feature:selected', { feature: this.selection })
   }
 
-  clearSelection(): void { this.select() }
-  getSelection(): FeatureReference | undefined { return this.selection }
+  clearSelection(): void {
+    this.select()
+  }
+  getSelection(): FeatureReference | undefined {
+    return this.selection
+  }
 
   onSelect(listener: (feature: FeatureReference | undefined) => void): Unsubscribe {
     if (this.closed) return () => {}
@@ -57,8 +93,17 @@ export class InteractionServiceImpl implements InteractionService {
   }
 
   registerFeaturePicker(listener: (pick: FeaturePickState | undefined) => void): Unsubscribe {
-    assertRuntimeStatus(this.dependencies.state.status, 'register a feature picker', 'feature-picking')
-    if (this.featurePicker) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'A feature picker is already registered.', stage: 'feature-picking' })
+    assertRuntimeStatus(
+      this.dependencies.state.status,
+      'register a feature picker',
+      'feature-picking'
+    )
+    if (this.featurePicker)
+      throw new GISRuntimeError({
+        code: 'APP_INVALID_STATE',
+        message: 'A feature picker is already registered.',
+        stage: 'feature-picking',
+      })
     this.featurePicker = listener
     return () => {
       if (this.featurePicker !== listener) return
@@ -82,20 +127,35 @@ export class InteractionServiceImpl implements InteractionService {
     const controller = new AbortController()
     const { state, layers, map } = this.context
     const start = state.snapshot()
-    const current = { controller, anchoredChoices: false, stop: state.subscribe(next => {
-      if (next.layers !== start.layers || next.status !== start.status || next.interactions.activeToolId) {
-        this.cancelFeaturePick()
-        return
-      }
-      if (next.map === start.map) return
-      const sameView = next.map.ready === start.map.ready && next.map.projection === start.map.projection
-        && next.map.resolution === start.map.resolution && next.map.zoom === start.map.zoom && next.map.rotation === start.map.rotation
-      this.cancelFeaturePick({ preserveAnchoredChoices: sameView })
-    }) }
+    const current = {
+      controller,
+      anchoredChoices: false,
+      stop: state.subscribe((next) => {
+        if (
+          next.layers !== start.layers ||
+          next.status !== start.status ||
+          next.interactions.activeToolId
+        ) {
+          this.cancelFeaturePick()
+          return
+        }
+        if (next.map === start.map) return
+        const sameView =
+          next.map.ready === start.map.ready &&
+          next.map.projection === start.map.projection &&
+          next.map.resolution === start.map.resolution &&
+          next.map.zoom === start.map.zoom &&
+          next.map.rotation === start.map.rotation
+        this.cancelFeaturePick({ preserveAnchoredChoices: sameView })
+      }),
+    }
     this.featurePick = current
 
     const queries = new Map<string, Promise<readonly FeaturePickCandidate[]>>()
-    const anchor = pick.location && { coordinate: pick.location.coordinate, projection: pick.location.projection }
+    const anchor = pick.location && {
+      coordinate: pick.location.coordinate,
+      projection: pick.location.projection,
+    }
     const position = { pixel: pick.pixel, anchor }
     if (pick.location) {
       const query = { ...pick.location, pixel: pick.pixel, signal: controller.signal }
@@ -112,14 +172,23 @@ export class InteractionServiceImpl implements InteractionService {
       const results = new Map<string, readonly FeaturePickCandidate[]>()
       try {
         const aborted = new Promise<never>((_, reject) => {
-          controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
+          controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {
+            once: true,
+          })
         })
         this.notifyFeaturePicker({ status: 'loading', ...position })
-        await Promise.all([...queries].map(async ([id, query]) => {
-          try { results.set(id, await Promise.race([query, aborted])) }
-          catch { incomplete = true }
-        }))
-      } finally { clearTimeout(timeout) }
+        await Promise.all(
+          [...queries].map(async ([id, query]) => {
+            try {
+              results.set(id, await Promise.race([query, aborted]))
+            } catch {
+              incomplete = true
+            }
+          })
+        )
+      } finally {
+        clearTimeout(timeout)
+      }
       if (this.featurePick !== current) return
 
       const local = new Map<string, FeaturePickCandidate[]>()
@@ -129,7 +198,9 @@ export class InteractionServiceImpl implements InteractionService {
         if (hits) hits.push(candidate)
         else local.set(candidate.layerId, [candidate])
       }
-      candidates = [...new Set([...pick.layerIds, ...local.keys()])].flatMap(id => results.get(id) ?? local.get(id) ?? [])
+      candidates = [...new Set([...pick.layerIds, ...local.keys()])].flatMap(
+        (id) => results.get(id) ?? local.get(id) ?? []
+      )
     }
 
     if (candidates.length > 1 && this.featurePicker) {
@@ -148,8 +219,18 @@ export class InteractionServiceImpl implements InteractionService {
   }
 
   private notifyFeaturePicker(pick: FeaturePickState | undefined): void {
-    try { this.featurePicker?.(pick) }
-    catch (cause) { this.events.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Feature picker observer failed.', stage: 'feature-picking', cause }) }) }
+    try {
+      this.featurePicker?.(pick)
+    } catch (cause) {
+      this.events.emit('app:error', {
+        error: new GISRuntimeError({
+          code: 'APP_INVALID_STATE',
+          message: 'Feature picker observer failed.',
+          stage: 'feature-picking',
+          cause,
+        }),
+      })
+    }
   }
 
   registerTool(id: string, definition: ToolDefinition, resources: ResourceScope): void {
@@ -163,21 +244,31 @@ export class InteractionServiceImpl implements InteractionService {
       })
     }
     this.tools.set(id, definition)
-    try { resources.add(() => this.unregisterTool(id, definition)) }
-    catch (error) { this.tools.delete(id); throw error }
+    try {
+      resources.add(() => this.unregisterTool(id, definition))
+    } catch (error) {
+      this.tools.delete(id)
+      throw error
+    }
   }
 
   activateTool(id: string): Promise<void> {
     return this.enqueue(async () => {
       assertRuntimeStatus(this.dependencies.state.status, 'activate a tool', 'tool-activation')
       const next = this.tools.get(id)
-      if (!next) throw new GISRuntimeError({
-        code: 'TOOL_NOT_FOUND',
-        message: `Tool "${id}" was not found.`,
-        stage: 'tool-activation',
-      })
+      if (!next)
+        throw new GISRuntimeError({
+          code: 'TOOL_NOT_FOUND',
+          message: `Tool "${id}" was not found.`,
+          stage: 'tool-activation',
+        })
       if (this.activeToolId === id) return
-      if (!this.canActivateTool(id)) throw new GISRuntimeError({ code: 'APP_INVALID_STATE', message: `Tool "${id}" is unavailable.`, stage: 'tool-activation' })
+      if (!this.canActivateTool(id))
+        throw new GISRuntimeError({
+          code: 'APP_INVALID_STATE',
+          message: `Tool "${id}" is unavailable.`,
+          stage: 'tool-activation',
+        })
       this.cancelFeaturePick()
 
       const previousId = this.activeToolId
@@ -193,7 +284,11 @@ export class InteractionServiceImpl implements InteractionService {
         if (next.mode !== 'action') this.activeToolId = id
         this.events.emit('tool:activated', { toolId: id })
       } catch (cause) {
-        try { await next.deactivate?.(this.context) } catch { /* keep activation failure as primary */ }
+        try {
+          await next.deactivate?.(this.context)
+        } catch {
+          /* keep activation failure as primary */
+        }
         throw new GISRuntimeError({
           code: 'TOOL_ACTIVATION_FAILED',
           message: `Tool "${id}" failed to activate.`,
@@ -215,7 +310,9 @@ export class InteractionServiceImpl implements InteractionService {
     })
   }
 
-  getActiveTool(): string | undefined { return this.activeToolId }
+  getActiveTool(): string | undefined {
+    return this.activeToolId
+  }
   close(): void {
     this.cancelFeaturePick()
     this.featurePicker = undefined
@@ -224,12 +321,20 @@ export class InteractionServiceImpl implements InteractionService {
     this.tools.clear()
     this.dependencies.state.setInteractions({ selection: null, activeToolId: null })
   }
-  hasTool(id: string): boolean { return this.tools.has(id) }
-  canActivateTool(id: string): boolean {
-    return ['initializing', 'ready', 'mounted', 'unmounted'].includes(this.dependencies.state.status)
-      && this.tools.has(id) && (this.tools.get(id)!.canActivate?.(this.context) ?? true)
+  hasTool(id: string): boolean {
+    return this.tools.has(id)
   }
-  undoActiveTool(): void { if (this.activeToolId && this.canActivateTool(this.activeToolId)) this.tools.get(this.activeToolId)?.undo?.(this.context) }
+  canActivateTool(id: string): boolean {
+    return (
+      ['initializing', 'ready', 'mounted', 'unmounted'].includes(this.dependencies.state.status) &&
+      this.tools.has(id) &&
+      (this.tools.get(id)!.canActivate?.(this.context) ?? true)
+    )
+  }
+  undoActiveTool(): void {
+    if (this.activeToolId && this.canActivateTool(this.activeToolId))
+      this.tools.get(this.activeToolId)?.undo?.(this.context)
+  }
 
   private async unregisterTool(id: string, definition: ToolDefinition): Promise<void> {
     if (this.tools.get(id) !== definition) return

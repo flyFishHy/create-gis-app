@@ -27,15 +27,32 @@ const props = defineProps<{
 
 provide(GISAppKey, props.runtime)
 provide(GISUIContextKey, props.ui)
-const layout = computed(() => props.customLayout ? undefined : props.activeLayout.value)
-provide(DockedPanelMotionKey, computed(() => layout.value === 'docked-dashboard'))
-const hasRightPanels = computed(() => props.ui.panels.list('right').some(panel => props.ui.panels.getState(panel.id)?.visible))
-const drawerVisible = computed(() => props.ui.panels.list('right').some(panel => panel.id === 'properties' && props.ui.panels.getState(panel.id)?.visible))
-const layoutProps = computed(() => ({ ...props.appProps, ...(layout.value === 'docked-dashboard' ? { layout: layout.value, rightVisible: hasRightPanels.value }
-  : layout.value === 'overlay-dashboard' ? { layout: layout.value, drawerVisible: drawerVisible.value } : {}) }))
+const layout = computed(() => (props.customLayout ? undefined : props.activeLayout.value))
+provide(
+  DockedPanelMotionKey,
+  computed(() => layout.value === 'docked-dashboard')
+)
+const hasRightPanels = computed(() =>
+  props.ui.panels.list('right').some((panel) => props.ui.panels.getState(panel.id)?.visible)
+)
+const drawerVisible = computed(() =>
+  props.ui.panels
+    .list('right')
+    .some((panel) => panel.id === 'properties' && props.ui.panels.getState(panel.id)?.visible)
+)
+const layoutProps = computed(() => ({
+  ...props.appProps,
+  ...(layout.value === 'docked-dashboard'
+    ? { layout: layout.value, rightVisible: hasRightPanels.value }
+    : layout.value === 'overlay-dashboard'
+      ? { layout: layout.value, drawerVisible: drawerVisible.value }
+      : {}),
+}))
 
 const theme = shallowRef<Readonly<ThemeOptions>>(props.ui.theme.get())
-const unsubscribeTheme = props.ui.theme.subscribe((next) => { theme.value = next })
+const unsubscribeTheme = props.ui.theme.subscribe((next) => {
+  theme.value = next
+})
 onBeforeUnmount(unsubscribeTheme)
 
 const themeClasses = computed(() => [
@@ -52,13 +69,13 @@ function primaryForeground(color: string | undefined) {
   const hex = color?.match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1]
   if (!hex) return undefined
   const size = hex.length / 3
-  const channels = [0, size, size * 2].map(index => {
+  const channels = [0, size, size * 2].map((index) => {
     const part = hex.slice(index, index + size)
     const value = Number.parseInt(size === 1 ? part.repeat(2) : part, 16) / 255
-    return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
   })
-  const luminance = channels[0]! * .2126 + channels[1]! * .7152 + channels[2]! * .0722
-  return luminance > .179 ? '#000' : '#fff'
+  const luminance = channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722
+  return luminance > 0.179 ? '#000' : '#fff'
 }
 
 const themeStyle = computed<CSSProperties>(() => {
@@ -88,9 +105,11 @@ const themeStyle = computed<CSSProperties>(() => {
     fontSize: '--gis-ui-font-size',
   }
   const tokens = theme.value.tokens ?? {}
-  const style = Object.fromEntries(Object.entries(tokens)
-    .filter(([key, value]) => Object.hasOwn(variables, key) && typeof value === 'string')
-    .map(([key, value]) => [variables[key as keyof ThemeTokens], value])) as CSSProperties
+  const style = Object.fromEntries(
+    Object.entries(tokens)
+      .filter(([key, value]) => Object.hasOwn(variables, key) && typeof value === 'string')
+      .map(([key, value]) => [variables[key as keyof ThemeTokens], value])
+  ) as CSSProperties
   if (tokens.colorBackground) style['--gis-ui-map-background'] = tokens.colorBackground
   const foreground = primaryForeground(tokens.colorPrimary)
   if (foreground) {
@@ -101,7 +120,11 @@ const themeStyle = computed<CSSProperties>(() => {
 })
 const regionStyle = computed(() => ({
   '--gis-ui-configured-left-width': regionWidth(props.ui.panels, 'left'),
-  '--gis-ui-configured-right-width': regionWidth(props.ui.panels, 'right', layout.value === 'overlay-dashboard' ? ['properties'] : []),
+  '--gis-ui-configured-right-width': regionWidth(
+    props.ui.panels,
+    'right',
+    layout.value === 'overlay-dashboard' ? ['properties'] : []
+  ),
   '--gis-ui-configured-drawer-width': cssSize(props.ui.panels.getState('properties')?.width),
 }))
 const appTitle = computed(() => props.runtime.config?.title)
@@ -109,28 +132,58 @@ const appTitle = computed(() => props.runtime.config?.title)
 function handleKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
   const target = event.target
-  if (target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable)) return
+  if (
+    target instanceof HTMLElement &&
+    (target.matches('input,textarea,select') || target.isContentEditable)
+  )
+    return
   try {
-    if (event.key === 'Escape') void props.runtime.interactions.deactivateTool().catch(reportToolError)
-    if (event.key === 'Backspace' && props.runtime.interactions.getActiveTool()) { event.preventDefault(); props.runtime.interactions.undoActiveTool() }
-  } catch (cause) { reportToolError(cause) }
+    if (event.key === 'Escape')
+      void props.runtime.interactions.deactivateTool().catch(reportToolError)
+    if (event.key === 'Backspace' && props.runtime.interactions.getActiveTool()) {
+      event.preventDefault()
+      props.runtime.interactions.undoActiveTool()
+    }
+  } catch (cause) {
+    reportToolError(cause)
+  }
 }
 function reportToolError(cause: unknown) {
-  props.runtime.events.emit('app:error', { error: new GISRuntimeError({ code: 'APP_INVALID_STATE', message: 'Tool shortcut failed.', cause }) })
+  props.runtime.events.emit('app:error', {
+    error: new GISRuntimeError({
+      code: 'APP_INVALID_STATE',
+      message: 'Tool shortcut failed.',
+      cause,
+    }),
+  })
 }
 </script>
 
 <template>
-  <component :is="customLayout ?? DashboardLayout" v-bind="layoutProps" class="gis-ui-root" :class="themeClasses" :style="[themeStyle, regionStyle]"
-    :data-gis-ui-panel-style="panelStyle" @keydown="handleKeydown">
+  <component
+    :is="customLayout ?? DashboardLayout"
+    v-bind="layoutProps"
+    class="gis-ui-root"
+    :class="themeClasses"
+    :style="[themeStyle, regionStyle]"
+    :data-gis-ui-panel-style="panelStyle"
+    @keydown="handleKeydown"
+  >
     <template #title>
       <div class="gis-ui-brand">
         <span class="gis-ui-brand-mark" aria-hidden="true">{{ appTitle?.icon || 'G' }}</span>
         <strong>{{ appTitle?.content || runtime.name || ui.locale.t('app.workspace') }}</strong>
-        <span v-if="appTitle?.subtitle?.trim()" class="gis-ui-brand-subtitle"><span>{{ appTitle.subtitle }}</span></span>
+        <span v-if="appTitle?.subtitle?.trim()" class="gis-ui-brand-subtitle"
+          ><span>{{ appTitle.subtitle }}</span></span
+        >
       </div>
       <div class="gis-ui-header-actions">
-        <DashboardAppearance :panel-style="panelStyle" :layout="layout" :change-layout="changeLayout" :workspace-storage-key="workspaceStorageKey" />
+        <DashboardAppearance
+          :panel-style="panelStyle"
+          :layout="layout"
+          :change-layout="changeLayout"
+          :workspace-storage-key="workspaceStorageKey"
+        />
       </div>
     </template>
     <template #map><MapViewport /><FeaturePicker /><ToolHint /></template>
@@ -143,8 +196,19 @@ function reportToolError(cause: unknown) {
       <PanelHost id="toolbar" />
     </template>
     <template #left><PanelRegion position="left" /></template>
-    <template #right><PanelRegion position="right" :exclude="layout === 'overlay-dashboard' ? ['properties'] : undefined" /></template>
-    <template #drawer><PanelHost v-if="layout === 'overlay-dashboard' && ui.panels.getState('properties')?.position === 'right'" id="properties" animate /></template>
+    <template #right
+      ><PanelRegion
+        position="right"
+        :exclude="layout === 'overlay-dashboard' ? ['properties'] : undefined"
+    /></template>
+    <template #drawer
+      ><PanelHost
+        v-if="
+          layout === 'overlay-dashboard' && ui.panels.getState('properties')?.position === 'right'
+        "
+        id="properties"
+        animate
+    /></template>
     <template #bottom>
       <div class="gis-ui-bottom-content">
         <PanelRegion position="bottom" />

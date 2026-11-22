@@ -4,16 +4,29 @@ import { nextTick } from 'vue'
 import GisSelect from '../src/components/GisSelect.vue'
 
 it('supports keyboard selection, Escape, Tab, typeahead, option changes and outside dismissal', async () => {
-  const wrapper = mount(GisSelect, { attachTo: document.body, props: {
-    modelValue: 'a', label: 'Search layer', options: [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }, { value: 'c', label: 'Charlie' }],
-  } })
+  const wrapper = mount(GisSelect, {
+    attachTo: document.body,
+    props: {
+      modelValue: 'a',
+      label: 'Search layer',
+      options: [
+        { value: 'a', label: 'Alpha' },
+        { value: 'b', label: 'Beta' },
+        { value: 'c', label: 'Charlie' },
+      ],
+    },
+  })
   try {
     const trigger = wrapper.get('[role="combobox"]')
     await trigger.trigger('keydown', { key: 'ArrowDown' })
     expect(trigger.attributes('aria-expanded')).toBe('true')
-    expect(wrapper.findAll('[role="option"]').map(option => option.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+    expect(
+      wrapper.findAll('[role="option"]').map((option) => option.attributes('aria-selected'))
+    ).toEqual(['true', 'false', 'false'])
     await trigger.trigger('keydown', { key: 'ArrowDown' })
-    expect(trigger.attributes('aria-activedescendant')).toBe(wrapper.findAll('[role="option"]')[1]!.attributes('id'))
+    expect(trigger.attributes('aria-activedescendant')).toBe(
+      wrapper.findAll('[role="option"]')[1]!.attributes('id')
+    )
     await trigger.trigger('keydown', { key: 'Enter' })
     expect(wrapper.emitted('update:modelValue')).toEqual([['b']])
     expect(trigger.attributes('aria-expanded')).toBe('false')
@@ -26,7 +39,9 @@ it('supports keyboard selection, Escape, Tab, typeahead, option changes and outs
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     await trigger.trigger('keydown', { key: 'Home' })
     await trigger.trigger('keydown', { key: 'End' })
-    expect(trigger.attributes('aria-activedescendant')).toBe(wrapper.findAll('[role="option"]')[2]!.attributes('id'))
+    expect(trigger.attributes('aria-activedescendant')).toBe(
+      wrapper.findAll('[role="option"]')[2]!.attributes('id')
+    )
     await trigger.trigger('keydown', { key: 'Tab' })
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     await trigger.trigger('click')
@@ -38,5 +53,7 @@ it('supports keyboard selection, Escape, Tab, typeahead, option changes and outs
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     await wrapper.setProps({ disabled: true })
     expect(trigger.attributes('disabled')).toBeDefined()
-  } finally { wrapper.unmount() }
+  } finally {
+    wrapper.unmount()
+  }
 })

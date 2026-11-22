@@ -3,5 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "peerDependencies": { "@joinmap/gis-core": "^0.1.0" }
+  "peerDependencies": {
+    "@joinmap/gis-core": "^0.1.0"
+  }
 }

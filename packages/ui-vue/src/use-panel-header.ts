@@ -5,8 +5,17 @@ export function usePanelHeader(badge: ComputedRef<string>, refresh: () => void):
   const header = inject(PanelHeaderKey, undefined)
   if (!header) return
   header.refresh.value = refresh
-  watch(badge, value => { header.badge.value = value }, { immediate: true, flush: 'sync' })
+  watch(
+    badge,
+    (value) => {
+      header.badge.value = value
+    },
+    { immediate: true, flush: 'sync' }
+  )
   onBeforeUnmount(() => {
-    if (header.refresh.value === refresh) { header.refresh.value = undefined; header.badge.value = '' }
+    if (header.refresh.value === refresh) {
+      header.refresh.value = undefined
+      header.badge.value = ''
+    }
   })
 }

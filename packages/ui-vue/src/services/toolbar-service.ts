@@ -19,8 +19,12 @@ export class ToolbarServiceImpl implements ToolbarService {
   }
 
   list(): ToolbarItemDefinition[] {
-    return this.items.value.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id))
+    return this.items.value
+      .slice()
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id))
   }
 
-  clear(): void { this.items.value = [] }
+  clear(): void {
+    this.items.value = []
+  }
 }

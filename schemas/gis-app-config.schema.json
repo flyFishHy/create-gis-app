@@ -21,9 +21,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "content"
-      ],
+      "required": ["content"],
       "additionalProperties": false
     },
     "map": {
@@ -81,21 +79,13 @@
         "theme": {
           "oneOf": [
             {
-              "enum": [
-                "light",
-                "dark",
-                "system"
-              ]
+              "enum": ["light", "dark", "system"]
             },
             {
               "type": "object",
               "properties": {
                 "mode": {
-                  "enum": [
-                    "light",
-                    "dark",
-                    "system"
-                  ]
+                  "enum": ["light", "dark", "system"]
                 },
                 "tokens": {
                   "type": "object",
@@ -119,10 +109,7 @@
           "uniqueItems": true
         },
         "locale": {
-          "enum": [
-            "zh",
-            "en"
-          ]
+          "enum": ["zh", "en"]
         },
         "timePicker": {
           "type": "object",
@@ -162,7 +149,11 @@
   },
   "$defs": {
     "timeGranularity": { "enum": ["hour", "day", "week", "month", "year"] },
-    "timeTimestamp": { "type": "integer", "minimum": -8640000000000000, "maximum": 8640000000000000 },
+    "timeTimestamp": {
+      "type": "integer",
+      "minimum": -8640000000000000,
+      "maximum": 8640000000000000
+    },
     "jsonValue": {
       "oneOf": [
         {
@@ -193,10 +184,7 @@
     },
     "layer": {
       "type": "object",
-      "required": [
-        "id",
-        "type"
-      ],
+      "required": ["id", "type"],
       "properties": {
         "id": {
           "type": "string",
@@ -224,9 +212,7 @@
             "$ref": "#/$defs/jsonValue"
           },
           "not": {
-            "required": [
-              "style"
-            ]
+            "required": ["style"]
           }
         },
         "children": {
@@ -250,9 +236,7 @@
                 "const": "GROUP"
               }
             },
-            "required": [
-              "type"
-            ]
+            "required": ["type"]
           },
           "then": {
             "properties": {
@@ -261,9 +245,7 @@
                 "minItems": 1
               }
             },
-            "required": [
-              "children"
-            ]
+            "required": ["children"]
           }
         },
         {
@@ -275,15 +257,11 @@
                 }
               }
             },
-            "required": [
-              "type"
-            ]
+            "required": ["type"]
           },
           "then": {
             "not": {
-              "required": [
-                "children"
-              ]
+              "required": ["children"]
             }
           }
         }
@@ -292,18 +270,13 @@
     },
     "dataSource": {
       "type": "object",
-      "required": [
-        "type"
-      ],
+      "required": ["type"],
       "properties": {
         "id": {
           "type": "string"
         },
         "type": {
-          "enum": [
-            "url",
-            "inline"
-          ]
+          "enum": ["url", "inline"]
         },
         "url": {
           "type": "string",
@@ -313,10 +286,7 @@
           "$ref": "#/$defs/jsonValue"
         },
         "format": {
-          "enum": [
-            "json",
-            "text"
-          ]
+          "enum": ["json", "text"]
         }
       },
       "allOf": [
@@ -327,14 +297,10 @@
                 "const": "url"
               }
             },
-            "required": [
-              "type"
-            ]
+            "required": ["type"]
           },
           "then": {
-            "required": [
-              "url"
-            ]
+            "required": ["url"]
           }
         },
         {
@@ -344,14 +310,10 @@
                 "const": "inline"
               }
             },
-            "required": [
-              "type"
-            ]
+            "required": ["type"]
           },
           "then": {
-            "required": [
-              "data"
-            ]
+            "required": ["data"]
           }
         }
       ],
@@ -359,9 +321,7 @@
     },
     "panel": {
       "type": "object",
-      "required": [
-        "id"
-      ],
+      "required": ["id"],
       "properties": {
         "id": {
           "type": "string",
@@ -374,13 +334,7 @@
           "type": "boolean"
         },
         "position": {
-          "enum": [
-            "left",
-            "right",
-            "top",
-            "bottom",
-            "floating"
-          ]
+          "enum": ["left", "right", "top", "bottom", "floating"]
         },
         "order": {
           "type": "number"
@@ -414,10 +368,7 @@
     },
     "legendItem": {
       "type": "object",
-      "required": [
-        "id",
-        "label"
-      ],
+      "required": ["id", "label"],
       "properties": {
         "id": {
           "type": "string",
@@ -430,49 +381,31 @@
           "type": "string"
         },
         "symbol": {
-          "enum": [
-            "fill",
-            "line",
-            "circle",
-            "square"
-          ]
+          "enum": ["fill", "line", "circle", "square"]
         },
         "visible": {
           "type": "boolean"
         },
         "value": {
-          "type": [
-            "string",
-            "number",
-            "boolean"
-          ]
+          "type": ["string", "number", "boolean"]
         },
         "values": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": [
-              "string",
-              "number",
-              "boolean"
-            ]
+            "type": ["string", "number", "boolean"]
           }
         }
       },
       "additionalProperties": false,
       "not": {
-        "required": [
-          "value",
-          "values"
-        ]
+        "required": ["value", "values"]
       }
     },
     "legend": {
       "type": "object",
-      "required": [
-        "type"
-      ],
+      "required": ["type"],
       "properties": {
         "id": {
           "type": "string",
@@ -482,12 +415,7 @@
           "type": "string"
         },
         "type": {
-          "enum": [
-            "category",
-            "continuous",
-            "interval",
-            "image"
-          ]
+          "enum": ["category", "continuous", "interval", "image"]
         },
         "useLayerStyle": {
           "type": "boolean"
@@ -502,10 +430,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "value",
-              "color"
-            ],
+            "required": ["value", "color"],
             "properties": {
               "value": {
                 "type": "number"
@@ -541,14 +466,10 @@
       "allOf": [
         {
           "if": {
-            "required": [
-              "ranges"
-            ]
+            "required": ["ranges"]
           },
           "then": {
-            "required": [
-              "field"
-            ],
+            "required": ["field"],
             "properties": {
               "type": {
                 "const": "interval"
@@ -558,9 +479,7 @@
         },
         {
           "if": {
-            "required": [
-              "field"
-            ],
+            "required": ["field"],
             "properties": {
               "type": {
                 "const": "category"
@@ -573,14 +492,10 @@
                 "items": {
                   "anyOf": [
                     {
-                      "required": [
-                        "values"
-                      ]
+                      "required": ["values"]
                     },
                     {
-                      "required": [
-                        "value"
-                      ]
+                      "required": ["value"]
                     }
                   ]
                 }
@@ -625,12 +540,7 @@
     },
     "legendRange": {
       "type": "object",
-      "required": [
-        "id",
-        "min",
-        "max",
-        "color"
-      ],
+      "required": ["id", "min", "max", "color"],
       "properties": {
         "id": {
           "type": "string",

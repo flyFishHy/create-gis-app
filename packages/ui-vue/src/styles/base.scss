@@ -12,10 +12,20 @@
   display: grid;
   overflow: hidden;
   color: var(--gis-ui-text);
-  background: var(--gis-ui-workspace-background,
-    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--gis-ui-primary) 12%, transparent), transparent 32rem),
-    radial-gradient(circle at 92% 100%, color-mix(in srgb, var(--gis-ui-accent-secondary) 9%, transparent), transparent 28rem),
-    var(--gis-ui-background));
+  background: var(
+    --gis-ui-workspace-background,
+    radial-gradient(
+      circle at 8% 0%,
+      color-mix(in srgb, var(--gis-ui-primary) 12%, transparent),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at 92% 100%,
+      color-mix(in srgb, var(--gis-ui-accent-secondary) 9%, transparent),
+      transparent 28rem
+    ),
+    var(--gis-ui-background)
+  );
   font-family: var(--gis-ui-font-family);
   font-size: var(--gis-ui-font-size);
   line-height: 1.45;
@@ -82,7 +92,7 @@
   background: #182230;
   box-shadow: 0 4px 12px #10182826;
   color: #f9fafb;
-  font: var(--gis-ui-font-sm, .8125rem)/1.4 var(--gis-ui-font-family, system-ui, sans-serif);
+  font: var(--gis-ui-font-sm, 0.8125rem)/1.4 var(--gis-ui-font-family, system-ui, sans-serif);
   text-align: left;
   overflow-wrap: anywhere;
   pointer-events: none;

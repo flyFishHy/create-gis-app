@@ -15,7 +15,9 @@ it('does not adopt an independent replacement with a former child ID', async () 
     expect(app.layers.get('child')!.visible).toBe(true)
     await app.layers.remove('group')
     expect(app.layers.has('child')).toBe(true)
-  } finally { await app.dispose() }
+  } finally {
+    await app.dispose()
+  }
 })
 
 it('validates before commit and isolates observers after commit', async () => {
@@ -23,9 +25,13 @@ it('validates before commit and isolates observers after commit', async () => {
   await app.init({})
   try {
     const data = await app.data.load<number>({ type: 'inline', data: 1 })
-    data.validate(value => { if (value < 0) throw new Error('negative') })
+    data.validate((value) => {
+      if (value < 0) throw new Error('negative')
+    })
     const listener = vi.fn()
-    data.subscribe(() => { throw new Error('observer') })
+    data.subscribe(() => {
+      throw new Error('observer')
+    })
     data.subscribe(listener)
     expect(() => data.update(-1)).toThrow('negative')
     expect(data.data).toBe(1)
@@ -33,17 +39,25 @@ it('validates before commit and isolates observers after commit', async () => {
     expect(listener).not.toHaveBeenCalled()
     data.update(2)
     expect(listener).toHaveBeenCalledWith(2)
-  } finally { await app.dispose() }
+  } finally {
+    await app.dispose()
+  }
 })
 
 it('attempts handle disposal even when adapter removal fails', async () => {
   const app = createGISApp()
   const adapter = new FakeMapAdapter()
   const dispose = vi.fn()
-  app.use(createFakeMapPlugin(adapter, { test: createFakeLayerDefinition(() => ({ setVisible() {}, setZIndex() {}, dispose })) }))
+  app.use(
+    createFakeMapPlugin(adapter, {
+      test: createFakeLayerDefinition(() => ({ setVisible() {}, setZIndex() {}, dispose })),
+    })
+  )
   await app.init({})
   await app.layers.add({ id: 'test', type: 'test' })
-  vi.spyOn(adapter, 'removeLayer').mockImplementation(() => { throw new Error('remove failed') })
+  vi.spyOn(adapter, 'removeLayer').mockImplementation(() => {
+    throw new Error('remove failed')
+  })
   await expect(app.layers.remove('test')).rejects.toMatchObject({ code: 'APP_DISPOSE_FAILED' })
   expect(dispose).toHaveBeenCalledOnce()
   await app.dispose()
@@ -55,10 +69,22 @@ it('waits for pending creation cleanup and releases plugins before the map', asy
   let finish!: () => void
   const disposed = vi.fn()
   const pluginCleanup = vi.fn(() => expect(adapter.destroyed).toBe(false))
-  app.use(createFakeMapPlugin(adapter, { test: { create: () => new Promise(resolve => {
-    finish = () => resolve({ setVisible() {}, setZIndex() {}, dispose: disposed })
-  }) } }))
-  app.use({ name: 'extension', install(_, __, resources) { resources.add(pluginCleanup) } })
+  app.use(
+    createFakeMapPlugin(adapter, {
+      test: {
+        create: () =>
+          new Promise((resolve) => {
+            finish = () => resolve({ setVisible() {}, setZIndex() {}, dispose: disposed })
+          }),
+      },
+    })
+  )
+  app.use({
+    name: 'extension',
+    install(_, __, resources) {
+      resources.add(pluginCleanup)
+    },
+  })
   await app.init({})
   const adding = app.layers.add({ id: 'pending', type: 'test' })
   const rejected = expect(adding).rejects.toMatchObject({ code: 'APP_DISPOSED' })

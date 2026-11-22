@@ -38,7 +38,10 @@ export interface AppStateSnapshot {
   readonly map: MapStateSnapshot
   readonly layers: readonly LayerStateSnapshot[]
   readonly data: readonly DataStateSnapshot[]
-  readonly interactions: { readonly activeToolId: string | null; readonly selection: FeatureReference | null }
+  readonly interactions: {
+    readonly activeToolId: string | null
+    readonly selection: FeatureReference | null
+  }
   readonly extensions: Readonly<Record<string, JsonValue>>
 }
 

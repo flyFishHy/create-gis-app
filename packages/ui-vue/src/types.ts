@@ -1,6 +1,14 @@
 import type { Component } from 'vue'
 import type { UIConfig, SearchService } from '@joinmap/gis-core'
-import type { FeatureReference, LegendDefinition, LegendItem, LegendStop, PanelConfig, PanelDescriptor, PanelPosition } from '@joinmap/gis-core'
+import type {
+  FeatureReference,
+  LegendDefinition,
+  LegendItem,
+  LegendStop,
+  PanelConfig,
+  PanelDescriptor,
+  PanelPosition,
+} from '@joinmap/gis-core'
 
 export type BuiltinLayoutName = 'docked-dashboard' | 'overlay-dashboard'
 
@@ -44,7 +52,13 @@ export interface PanelService {
   getState(id: string): PanelState | undefined
 }
 
-export type { SearchResult, SearchQuery, SearchProvider, SearchService, UIConfig } from '@joinmap/gis-core'
+export type {
+  SearchResult,
+  SearchQuery,
+  SearchProvider,
+  SearchService,
+  UIConfig,
+} from '@joinmap/gis-core'
 
 export interface ToolbarItemDefinition {
   readonly display?: () => string
@@ -169,4 +183,11 @@ export interface VueUIOptions {
   statusComponent?: Component
 }
 
-export type { LegendDefinition, LegendItem, LegendStop, PanelConfig, PanelDescriptor, PanelPosition }
+export type {
+  LegendDefinition,
+  LegendItem,
+  LegendStop,
+  PanelConfig,
+  PanelDescriptor,
+  PanelPosition,
+}

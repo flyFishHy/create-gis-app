@@ -28,12 +28,16 @@ describe('Context and app snapshots', () => {
       expect(other.context.state.snapshot().status).toBe('created')
       expect(initial.status).toBe('created')
       expect(initial.map.ready).toBe(false)
-      expect(() => { (context as unknown as { map: unknown }).map = {} }).toThrow()
+      expect(() => {
+        ;(context as unknown as { map: unknown }).map = {}
+      }).toThrow()
       await app.layers.add({ id: 'one', type: 'test' })
       const one = context.state.snapshot()
       expect(Object.isFrozen(one.layers)).toBe(true)
       expect(Object.isFrozen(one.layers[0])).toBe(true)
-      expect(() => { (one.layers as unknown as unknown[]).push({}) }).toThrow()
+      expect(() => {
+        ;(one.layers as unknown as unknown[]).push({})
+      }).toThrow()
       expect(context.state.snapshot()).toBe(one)
       app.map.getView().setZoom(8)
       expect(context.state.snapshot().layers).toBe(one.layers)
@@ -41,7 +45,10 @@ describe('Context and app snapshots', () => {
       expect(context.state.snapshot().interactions).toBe(one.interactions)
       expect(context.state.snapshot().map.zoom).toBe(8)
       expect(one.map.zoom).toBe(3)
-    } finally { await app.dispose(); await other.dispose() }
+    } finally {
+      await app.dispose()
+      await other.dispose()
+    }
     expect(context.state.snapshot().status).toBe('disposed')
     expect(context.state.snapshot().layers).toHaveLength(0)
     expect(context.state.snapshot().map.ready).toBe(false)
@@ -51,29 +58,55 @@ describe('Context and app snapshots', () => {
     const app = createGISApp()
     let callback: AppContext | undefined
     app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }))
-    app.use({ name: 'tools', install(a, _, scope) {
-      a.registerTool('draw', { id: 'draw', activate(context) { callback = context } }, scope)
-    } })
+    app.use({
+      name: 'tools',
+      install(a, _, scope) {
+        a.registerTool(
+          'draw',
+          {
+            id: 'draw',
+            activate(context) {
+              callback = context
+            },
+          },
+          scope
+        )
+      },
+    })
     await app.init({})
     try {
       const seen: DeepReadonly<AppStateSnapshot>[] = []
-      const stop = app.context.state.subscribe(snapshot => seen.push(snapshot))
+      const stop = app.context.state.subscribe((snapshot) => seen.push(snapshot))
       await app.layers.add({ id: 'one', type: 'test' })
-      app.interactions.select({ feature: { layerId: 'one', id: 1, properties: { nested: { title: 'A' } } } })
+      app.interactions.select({
+        feature: { layerId: 'one', id: 1, properties: { nested: { title: 'A' } } },
+      })
       const selected = app.context.state.snapshot()
       app.layers.setVisibility('one', false)
       expect(app.interactions.getSelection()).toBeUndefined()
       expect(app.context.state.snapshot().interactions.selection).toBeNull()
       expect(selected.interactions.selection?.id).toBe(1)
-      expect(seen.every(snapshot => !snapshot.interactions.selection || snapshot.layers.some(layer => layer.id === snapshot.interactions.selection!.layerId && layer.visible))).toBe(true)
+      expect(
+        seen.every(
+          (snapshot) =>
+            !snapshot.interactions.selection ||
+            snapshot.layers.some(
+              (layer) => layer.id === snapshot.interactions.selection!.layerId && layer.visible
+            )
+        )
+      ).toBe(true)
       await app.interactions.activateTool('draw')
       expect(callback).toBe(app.context)
       expect(app.context.state.snapshot().interactions.activeToolId).toBe('draw')
       const dispose = app.data.load({ id: 'data', type: 'inline', data: { huge: [1, 2, 3] } })
       await dispose
-      expect(app.context.state.snapshot().data).toEqual([{ id: 'data', status: 'ready', error: null }])
+      expect(app.context.state.snapshot().data).toEqual([
+        { id: 'data', status: 'ready', error: null },
+      ])
       stop()
-    } finally { await app.dispose() }
+    } finally {
+      await app.dispose()
+    }
   })
 
   it('owns extension registration cleanup and isolates throwing subscribers', async () => {
@@ -81,16 +114,32 @@ describe('Context and app snapshots', () => {
     let value = 1
     let changed = () => {}
     const cleanup = vi.fn()
-    app.use({ name: 'slice', install(a, _, scope) {
-      a.registerStateSlice('example', { snapshot: () => ({ value }), subscribe(listener) { changed = listener; return cleanup } }, scope)
-    } })
+    app.use({
+      name: 'slice',
+      install(a, _, scope) {
+        a.registerStateSlice(
+          'example',
+          {
+            snapshot: () => ({ value }),
+            subscribe(listener) {
+              changed = listener
+              return cleanup
+            },
+          },
+          scope
+        )
+      },
+    })
     await app.init({})
     const errors = vi.fn()
     app.events.on('app:error', errors)
     const good = vi.fn()
-    app.context.state.subscribe(() => { throw new Error('observer') })
+    app.context.state.subscribe(() => {
+      throw new Error('observer')
+    })
     app.context.state.subscribe(good)
-    value = 2; changed()
+    value = 2
+    changed()
     expect(app.context.state.snapshot().extensions.example).toEqual({ value: 2 })
     expect(good).toHaveBeenCalled()
     expect(errors).toHaveBeenCalled()

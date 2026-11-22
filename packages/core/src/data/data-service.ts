@@ -16,14 +16,20 @@ import type {
 
 export class DataServiceImpl implements DataService {
   private readonly dataSets = new Map<string, DataSetImpl<unknown>>()
-  private readonly processors = new Map<string, DataProcessor<any, any>>()
+  private readonly processors = new Map<string, DataProcessor>()
   private sequence = 0
   private readonly tasks = new Set<Promise<unknown>>()
 
   constructor(private readonly dependencies: ServiceDependencies) {}
-  private get context(): AppContext { return this.dependencies.context() }
+  private get context(): AppContext {
+    return this.dependencies.context()
+  }
   snapshot(): readonly DataStateSnapshot[] {
-    return [...this.dataSets.values()].map(data => ({ id: data.id, status: data.status, error: data.error?.message ?? null }))
+    return [...this.dataSets.values()].map((data) => ({
+      id: data.id,
+      status: data.status,
+      error: data.error?.message ?? null,
+    }))
   }
 
   registerProcessor<Input, Output>(name: string, processor: DataProcessor<Input, Output>): void {
@@ -34,23 +40,37 @@ export class DataServiceImpl implements DataService {
         stage: 'data-processor-registration',
       })
     }
-    this.processors.set(name, processor as DataProcessor<any, any>)
+    this.processors.set(name, processor)
   }
 
-  unregisterProcessor(name: string, processor: DataProcessor<any, any>): void {
+  unregisterProcessor(name: string, processor: DataProcessor): void {
     if (this.processors.get(name) === processor) this.processors.delete(name)
   }
 
-  async load<T = unknown>(source: DataSourceConfig, options: DataLoadOptions = {}): Promise<DataSet<T>> {
+  async load<T = unknown>(
+    source: DataSourceConfig,
+    options: DataLoadOptions = {}
+  ): Promise<DataSet<T>> {
     const task = this.loadInternal<T>(source, options)
     this.tasks.add(task)
-    try { return await task } finally { this.tasks.delete(task) }
+    try {
+      return await task
+    } finally {
+      this.tasks.delete(task)
+    }
   }
 
-  abortPending(): void { for (const data of this.dataSets.values()) data.cancel?.() }
-  async settle(): Promise<void> { while (this.tasks.size) await Promise.allSettled([...this.tasks]) }
+  abortPending(): void {
+    for (const data of this.dataSets.values()) data.cancel?.()
+  }
+  async settle(): Promise<void> {
+    while (this.tasks.size) await Promise.allSettled([...this.tasks])
+  }
 
-  private async loadInternal<T>(source: DataSourceConfig, options: DataLoadOptions): Promise<DataSet<T>> {
+  private async loadInternal<T>(
+    source: DataSourceConfig,
+    options: DataLoadOptions
+  ): Promise<DataSet<T>> {
     this.assertRuntimeActive('load data')
     const id = options.id ?? source.id ?? `dataset-${++this.sequence}`
     if (this.dataSets.has(id)) {
@@ -64,9 +84,21 @@ export class DataServiceImpl implements DataService {
     const abortFromCaller = () => controller.abort(options.signal?.reason)
     if (options.signal?.aborted) abortFromCaller()
     else options.signal?.addEventListener('abort', abortFromCaller, { once: true })
-    const dataSet = new DataSetImpl<T>(id, () => controller.abort(), cause => this.context.events.emit('app:error', {
-      error: new GISRuntimeError({ code: 'DATA_LOAD_FAILED', message: 'Data observer failed.', stage: 'data-observer', cause }),
-    }), () => this.dependencies.state.refresh(), () => this.assertRuntimeActive('update data'))
+    const dataSet = new DataSetImpl<T>(
+      id,
+      () => controller.abort(),
+      (cause) =>
+        this.context.events.emit('app:error', {
+          error: new GISRuntimeError({
+            code: 'DATA_LOAD_FAILED',
+            message: 'Data observer failed.',
+            stage: 'data-observer',
+            cause,
+          }),
+        }),
+      () => this.dependencies.state.refresh(),
+      () => this.assertRuntimeActive('update data')
+    )
     this.dataSets.set(id, dataSet as DataSetImpl<unknown>)
     this.dependencies.state.refresh()
 
@@ -137,7 +169,11 @@ export class DataServiceImpl implements DataService {
   async clear(): Promise<void> {
     const errors: unknown[] = []
     for (const dataSet of [...this.dataSets.values()].reverse()) {
-      try { await dataSet.dispose() } catch (error) { errors.push(error) }
+      try {
+        await dataSet.dispose()
+      } catch (error) {
+        errors.push(error)
+      }
     }
     this.dataSets.clear()
     this.dependencies.state.refresh()
@@ -151,11 +187,19 @@ export class DataServiceImpl implements DataService {
     }
   }
 
-  registerProcessorResource<Input, Output>(name: string, processor: DataProcessor<Input, Output>, resources: ResourceScope): void {
+  registerProcessorResource<Input, Output>(
+    name: string,
+    processor: DataProcessor<Input, Output>,
+    resources: ResourceScope
+  ): void {
     assertResourceScopeActive(resources)
     this.registerProcessor(name, processor)
-    try { resources.add(() => this.unregisterProcessor(name, processor as DataProcessor<any, any>)) }
-    catch (error) { this.unregisterProcessor(name, processor); throw error }
+    try {
+      resources.add(() => this.unregisterProcessor(name, processor))
+    } catch (error) {
+      this.unregisterProcessor(name, processor)
+      throw error
+    }
   }
 
   private assertRuntimeActive(action: string): void {

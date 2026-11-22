@@ -10,9 +10,15 @@ export function createExamplePlugin(): GISPlugin<ExamplePluginOptions> {
     name: 'example-data-plugin',
     install(app, options, resources) {
       const prefix = options?.prefix ?? 'normalized'
-      app.registerDataProcessor(`${prefix}:identity`, {
-        process(input) { return input },
-      }, resources)
+      app.registerDataProcessor(
+        `${prefix}:identity`,
+        {
+          process(input) {
+            return input
+          },
+        },
+        resources
+      )
     },
   }
 }

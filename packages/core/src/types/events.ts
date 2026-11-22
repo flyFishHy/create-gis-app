@@ -15,7 +15,13 @@ export interface GISAppEvents {
 }
 
 export interface EventService {
-  on<K extends keyof GISAppEvents>(event: K, listener: (payload: GISAppEvents[K]) => void): Unsubscribe
-  once<K extends keyof GISAppEvents>(event: K, listener: (payload: GISAppEvents[K]) => void): Unsubscribe
+  on<K extends keyof GISAppEvents>(
+    event: K,
+    listener: (payload: GISAppEvents[K]) => void
+  ): Unsubscribe
+  once<K extends keyof GISAppEvents>(
+    event: K,
+    listener: (payload: GISAppEvents[K]) => void
+  ): Unsubscribe
   emit<K extends keyof GISAppEvents>(event: K, payload: GISAppEvents[K]): void
 }

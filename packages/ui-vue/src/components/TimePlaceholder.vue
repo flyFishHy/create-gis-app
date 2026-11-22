@@ -5,7 +5,13 @@ const ui = useGISUI()
 </script>
 
 <template>
-  <button type="button" class="gis-ui-time-placeholder" disabled :aria-label="ui.locale.t('time.placeholder')" :title="ui.locale.t('time.placeholder')">
+  <button
+    type="button"
+    class="gis-ui-time-placeholder"
+    disabled
+    :aria-label="ui.locale.t('time.placeholder')"
+    :title="ui.locale.t('time.placeholder')"
+  >
     <SvgIcon name="calendar" :size="17" />
     <span>{{ ui.locale.t('time.placeholder') }}</span>
   </button>

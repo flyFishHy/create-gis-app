@@ -937,6 +937,12 @@ OpenLayers 每个地图实例监听一次 `singleclick`，收集本地候选以�
 OpenLayers 使用原生 `Overlay` 跟踪位置，靠近边缘时调整弹框位置，地图范围外时隐藏。
 适配器负责浮层及监听器的释放。
 
+地图点选和 GeoJSON 搜索共用要素引用。`SearchResult.feature` 可用于定位后提交
+选择。引用的 `featureKey` 标识当前数据内的要素，业务 ID 继续通过 `id` 表达。
+OpenLayers 适配器监听选择，用私有矢量图层绘制几何副本。图层可通过
+`MapLayerHandle.canSelectFeature` 校验引用是否有效或符合当前过滤条件。时间、
+图例过滤或数据更新导致要素失效时，选择、高亮和属性联动一起清除。
+
 ``` ts
 export interface InteractionService {
   select(options?: SelectOptions): void

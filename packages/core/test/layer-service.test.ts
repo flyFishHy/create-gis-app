@@ -4,17 +4,55 @@ import type { LayerConfig, MapLayerHandle } from '../src/types.js'
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js'
 
 describe('LayerService', () => {
+  it('rejects stale references at selection and revalidates the active feature after filtering', async () => {
+    let activeKey = 'before'
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, {
+        test: createFakeLayerDefinition(() => ({
+          setVisible() {},
+          setZIndex() {},
+          dispose() {},
+          canSelectFeature: (feature) => feature.featureKey === activeKey,
+          supportsLegendFilter: () => true,
+          setLegendFilter(ruleId) {
+            activeKey = ruleId ?? 'before'
+          },
+        })),
+      })
+    )
+    try {
+      await app.init({ layers: [{ id: 'places', type: 'test' }] })
+      const feature = { layerId: 'places', featureKey: 'before' }
+      app.interactions.select({ feature })
+      expect(app.interactions.getSelection()).toEqual(feature)
+      app.layers.get('places')!.setLegendFilter('after')
+      expect(app.interactions.getSelection()).toBeUndefined()
+      app.interactions.select({ feature })
+      expect(app.interactions.getSelection()).toBeUndefined()
+    } finally {
+      await app.dispose()
+    }
+  })
+
   it('uses one path for configured and dynamically added layers, and releases handles on remove', async () => {
     const adapter = new FakeMapAdapter()
     const handles = new Map<string, MapLayerHandle>()
     const makeLayer = (config: LayerConfig) => {
-      const handle: MapLayerHandle = { setVisible: vi.fn(), setZIndex: vi.fn(), update: vi.fn(), dispose: vi.fn() }
+      const handle: MapLayerHandle = {
+        setVisible: vi.fn(),
+        setZIndex: vi.fn(),
+        update: vi.fn(),
+        dispose: vi.fn(),
+      }
       handles.set(config.id, handle)
       return handle
     }
     const app = createGISApp()
     app.use(createFakeMapPlugin(adapter, { raster: createFakeLayerDefinition(makeLayer) }))
-    await app.init({ map: { center: [1, 2], zoom: 3 }, layers: [{ id: 'initial', type: 'raster', title: 'Initial' }] })
+    await app.init({
+      map: { center: [1, 2], zoom: 3 },
+      layers: [{ id: 'initial', type: 'raster', title: 'Initial' }],
+    })
 
     const added = await app.layers.add({ id: 'dynamic', type: 'raster', visible: false })
     expect(app.layers.list().map((layer) => layer.id)).toEqual(['initial', 'dynamic'])
@@ -34,8 +72,12 @@ describe('LayerService', () => {
     app.use(createFakeMapPlugin(new FakeMapAdapter(), { raster: createFakeLayerDefinition() }))
     await app.init({})
     await app.layers.add({ id: 'one', type: 'raster' })
-    await expect(app.layers.add({ id: 'one', type: 'raster' })).rejects.toMatchObject({ code: 'LAYER_DUPLICATE' })
-    await expect(app.layers.add({ id: 'unknown', type: 'missing' })).rejects.toMatchObject({ code: 'LAYER_TYPE_NOT_FOUND' })
+    await expect(app.layers.add({ id: 'one', type: 'raster' })).rejects.toMatchObject({
+      code: 'LAYER_DUPLICATE',
+    })
+    await expect(app.layers.add({ id: 'unknown', type: 'missing' })).rejects.toMatchObject({
+      code: 'LAYER_TYPE_NOT_FOUND',
+    })
     expect(app.layers.list().map((layer) => layer.id)).toEqual(['one'])
     await app.dispose()
   })
@@ -43,37 +85,63 @@ describe('LayerService', () => {
   it('exposes adapter-owned time dimensions and validates time filters', async () => {
     const setTimeFilter = vi.fn()
     const app = createGISApp()
-    app.use(createFakeMapPlugin(new FakeMapAdapter(), { temporal: createFakeLayerDefinition(() => ({
-      setVisible() {}, setZIndex() {}, dispose() {}, setTimeFilter,
-      getTimeDimensions: () => [{ field: 'observed_at', values: [1_700_000_000_000, 1_800_000_000_000] }],
-      getTimeFilter: () => setTimeFilter.mock.lastCall?.[0],
-    })) }))
+    app.use(
+      createFakeMapPlugin(new FakeMapAdapter(), {
+        temporal: createFakeLayerDefinition(() => ({
+          setVisible() {},
+          setZIndex() {},
+          dispose() {},
+          setTimeFilter,
+          getTimeDimensions: () => [
+            { field: 'observed_at', values: [1_700_000_000_000, 1_800_000_000_000] },
+          ],
+          getTimeFilter: () => setTimeFilter.mock.lastCall?.[0],
+        })),
+      })
+    )
     await app.init({ layers: [{ id: 'events', type: 'temporal' }] })
     const layer = app.layers.get('events')!
     expect(layer.getTimeDimensions()[0]).toMatchObject({ field: 'observed_at' })
     layer.setTimeFilter({ field: 'observed_at', start: 1_700_000_000_000, end: 1_800_000_000_000 })
-    expect(setTimeFilter).toHaveBeenLastCalledWith({ field: 'observed_at', start: 1_700_000_000_000, end: 1_800_000_000_000 })
-    expect(() => layer.setTimeFilter({ field: 'observed_at', start: 2, end: 1 })).toThrow('invalid time filter')
+    expect(setTimeFilter).toHaveBeenLastCalledWith({
+      field: 'observed_at',
+      start: 1_700_000_000_000,
+      end: 1_800_000_000_000,
+    })
+    expect(() => layer.setTimeFilter({ field: 'observed_at', start: 2, end: 1 })).toThrow(
+      'invalid time filter'
+    )
     await app.dispose()
   })
 
   it('manages groups recursively and applies visibility to child layers', async () => {
     const handles = new Map<string, MapLayerHandle>()
     const app = createGISApp()
-    app.use(createFakeMapPlugin(new FakeMapAdapter(), {
-      raster: createFakeLayerDefinition((config) => {
-        const handle: MapLayerHandle = { setVisible: vi.fn(), setZIndex: vi.fn(), dispose: vi.fn() }
-        handles.set(config.id, handle)
-        return handle
-      }),
-    }))
+    app.use(
+      createFakeMapPlugin(new FakeMapAdapter(), {
+        raster: createFakeLayerDefinition((config) => {
+          const handle: MapLayerHandle = {
+            setVisible: vi.fn(),
+            setZIndex: vi.fn(),
+            dispose: vi.fn(),
+          }
+          handles.set(config.id, handle)
+          return handle
+        }),
+      })
+    )
     await app.init({
-      layers: [{
-        id: 'group', type: 'GROUP', title: 'Base maps', children: [
-          { id: 'a', type: 'raster' },
-          { id: 'b', type: 'raster' },
-        ],
-      }],
+      layers: [
+        {
+          id: 'group',
+          type: 'GROUP',
+          title: 'Base maps',
+          children: [
+            { id: 'a', type: 'raster' },
+            { id: 'b', type: 'raster' },
+          ],
+        },
+      ],
     })
     expect(app.layers.get('group')?.getMetadata()).toMatchObject({ childIds: ['a', 'b'] })
     app.layers.setVisibility('group', false)

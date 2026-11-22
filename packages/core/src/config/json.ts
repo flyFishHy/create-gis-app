@@ -1,7 +1,11 @@
 import { GISRuntimeError } from '../errors.js'
 import type { JsonValue } from '../types/common.js'
 
-export function validateJsonValue(value: unknown, path: string, seen: WeakSet<object>): asserts value is JsonValue {
+export function validateJsonValue(
+  value: unknown,
+  path: string,
+  seen: WeakSet<object>
+): asserts value is JsonValue {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return
 
   if (typeof value === 'number') {
@@ -19,7 +23,8 @@ export function validateJsonValue(value: unknown, path: string, seen: WeakSet<ob
   if (Array.isArray(value)) {
     value.forEach((entry, index) => validateJsonValue(entry, `${path}[${index}]`, seen))
   } else {
-    if (!isPlainObject(value)) throw configError('Configuration objects must be plain objects.', path)
+    if (!isPlainObject(value))
+      throw configError('Configuration objects must be plain objects.', path)
     for (const [key, entry] of Object.entries(value)) {
       validateJsonValue(entry, `${path}.${key}`, seen)
     }
