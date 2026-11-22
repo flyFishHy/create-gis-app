@@ -293,8 +293,11 @@ avoids adjoining lines and other labels in the same result when space allows.
 Cumulative distances switch from m to km at 1,000 m, and area switches from m² to
 km² at 1,000,000 m². Drawing and measurement result layers appear in the ordinary
 LayerManager. A default result group first appears when a valid result is saved
-or imported. A newly added group is rendered with all of its children, collapsed
-by default. Both kinds of result support selection and the properties panel.
+or imported and contains only the result types used so far. Angle measurements
+appear under the measurement group. Measurement starts above drawing and both
+start above business layers. Subsequent children follow the group's current
+order. New groups are collapsed by default. Both kinds of result support selection
+and the properties panel.
 Measurement labels follow layer visibility. Top-level `tools.*.targets` controls
 result storage, while `ui.tools` controls toolbar visibility.
 

@@ -88,6 +88,10 @@ class LayerInstanceImpl implements LayerInstance {
   get visible(): boolean {
     return this.readVisibility?.() ?? this.currentVisible
   }
+
+  getOwnVisibility(): boolean {
+    return this.currentVisible
+  }
   get legend(): LegendDefinition | undefined {
     const legend = this.currentLegend
     return legend && this.handle.resolveLegend
@@ -272,6 +276,8 @@ export class LayerServiceImpl implements LayerService {
   private readonly tasks = new Set<Promise<LayerInstance>>()
   private readonly definitions = new Map<string, LayerTypeDefinition>()
   private readonly instances = new Map<string, LayerInstanceImpl>()
+  private readonly groupMembers = new WeakMap<LayerInstanceImpl, Set<LayerInstanceImpl>>()
+  private readonly memberships = new WeakMap<LayerInstanceImpl, Set<LayerInstanceImpl>>()
   private readonly listeners = new Set<LayerListener>()
 
   constructor(
@@ -307,8 +313,23 @@ export class LayerServiceImpl implements LayerService {
     if (this.definitions.get(type) === definition) this.definitions.delete(type)
   }
 
-  async add(config: LayerConfig): Promise<LayerInstance> {
-    const task = this.addTree(config)
+  add(config: LayerConfig): Promise<LayerInstance> {
+    return this.trackAddition(this.addTree(config))
+  }
+
+  async addChild(groupId: string, config: LayerConfig): Promise<LayerInstance> {
+    const group = this.instances.get(groupId)
+    if (!group) throw this.layerNotFound(groupId)
+    if (!this.groupMembers.has(group) || group.status !== 'ready')
+      throw new GISRuntimeError({
+        code: 'CONFIG_INVALID',
+        message: `Layer "${groupId}" is not an active group.`,
+        stage: 'layer-create',
+      })
+    return this.trackAddition(this.addTree(config, group))
+  }
+
+  private async trackAddition(task: Promise<LayerInstance>): Promise<LayerInstance> {
     this.tasks.add(task)
     try {
       return await task
@@ -322,11 +343,19 @@ export class LayerServiceImpl implements LayerService {
     await Promise.all([...this.instances.values()].map((instance) => instance.settleUpdates()))
   }
 
-  private async addTree(config: LayerConfig): Promise<LayerInstance> {
+  private async addTree(config: LayerConfig, parent?: LayerInstanceImpl): Promise<LayerInstance> {
     const addition: LayerAddition = { reserved: new Set(), staged: new Map() }
     try {
       const root = await this.addReserved(config, addition)
       this.assertCanMutate('publish a layer')
+      if (parent) {
+        if (this.instances.get(parent.id) !== parent || parent.status !== 'ready')
+          throw this.layerNotFound(parent.id)
+        if (!parent.getOwnVisibility()) root.setVisibility(false)
+        const members = this.groupMembers.get(parent)!
+        members.add(root)
+        this.memberships.set(root, members)
+      }
       const entries = [...addition.staged]
       // Publish the complete tree before any observer can read its children.
       for (const [id, instance] of entries) this.instances.set(id, instance)
@@ -415,6 +444,7 @@ export class LayerServiceImpl implements LayerService {
               errors.push(error)
             }
           } finally {
+            this.detachMember(instance)
             if (this.instances.get(config.id) === instance) {
               this.instances.delete(config.id)
               const selected = this.context.interactions.getSelection()
@@ -622,17 +652,21 @@ export class LayerServiceImpl implements LayerService {
         detail: { path: `layers.${config.id}.children` },
       })
     }
-    const children: LayerInstanceImpl[] = []
-    for (const child of config.children) children.push(await this.addReserved(child, addition))
+    const children = new Set<LayerInstanceImpl>()
+    for (const child of config.children) {
+      const instance = await this.addReserved(child, addition)
+      children.add(instance)
+      this.memberships.set(instance, children)
+    }
     this.assertCanMutate('finish adding a group layer')
     const lookup = (id: string) => this.instances.get(id) ?? addition.staged.get(id)
 
     const visible = config.visible ?? true
     const groupLeaves = (): LayerInstanceImpl[] => {
-      const collect = (items: LayerInstance[]): LayerInstanceImpl[] =>
+      const collect = (items: LayerInstanceImpl[]): LayerInstanceImpl[] =>
         items.flatMap((child) => {
           if (lookup(child.id) !== child) return []
-          if (child.type !== 'GROUP') return [child as LayerInstanceImpl]
+          if (child.type !== 'GROUP') return [child]
           const ids = child.getMetadata().childIds
           return collect(
             Array.isArray(ids)
@@ -643,11 +677,11 @@ export class LayerServiceImpl implements LayerService {
               : []
           )
         })
-      return collect(children)
+      return collect([...children])
     }
     const handle: MapLayerHandle = {
       getDataLocation: () => {
-        const locations = children
+        const locations = [...children]
           .filter((child) => this.get(child.id) === child)
           .flatMap((child) => {
             const location = this.getDataLocation(child.id)
@@ -722,7 +756,9 @@ export class LayerServiceImpl implements LayerService {
       getMetadata: () => {
         const leaves = groupLeaves()
         return {
-          childIds: children.filter((child) => lookup(child.id) === child).map((child) => child.id),
+          childIds: [...children]
+            .filter((child) => lookup(child.id) === child)
+            .map((child) => child.id),
           zIndex: leaves.length
             ? Math.max(...leaves.map((leaf) => Number(leaf.getMetadata().zIndex ?? 0)))
             : (config.zIndex ?? 0),
@@ -739,6 +775,7 @@ export class LayerServiceImpl implements LayerService {
         try {
           await handle.dispose?.()
         } finally {
+          this.detachMember(group)
           if (this.instances.get(config.id) === group) {
             this.instances.delete(config.id)
             this.emit({ type: 'remove', id: config.id })
@@ -751,14 +788,20 @@ export class LayerServiceImpl implements LayerService {
       config.legend,
       undefined,
       () =>
-        children.some(
+        [...children].some(
           (child) => lookup(child.id) === child && child.status !== 'disposed' && child.visible
         )
     )
     if (!visible) handle.setVisible(false)
     if (config.zIndex !== undefined) handle.setZIndex(config.zIndex)
+    this.groupMembers.set(group, children)
     addition.staged.set(config.id, group)
     return group
+  }
+
+  private detachMember(layer: LayerInstanceImpl): void {
+    this.memberships.get(layer)?.delete(layer)
+    this.memberships.delete(layer)
   }
 
   private layerNotFound(id: string): GISRuntimeError {

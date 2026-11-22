@@ -164,6 +164,7 @@ export interface LayerService {
   ): Promise<readonly FeaturePickCandidate[]> | undefined
   getDataLocation(id: string): MapLocation | undefined
   add(config: LayerConfig): Promise<LayerInstance>
+  addChild(groupId: string, config: LayerConfig): Promise<LayerInstance>
   remove(id: string): Promise<void>
   update(id: string, patch: LayerUpdate): Promise<void>
   get(id: string): LayerInstance | undefined

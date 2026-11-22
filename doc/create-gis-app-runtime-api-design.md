@@ -1672,8 +1672,8 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 - OLToolsController 新增 get/remove/select/selected/updateGeometry/exportResults/importResults。结果 ID 与 Feature ID 一致；选中结果高亮，删除只作用于指定 ID。几何修改先校验并重新计算，导入批次先校验全部记录再提交，拒绝重复 ID 和不同于地图的投影。公开结果为拷贝。
 - Draw 不再自行提交 Source：插件校验后统一写入 Source 和结果集合，再通知 UI。测量值按 m、m²、° 保存；拒绝空几何、非有限坐标、零长度线、零面积面及重复角点。
 - OL 工具为折线和面渲染白色填充的圆形顶点，有效结果提交后退出当前绘制或测量工具。测距在节点标注起点和沿线累计距离，鼠标处显示实时总长，末点只保留最终总计。测角在第二个顶点绘制圆弧，将读数放在圆弧外侧。结果经普通 GeoJSON 数据集写入 LayerService 管理的图层，参与要素拾取、选择和属性查询。Overlay 随图层显隐及要素删除更新。
-- `tools.draw.targets` 和 `tools.measure.targets` 按工具指定可写的 inline GeoJSON 图层 ID。缺省目标在首次提交有效结果时通过 LayerService 创建，并将首条要素放入初始数据。已配置的无效目标在激活时报错。导入结果等待目标创建，清空只删除工具生成的要素。
-- LayerService 在父组和所有后代就绪后一起发布图层树，再逐个发出新增通知。创建失败时释放已经创建的子层。
+- `tools.draw.targets` 和 `tools.measure.targets` 按工具指定可写的 inline GeoJSON 图层 ID。每种缺省目标在首次提交有效结果时创建，并将首条要素放入初始数据。角度、距离和面积加入同一个测量结果组。默认层叠顺序是测量、绘制、业务图层。已存在的分组新增子层时沿用当前层叠位置。已配置的无效目标在激活时报错。导入结果等待目标创建，清空只删除工具生成的要素。
+- LayerService 在父组和所有后代就绪后一起发布图层树，再逐个发出新增通知。`addChild(groupId, config)` 向已有分组追加子层，继承分组的显式隐藏状态。创建失败时释放已经创建的子层。
 - Basic Vue 仅安装 createOLAdapter 和 createVueUI。基础工具栏、属性联动和状态栏内置；高级结果列表可显式安装 createOLResultsUI，编程结果操作保留 useOLTools。
 - OL 图层 options 支持 opacity（0–1）；GeoJSON 额外支持 style 对象：fillColor、strokeColor（颜色字符串）、strokeWidth、pointRadius（正数）。style 是完整替换，缺省字段使用默认值；创建和 update 均生效，不支持的 option/style 字段明确报错。参数先全部校验再应用。统一矢量样式通过 getMetadata().style 提供给图例，线符号使用 strokeColor，其余使用 fillColor；分级/分类表达式样式仍未实现。
 - 本轮测试包含 Core 异常/所有权回归与真实 OL、Vue UI 的 jsdom 集成；这些不等同于真实浏览器鼠标事件端到端回归。

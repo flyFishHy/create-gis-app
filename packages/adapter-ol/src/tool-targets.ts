@@ -34,12 +34,13 @@ export function toolTargets(
     'measure-angle': undefined,
   })
   const created = new Map<string, LayerInstance>()
-  const pending = new Map<string, Promise<void>>()
+  let pending: Promise<unknown> = Promise.resolve()
   const idFor = (tool: ToolId) => `ol-tools:${tool}`
-  const configFor = (tool: ToolId, firstFeature?: JsonValue): LayerConfig => ({
+  const configFor = (tool: ToolId, zIndex: number, firstFeature?: JsonValue): LayerConfig => ({
     id: idFor(tool),
     type: 'geojson',
     title: defaults[tool],
+    zIndex,
     source: {
       type: 'inline',
       data: {
@@ -73,6 +74,38 @@ export function toolTargets(
       return requireWritable(tool, id)
   }
 
+  const ownedGroup = (id: string) => {
+    const layer = app.layers.get(id)
+    return layer?.status === 'ready' && layer === created.get(id) ? layer : undefined
+  }
+  const zIndexOf = (layer: LayerInstance) => {
+    const zIndex = layer.getMetadata().zIndex
+    return typeof zIndex === 'number' && Number.isFinite(zIndex) ? zIndex : 0
+  }
+  const childLayers = (group: LayerInstance | undefined) => {
+    const ids = group?.getMetadata().childIds
+    return Array.isArray(ids)
+      ? ids.flatMap((id) => {
+          const layer = app.layers.get(String(id))
+          return layer ? [layer] : []
+        })
+      : []
+  }
+  const nextZIndex = (drawing: boolean, group: LayerInstance | undefined) => {
+    const children = childLayers(group)
+    // Append within the group's current stacking position, including after a drag.
+    if (children.length) return Math.max(...children.map(zIndexOf))
+    const others = app.layers
+      .list()
+      .filter((layer) => layer.type !== 'GROUP')
+      .map(zIndexOf)
+    const measurements = drawing ? childLayers(ownedGroup('ol-tools:measure')) : []
+    if (!measurements.length) return Math.max(0, ...others) + 1
+    const ceiling = Math.min(...measurements.map(zIndexOf))
+    const below = others.filter((value) => value < ceiling)
+    return below.length ? Math.max(...below) / 2 + ceiling / 2 : ceiling - 1
+  }
+
   return {
     isConfigured: (id: string) => Object.values(configured()).includes(id),
     writable,
@@ -80,41 +113,31 @@ export function toolTargets(
     async resolve(tool: ToolId, firstFeature?: JsonValue) {
       const current = existing(tool)
       if (current) return { target: current, seeded: false }
-      const ids = configured()
-      const id = idFor(tool)
-      const drawing = tool.startsWith('draw-')
-      const group = drawing ? 'ol-tools:draw' : 'ol-tools:measure'
-      // Group membership is fixed. Restore an individually removed default
-      // on its own while leaving the remaining group's data intact.
-      const single =
-        tool === 'measure-angle' ||
-        (created.has(group) && app.layers.get(group) === created.get(group))
-      const root = single ? id : group
-      let task = pending.get(root)
-      let seeded = false
-      if (!task) {
-        seeded = firstFeature !== undefined
-        const children = (Object.keys(defaults) as ToolId[])
-          .filter(
-            (key) =>
-              key !== 'measure-angle' &&
-              key.startsWith(drawing ? 'draw-' : 'measure-') &&
-              ids[key] === undefined
-          )
-          .map((key) => configFor(key, key === tool ? firstFeature : undefined))
-        const config: LayerConfig = single
-          ? configFor(tool, firstFeature)
-          : { id: group, type: 'GROUP', title: drawing ? '绘制结果' : '测量结果', children }
-        task = (async () => {
-          const instance = await app.layers.add(config)
-          created.set(config.id, instance)
-          for (const child of config.children ?? [])
-            created.set(child.id, app.layers.get(child.id)!)
-        })().finally(() => pending.delete(root))
-        pending.set(root, task)
-      }
-      await task
-      return { target: requireWritable(tool, id), seeded }
+      // Serialize first additions so concurrent commits see each other's groups and order.
+      const task = pending.then(async () => {
+        const ready = existing(tool)
+        if (ready) return { target: ready, seeded: false }
+        const drawing = tool.startsWith('draw-')
+        const groupId = drawing ? 'ol-tools:draw' : 'ol-tools:measure'
+        const group = ownedGroup(groupId)
+        const child = configFor(tool, nextZIndex(drawing, group), firstFeature)
+        if (group) {
+          created.set(child.id, await app.layers.addChild(groupId, child))
+        } else {
+          const parent = await app.layers.add({
+            id: groupId,
+            type: 'GROUP',
+            title: drawing ? '绘制结果' : '测量结果',
+            children: [child],
+          })
+          created.set(groupId, parent)
+          const instance = app.layers.get(child.id)
+          if (instance) created.set(child.id, instance)
+        }
+        return { target: requireWritable(tool, child.id), seeded: firstFeature !== undefined }
+      })
+      pending = task.catch(() => undefined)
+      return task
     },
   }
 }

@@ -151,7 +151,7 @@ OL applies useLayerStyle only for an explicitly opted-in, single category item.
 Groups track child identity, not just reused IDs. Order updates synchronize list
 and adapter order. `setOrder(ids)` accepts all registered IDs in back-to-front order
 and normalizes leaf zIndex to 0..N-1, overriding earlier per-layer zIndex values.
-Private adapter tool layers are not included. The default UI displays front-to-back,
+Temporary sketch and highlight layers are outside this order. The default UI displays front-to-back,
 moves sibling layers or entire group blocks, and never reparents a child.
 Domain observer failures report app:error without undoing commits.
 For GROUP, an explicit initial/update zIndex places its current leaf descendants
@@ -159,6 +159,9 @@ in a contiguous interval [zIndex, zIndex+1), preserving their relative order.
 Group visibility is derived from its current descendants. Changing group visibility
 updates all descendants. Changing one child can make its ancestors visible
 without changing siblings. A group with no visible descendants is hidden.
+`layers.addChild(groupId, config)` creates a layer under an existing group and
+publishes it with its final parent. New children inherit an explicitly hidden
+group's visibility and are disposed with their parent.
 
 Without an explicit group zIndex, child zIndex values are retained. Group metadata
 reports the highest current leaf zIndex. Root drag ordering normalizes all leaves
@@ -257,10 +260,13 @@ Set `tools.draw.targets` with `point`, `line`, or `polygon` and
 `tools.measure.targets` with `distance` or `area` to target existing inline
 GeoJSON layers by ID. Each omitted key uses a default layer. Missing and
 non-writable explicit targets fail on activation. The first valid result from an
-unmapped tool creates its default group with the completed feature already in
-the target layer. Angle measurement creates its own default layer on the first
-valid result. LayerService publishes a newly added group and its descendants
-together. Default layers do not modify
+unmapped tool creates only its target layer, with the completed feature already
+in it. The layer joins the drawing or measurement group, created when needed.
+Distance, area, and angle use the same measurement group. When both default
+groups first exist, measurement is above drawing and both are above business
+layers by default. Adding a child to an existing group follows that group's
+current stacking position. LayerService publishes complete parent-child trees.
+Default layers do not modify
 `app.config`. Await `importResults()` so it can create any required default layers.
 Results write through the target's dataset with GeoJSON coordinates in EPSG:4326,
 while the result controller keeps its map-projection format. Clear removes tool

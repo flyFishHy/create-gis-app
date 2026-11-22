@@ -147,10 +147,22 @@ describe('LayerService', () => {
     app.layers.setVisibility('group', false)
     expect(handles.get('a')?.setVisible).toHaveBeenCalledWith(false)
     expect(handles.get('b')?.setVisible).toHaveBeenCalledWith(false)
+    let published: unknown
+    const unsubscribe = app.layers.subscribe((event) => {
+      if (event.type === 'add' && event.id === 'c')
+        published = app.layers.get('group')?.getMetadata().childIds
+    })
+    await app.layers.addChild('group', { id: 'c', type: 'raster' })
+    expect(published).toEqual(['a', 'b', 'c'])
+    expect(handles.get('c')?.setVisible).toHaveBeenCalledWith(false)
+    unsubscribe()
+    await app.layers.remove('b')
+    expect(app.layers.get('group')?.getMetadata().childIds).toEqual(['a', 'c'])
     await app.layers.remove('group')
     expect(app.layers.list()).toHaveLength(0)
     expect(handles.get('a')?.dispose).toHaveBeenCalledOnce()
     expect(handles.get('b')?.dispose).toHaveBeenCalledOnce()
+    expect(handles.get('c')?.dispose).toHaveBeenCalledOnce()
     await app.dispose()
   })
 

@@ -950,7 +950,10 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
     expect(tools.list()).toHaveLength(1)
     expect(map.getOverlays().item(0).getElement()?.firstElementChild?.textContent).toBe('45°')
     await expect(tools.importResults(saved)).rejects.toThrow()
-    app.layers.setOrder(['ol-tools:measure-angle', 'vector'])
+    expect(app.layers.get('ol-tools:measure')?.getMetadata().childIds).toEqual([
+      'ol-tools:measure-angle',
+    ])
+    app.layers.setOrder(['ol-tools:measure-angle', 'ol-tools:measure', 'vector'])
     expect(map.getLayers().getLength()).toBe(2)
     await app.interactions.activateTool('draw-point')
     expect(map.getInteractions().getArray()).not.toContain(draw)
@@ -1143,13 +1146,8 @@ it('creates a default drawing group only after a valid result and publishes the 
     await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBeUndefined())
     expect(useOLTools(app).list()).toHaveLength(1)
     expect(published).toEqual(
-      Array.from({ length: 4 }, () => ({
-        ids: [
-          'ol-tools:draw-point',
-          'ol-tools:draw-line',
-          'ol-tools:draw-polygon',
-          'ol-tools:draw',
-        ],
+      Array.from({ length: 2 }, () => ({
+        ids: ['ol-tools:draw-line', 'ol-tools:draw'],
         count: 1,
       }))
     )
@@ -1178,11 +1176,95 @@ it('clears a completed result even if its first default layer is still being cre
     draw.dispatchEvent({ type: 'drawend', feature: new Feature(new Point([1, 2])) } as never)
     await app.interactions.activateTool('clear-results')
     expect(app.layers.has('ol-tools:draw')).toBe(true)
+    expect(app.layers.get('ol-tools:draw')?.getMetadata().childIds).toEqual(['ol-tools:draw-point'])
     expect(useOLTools(app).list()).toHaveLength(0)
   } finally {
     await app.dispose()
   }
 })
+
+it.each(['draw-first', 'measure-first'])(
+  'keeps default tool groups ordered and appends only used types (%s)',
+  async (order) => {
+    const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
+    await app.init({
+      layers: [
+        {
+          id: 'business',
+          type: 'geojson',
+          zIndex: 100,
+          source: { type: 'inline', data: collection },
+        },
+      ],
+    })
+    try {
+      const tools = useOLTools(app)
+      const point = {
+        id: 'point',
+        toolId: 'draw-point',
+        projection: 'EPSG:3857',
+        geometry: { type: 'Point', coordinates: [10, 20] },
+      }
+      const angle = {
+        id: 'angle',
+        toolId: 'measure-angle',
+        projection: 'EPSG:3857',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 10],
+            [0, 0],
+            [10, 0],
+          ],
+        },
+      }
+      await tools.importResults(order === 'draw-first' ? [point, angle] : [angle, point])
+      const drawing = app.layers.get('ol-tools:draw')!
+      const measuring = app.layers.get('ol-tools:measure')!
+      expect(drawing.getMetadata().childIds).toEqual(['ol-tools:draw-point'])
+      expect(measuring.getMetadata().childIds).toEqual(['ol-tools:measure-angle'])
+      const zIndex = (id: string) => Number(app.layers.get(id)?.getMetadata().zIndex)
+      expect(zIndex('business')).toBe(100)
+      expect(zIndex(drawing.id)).toBeGreaterThan(zIndex('business'))
+      expect(zIndex(measuring.id)).toBeGreaterThan(zIndex(drawing.id))
+
+      app.layers.setOrder([
+        'ol-tools:measure-angle',
+        measuring.id,
+        'ol-tools:draw-point',
+        drawing.id,
+        'business',
+      ])
+      const orderAfterDrag = [zIndex(measuring.id), zIndex(drawing.id), zIndex('business')]
+      await tools.importResults([
+        {
+          ...angle,
+          id: 'distance',
+          toolId: 'measure-distance',
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0, 0],
+              [100, 0],
+            ],
+          },
+        },
+        { ...angle, id: 'line', toolId: 'draw-line' },
+      ])
+      expect(app.layers.get(drawing.id)).toBe(drawing)
+      expect(app.layers.get(measuring.id)).toBe(measuring)
+      expect(drawing.getMetadata().childIds).toEqual(['ol-tools:draw-point', 'ol-tools:draw-line'])
+      expect(measuring.getMetadata().childIds).toEqual([
+        'ol-tools:measure-angle',
+        'ol-tools:measure-distance',
+      ])
+      expect([zIndex(measuring.id), zIndex(drawing.id), zIndex('business')]).toEqual(orderAfterDrag)
+      expect(tools.list()).toHaveLength(4)
+    } finally {
+      await app.dispose()
+    }
+  }
+)
 
 it('writes to configured GeoJSON targets and lazily groups the remaining tool types', async () => {
   const app = createGISApp().use(createOLAdapter({ controls: false, interactions: false }))
