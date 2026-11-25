@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { LayerInstance } from '@joinmap/gis-core'
-import type { LayerNode } from './layer-tree.js'
-import { useGISUI } from '../use-gis-ui.js'
-import SvgIcon from '../components/SvgIcon.vue'
+import type { LayerInstance } from '@joinmap/gis-core';
+import type { LayerNode } from './layer-tree.js';
+import { useGISUI } from '../use-gis-ui.js';
+import SvgIcon from '../components/SvgIcon.vue';
 
-defineProps<{ nodes: readonly LayerNode[] }>()
-const emit = defineEmits<{ toggle: [layer: LayerInstance] }>()
-const ui = useGISUI()
+defineProps<{ nodes: readonly LayerNode[] }>();
+const emit = defineEmits<{ toggle: [layer: LayerInstance] }>();
+const ui = useGISUI();
 </script>
 
 <template>

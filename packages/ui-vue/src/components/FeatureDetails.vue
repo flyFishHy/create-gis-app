@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { FeatureReference } from '@joinmap/gis-core'
-import { useGISUI } from '../use-gis-ui.js'
-defineProps<{ feature: FeatureReference }>()
-const ui = useGISUI()
+import type { FeatureReference } from '@joinmap/gis-core';
+import { useGISUI } from '../use-gis-ui.js';
+defineProps<{ feature: FeatureReference }>();
+const ui = useGISUI();
 </script>
 
 <template>

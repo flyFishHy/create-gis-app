@@ -1,39 +1,44 @@
 <script setup lang="ts">
-import { onMounted, ref, useId } from 'vue'
-import LegendColor from './LegendColor.vue'
-import LegendAction from './LegendAction.vue'
-import type { UniformLayerStyle } from './legend-editor-types.js'
+import { onMounted, ref, useId } from 'vue';
+import LegendColor from './LegendColor.vue';
+import LegendAction from './LegendAction.vue';
+import type { UniformLayerStyle } from './legend-editor-types.js';
 
 const props = defineProps<{
-  layerStyle: UniformLayerStyle
-  symbol?: string
-  text: (key: string) => string
-  blocked?: boolean
-}>()
-const emit = defineEmits<{ apply: [style: UniformLayerStyle]; close: [] }>()
-const dialog = ref<HTMLDialogElement>()
-const draft = ref({ ...props.layerStyle })
-const originalFillPercent = (props.layerStyle.fillOpacity ?? 1) * 100
-const fillPercent = ref(originalFillPercent)
-const titleId = useId()
+  layerStyle: UniformLayerStyle;
+  symbol?: string;
+  text: (key: string) => string;
+  blocked?: boolean;
+}>();
+const emit = defineEmits<{ apply: [style: UniformLayerStyle]; close: [] }>();
+const dialog = ref<HTMLDialogElement>();
+const draft = ref({ ...props.layerStyle });
+const originalFillPercent = (props.layerStyle.fillOpacity ?? 1) * 100;
+const fillPercent = ref(originalFillPercent);
+const titleId = useId();
 
 onMounted(() => {
-  if (typeof dialog.value?.showModal === 'function') dialog.value.showModal()
-  else dialog.value?.setAttribute('open', '')
-})
+  if (typeof dialog.value?.showModal === 'function') {
+    dialog.value.showModal();
+  } else {
+    dialog.value?.setAttribute('open', '');
+  }
+});
 
 function close() {
-  dialog.value?.close?.()
-  emit('close')
+  dialog.value?.close?.();
+  emit('close');
 }
 
 function apply() {
-  if (props.blocked) return
+  if (props.blocked) {
+    return;
+  }
   emit('apply', {
     ...draft.value,
     ...(fillPercent.value !== originalFillPercent ? { fillOpacity: fillPercent.value / 100 } : {}),
-  })
-  close()
+  });
+  close();
 }
 </script>
 

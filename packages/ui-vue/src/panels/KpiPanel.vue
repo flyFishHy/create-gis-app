@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { KpiItem } from '../types.js'
+import type { KpiItem } from '../types.js';
 
-withDefaults(defineProps<{ items: readonly KpiItem[] }>(), { items: () => [] })
+withDefaults(defineProps<{ items: readonly KpiItem[] }>(), { items: () => [] });
 </script>
 
 <template>

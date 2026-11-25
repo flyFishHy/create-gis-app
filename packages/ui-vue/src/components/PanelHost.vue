@@ -1,26 +1,28 @@
 <script setup lang="ts">
-import { computed, provide, shallowRef } from 'vue'
-import { useGISUI } from '../use-gis-ui.js'
-import PanelShell from './PanelShell.vue'
-import { cssSize } from '../panels/panel-size.js'
-import { PanelHeaderKey } from '../ui-context.js'
-import SvgIcon from './SvgIcon.vue'
+import { computed, provide, shallowRef } from 'vue';
+import { useGISUI } from '../use-gis-ui.js';
+import PanelShell from './PanelShell.vue';
+import { cssSize } from '../panels/panel-size.js';
+import { PanelHeaderKey } from '../ui-context.js';
+import SvgIcon from './SvgIcon.vue';
 
-const props = defineProps<{ id: string; animate?: boolean }>()
-const ui = useGISUI()
+const props = defineProps<{ id: string; animate?: boolean }>();
+const ui = useGISUI();
 const badge = shallowRef(''),
-  refresh = shallowRef<() => void>()
-provide(PanelHeaderKey, { badge, refresh })
-const hasManagerHeader = computed(() => ['layer-manager', 'legend'].includes(props.id))
-const definition = computed(() => ui.panels.get(props.id))
-const state = computed(() => ui.panels.getState(props.id))
+  refresh = shallowRef<() => void>();
+provide(PanelHeaderKey, { badge, refresh });
+const hasManagerHeader = computed(() => ['layer-manager', 'legend'].includes(props.id));
+const definition = computed(() => ui.panels.get(props.id));
+const state = computed(() => ui.panels.getState(props.id));
 const displayTitle = computed(() => {
-  const title = definition.value?.title
-  return title ? ui.locale.t(title) : undefined
-})
+  const title = definition.value?.title;
+  return title ? ui.locale.t(title) : undefined;
+});
 const panelStyle = computed(() => {
-  const current = state.value
-  if (!current) return undefined
+  const current = state.value;
+  if (!current) {
+    return undefined;
+  }
   return {
     width:
       current.position === 'left' || current.position === 'right' ? '100%' : cssSize(current.width),
@@ -36,8 +38,8 @@ const panelStyle = computed(() => {
         : `min(100%, ${cssSize(definition.value.maxWidth)})`,
     minHeight: cssSize(definition.value?.minHeight),
     maxHeight: cssSize(definition.value?.maxHeight),
-  }
-})
+  };
+});
 </script>
 
 <template>

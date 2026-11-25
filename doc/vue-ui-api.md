@@ -288,7 +288,9 @@ No createOLToolsUI/createPropertiesUI/OLMapStatus is needed for basic applicatio
 The optional [OL integration](ol-vue-api.md) adds only an advanced result-list panel.
 Map measurement labels inherit the workbench's frosted, liquid and solid
 materials. Measurement outlines, vertex outlines, and angle arcs use the active
-primary color. Vertex circles have a white fill. Distance labels stay near their nodes, choosing a side that
+primary color through the map target's `--gis-map-measurement-color` property.
+Switching the workspace's primary color also updates existing measurements.
+Vertex circles have a white fill. Distance labels stay near their nodes, choosing a side that
 avoids adjoining lines and other labels in the same result when space allows.
 Cumulative distances switch from m to km at 1,000 m, and area switches from m² to
 km² at 1,000,000 m². Drawing and measurement result layers appear in the ordinary

@@ -1,1 +1,1 @@
-export { createGISApp } from './runtime/gis-app.js'
+export { createGISApp } from './runtime/gis-app.js';

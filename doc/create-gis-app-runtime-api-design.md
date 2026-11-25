@@ -1460,8 +1460,10 @@ Runtime；插件能注册能力。
 通过配置创建地图和图层；运行时可增删改图层；删除时正确释放资源。
 
 **当前实现基线：** OpenLayers Adapter 位于 `packages/adapter-ol`，依赖 OpenLayers
-10.11；Core 在 `packages/core`。当前首批图层类型为 `xyz`、`geojson` 和 Runtime
-管理的 `GROUP`。XYZ/GeoJSON 使用 URL source；GROUP 递归管理子图层。TileUsageTracker
+10.11；Core 在 `packages/core`。内置类型包括 `xyz`、`geojson`、`wms`、`wmts`，
+以及由 Runtime 管理的 `GROUP`。WMS 工厂接收服务地址与 GetMap 参数；WMTS 工厂按
+GetCapabilities 文档解析指定图层和矩阵集，文档加载复用 DataService 的取消与清理。
+瓦片请求由 OpenLayers 发起，GROUP 递归管理子图层。TileUsageTracker
 不属于本阶段的通用 Core API。
 
 ### Phase 3：数据与交互服务
@@ -1479,9 +1481,21 @@ Runtime；插件能注册能力。
 DataSet 查询/更新/清理；`InteractionService` 提供 FeatureReference 选择、互斥
 工具激活；`EventService` 提供领域事件订阅。appConfig 的 `data` 是以数据 ID 为键的
 对象，数据源类型为 `url` 或 `inline`。GeoJSON 图层独占自己的 DataSet，并在删除时
-释放；当前不实现跨图层共享数据集引用计数。瓦片仍由 OpenLayers Source 加载。处理器
+释放；当前不实现跨图层共享数据集引用计数。工具只写入 Inline GeoJSON 图层绑定的
+原始 DataSet 和 Source。移除已注册的自定义 OL 图层时，调用方仍持有其 Source，
+共享该 Source 的其他图层保留数据。瓦片仍由 OpenLayers Source 加载。处理器
 与工具注册均绑定插件 ResourceScope，应用 dispose 时释放；工具切换互斥，选择对象
 只通过 FeatureReference 传递。
+
+OpenLayers 量测样式从地图挂载元素读取 `--gis-map-measurement-color`。地图应用或 UI
+可以在挂载元素上提供颜色，适配器在挂载元素或颜色变化时刷新量测样式。
+
+GeoJSON 字段列表和最近一次查询的字段值随 VectorSource 变更失效。适配器按需读取要素，
+图例、显隐和时间过滤切换沿用当前字段缓存。
+
+工具绑定记录 Source 的几何投影。图形提交验证草图或结果几何、Source 和当前 View 的
+投影是否相容；已有结果使用绑定的 Source 投影导出。取消未完成的 Modify 会恢复原几何。
+多目标导入失败时倒序尝试恢复已写入的数据，汇总回滚异常并保留原始写入错误。
 
 地图视图契约包含 `fit(extent)`，供 Search 等 UI 能力通过 Runtime 定位范围；具体
 地图引擎负责将范围映射到视图，不向 UI 暴露引擎对象。

@@ -1,269 +1,307 @@
 <script setup lang="ts">
-import PanelEmpty from '../components/PanelEmpty.vue'
-import { computed, onBeforeUnmount, shallowRef, useId, watch } from 'vue'
-import type { LayerInstance } from '@joinmap/gis-core'
-import { useGISApp } from '../use-gis-app.js'
-import { useGISUI } from '../use-gis-ui.js'
-import SvgIcon from '../components/SvgIcon.vue'
-import Tooltip from '../components/Tooltip.vue'
-import { filterLayerTree, layerTree, moveLayer, reorderRootLayers } from './layer-tree.js'
-import { usePanelHeader } from '../use-panel-header.js'
-import LayerChildren from './LayerChildren.vue'
-import { useAppState } from '../use-app-state.js'
+import PanelEmpty from '../components/PanelEmpty.vue';
+import { computed, onBeforeUnmount, shallowRef, useId, watch } from 'vue';
+import type { LayerInstance } from '@joinmap/gis-core';
+import { useGISApp } from '../use-gis-app.js';
+import { useGISUI } from '../use-gis-ui.js';
+import SvgIcon from '../components/SvgIcon.vue';
+import Tooltip from '../components/Tooltip.vue';
+import { filterLayerTree, layerTree, moveLayer, reorderRootLayers } from './layer-tree.js';
+import { usePanelHeader } from '../use-panel-header.js';
+import LayerChildren from './LayerChildren.vue';
+import { useAppState } from '../use-app-state.js';
 
-const app = useGISApp()
-const ui = useGISUI()
-const snapshot = useAppState((state) => state.layers)
-const mapReady = useAppState((state) => state.map.ready)
-const dragging = shallowRef<LayerInstance>()
-const dropTarget = shallowRef<string>()
-const dropAfter = shallowRef(false)
-const revision = shallowRef(0)
-const keyword = shallowRef('')
-const expanded = shallowRef(new Set<string>())
-const drafts = shallowRef<Record<string, number>>({})
-const error = shallowRef<string>()
-const detailsId = useId()
-const queued = new Map<string, number>()
-const running = new Set<string>()
-let stopped = false
-let pointerDrag: { layer: LayerInstance; id: number; x: number; y: number } | undefined
+const app = useGISApp();
+const ui = useGISUI();
+const snapshot = useAppState((state) => state.layers);
+const mapReady = useAppState((state) => state.map.ready);
+const dragging = shallowRef<LayerInstance>();
+const dropTarget = shallowRef<string>();
+const dropAfter = shallowRef(false);
+const revision = shallowRef(0);
+const keyword = shallowRef('');
+const expanded = shallowRef(new Set<string>());
+const drafts = shallowRef<Record<string, number>>({});
+const error = shallowRef<string>();
+const detailsId = useId();
+const queued = new Map<string, number>();
+const running = new Set<string>();
+let stopped = false;
+let pointerDrag: { layer: LayerInstance; id: number; x: number; y: number } | undefined;
 const stop = app.layers.subscribe((event) => {
-  revision.value++
+  revision.value++;
   if (event.type === 'remove' && event.id) {
-    queued.delete(event.id)
-    const next = new Set(expanded.value)
-    next.delete(event.id)
-    expanded.value = next
+    queued.delete(event.id);
+    const next = new Set(expanded.value);
+    next.delete(event.id);
+    expanded.value = next;
   }
-})
+});
 onBeforeUnmount(() => {
-  stopped = true
-  queued.clear()
-  stop()
-  stopPointerDrag()
-})
+  stopped = true;
+  queued.clear();
+  stop();
+  stopPointerDrag();
+});
 
 function children(layer: LayerInstance): LayerInstance[] {
-  const ids = layer.getMetadata().childIds
+  const ids = layer.getMetadata().childIds;
   return Array.isArray(ids)
     ? ids.flatMap((id) =>
         typeof id === 'string' && app.layers.get(id) ? [app.layers.get(id)!] : []
       )
-    : []
+    : [];
 }
 function leaves(layer: LayerInstance, seen = new Set<string>()): LayerInstance[] {
-  if (seen.has(layer.id)) return []
-  seen.add(layer.id)
-  return layer.type === 'GROUP' ? children(layer).flatMap((child) => leaves(child, seen)) : [layer]
+  if (seen.has(layer.id)) {
+    return [];
+  }
+  seen.add(layer.id);
+  return layer.type === 'GROUP' ? children(layer).flatMap((child) => leaves(child, seen)) : [layer];
 }
 const tree = computed(() => {
-  void revision.value
-  void snapshot.value
-  return layerTree(app.layers.list())
-})
-const filteredTree = computed(() => filterLayerTree(tree.value, keyword.value))
-const animateReorder = shallowRef(false)
+  void revision.value;
+  void snapshot.value;
+  return layerTree(app.layers.list());
+});
+const filteredTree = computed(() => filterLayerTree(tree.value, keyword.value));
+const animateReorder = shallowRef(false);
 watch(
   () => filteredTree.value.map((row) => row.layer.id),
   (ids, previous) => {
-    const previousIds = new Set(previous)
+    const previousIds = new Set(previous);
     animateReorder.value =
       ids.length === previous.length &&
       ids.every((id) => previousIds.has(id)) &&
-      ids.some((id, index) => id !== previous[index])
+      ids.some((id, index) => id !== previous[index]);
   }
-)
+);
 const count = computed(
   () => `${tree.value.filter((row) => row.layer.visible).length}/${tree.value.length}`
-)
+);
 usePanelHeader(count, () => {
-  keyword.value = ''
-  error.value = undefined
-  revision.value++
-})
+  keyword.value = '';
+  error.value = undefined;
+  revision.value++;
+});
 function isExpanded(id: string) {
-  return expanded.value.has(id) || !!keyword.value.trim()
+  return expanded.value.has(id) || !!keyword.value.trim();
 }
 function toggleSettings(id: string) {
   // Moving rows from their old positions would keep the collapsed height in the scrollable overflow.
-  animateReorder.value = false
-  const next = new Set(expanded.value)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-  expanded.value = next
+  animateReorder.value = false;
+  const next = new Set(expanded.value);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  expanded.value = next;
 }
 function opacity(layer: LayerInstance) {
-  void revision.value
-  if (drafts.value[layer.id] !== undefined) return drafts.value[layer.id]!
-  const values = leaves(layer).map((item) => item.getMetadata().opacity)
+  void revision.value;
+  if (drafts.value[layer.id] !== undefined) {
+    return drafts.value[layer.id]!;
+  }
+  const values = leaves(layer).map((item) => item.getMetadata().opacity);
   return values.length &&
     values.every((value) => typeof value === 'number' && Number.isFinite(value))
     ? values.every((value) => value === values[0])
       ? Math.round((values[0] as number) * 100)
       : null
-    : undefined
+    : undefined;
 }
 function supportsOpacity(layer: LayerInstance) {
-  return opacity(layer) !== undefined
+  return opacity(layer) !== undefined;
 }
 function clearDraft(id: string) {
-  const next = { ...drafts.value }
-  delete next[id]
-  drafts.value = next
+  const next = { ...drafts.value };
+  delete next[id];
+  drafts.value = next;
 }
 function changeOpacity(layer: LayerInstance, event: Event) {
-  const value = Math.max(0, Math.min(100, Number((event.target as HTMLInputElement).value)))
-  if (!Number.isFinite(value) || !supportsOpacity(layer)) return
-  drafts.value = { ...drafts.value, [layer.id]: value }
-  queued.set(layer.id, value)
-  void flushOpacity(layer)
+  const value = Math.max(0, Math.min(100, Number((event.target as HTMLInputElement).value)));
+  if (!Number.isFinite(value) || !supportsOpacity(layer)) {
+    return;
+  }
+  drafts.value = { ...drafts.value, [layer.id]: value };
+  queued.set(layer.id, value);
+  void flushOpacity(layer);
 }
 async function flushOpacity(layer: LayerInstance) {
-  if (running.has(layer.id)) return
-  running.add(layer.id)
-  error.value = undefined
+  if (running.has(layer.id)) {
+    return;
+  }
+  running.add(layer.id);
+  error.value = undefined;
   try {
     while (!stopped && queued.has(layer.id) && app.layers.get(layer.id) === layer) {
-      const value = queued.get(layer.id)!
-      queued.delete(layer.id)
-      const targets = leaves(layer)
+      const value = queued.get(layer.id)!;
+      queued.delete(layer.id);
+      const targets = leaves(layer);
       const results = await Promise.allSettled(
         targets.map((target) =>
           app.layers.get(target.id) === target
             ? app.layers.update(target.id, { options: { opacity: value / 100 } })
             : Promise.resolve()
         )
-      )
+      );
       const failure = results.find(
         (result): result is PromiseRejectedResult => result.status === 'rejected'
-      )
-      if (failure) throw failure.reason
+      );
+      if (failure) {
+        throw failure.reason;
+      }
     }
   } catch (cause) {
-    if (!stopped) error.value = cause instanceof Error ? cause.message : String(cause)
-    queued.delete(layer.id)
+    if (!stopped) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+    }
+    queued.delete(layer.id);
   } finally {
-    running.delete(layer.id)
-    if (!stopped) clearDraft(layer.id)
+    running.delete(layer.id);
+    if (!stopped) {
+      clearDraft(layer.id);
+    }
   }
 }
 function toggleVisibility(layer: LayerInstance) {
   try {
-    error.value = undefined
-    app.layers.setVisibility(layer.id, !layer.visible)
+    error.value = undefined;
+    app.layers.setVisibility(layer.id, !layer.visible);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
 function location(layer: LayerInstance) {
-  void snapshot.value
+  void snapshot.value;
   try {
-    return app.layers.get(layer.id) === layer ? app.layers.getDataLocation(layer.id) : undefined
+    return app.layers.get(layer.id) === layer ? app.layers.getDataLocation(layer.id) : undefined;
   } catch {
-    return undefined
+    return undefined;
   }
 }
 function locate(layer: LayerInstance) {
   try {
-    error.value = undefined
+    error.value = undefined;
     const value =
-      app.layers.get(layer.id) === layer ? app.layers.getDataLocation(layer.id) : undefined
-    if (value) app.map.locate(value)
-    else error.value = ui.locale.t('layer.noLocation')
+      app.layers.get(layer.id) === layer ? app.layers.getDataLocation(layer.id) : undefined;
+    if (value) {
+      app.map.locate(value);
+    } else {
+      error.value = ui.locale.t('layer.noLocation');
+    }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
 function move(layer: LayerInstance, direction: -1 | 1) {
   try {
-    error.value = undefined
-    moveLayer(app.layers, layer, direction)
+    error.value = undefined;
+    moveLayer(app.layers, layer, direction);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
 function dragStart(event: DragEvent, layer: LayerInstance) {
-  dragging.value = layer
-  event.dataTransfer?.setData('text/plain', layer.id)
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  const row = (event.currentTarget as HTMLElement).closest<HTMLElement>('.gis-ui-layer-row')
-  if (row) event.dataTransfer?.setDragImage?.(row, 20, 20)
+  dragging.value = layer;
+  event.dataTransfer?.setData('text/plain', layer.id);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+  const row = (event.currentTarget as HTMLElement).closest<HTMLElement>('.gis-ui-layer-row');
+  if (row) {
+    event.dataTransfer?.setDragImage?.(row, 20, 20);
+  }
 }
 function dragOver(event: DragEvent, layer: LayerInstance) {
-  if (!dragging.value || dragging.value === layer) return
-  event.preventDefault()
-  dropTarget.value = layer.id
-  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  dropAfter.value = event.clientY > bounds.top + bounds.height / 2
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  if (!dragging.value || dragging.value === layer) {
+    return;
+  }
+  event.preventDefault();
+  dropTarget.value = layer.id;
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  dropAfter.value = event.clientY > bounds.top + bounds.height / 2;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
 }
 function dragEnd() {
-  dragging.value = undefined
-  dropTarget.value = undefined
+  dragging.value = undefined;
+  dropTarget.value = undefined;
 }
 function drop(event: DragEvent, layer: LayerInstance) {
-  if (!dragging.value) return
-  event.preventDefault()
-  try {
-    error.value = undefined
-    reorderRootLayers(app.layers, dragging.value, layer, dropAfter.value)
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+  if (!dragging.value) {
+    return;
   }
-  dragEnd()
+  event.preventDefault();
+  try {
+    error.value = undefined;
+    reorderRootLayers(app.layers, dragging.value, layer, dropAfter.value);
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause);
+  }
+  dragEnd();
 }
 function stopPointerDrag() {
-  document.removeEventListener('pointermove', pointerMove)
-  document.removeEventListener('pointerup', pointerUp)
-  document.removeEventListener('pointercancel', cancelPointerDrag)
-  window.removeEventListener('blur', cancelPointerDrag)
-  pointerDrag = undefined
-  dragEnd()
+  document.removeEventListener('pointermove', pointerMove);
+  document.removeEventListener('pointerup', pointerUp);
+  document.removeEventListener('pointercancel', cancelPointerDrag);
+  window.removeEventListener('blur', cancelPointerDrag);
+  pointerDrag = undefined;
+  dragEnd();
 }
 function cancelPointerDrag() {
-  stopPointerDrag()
+  stopPointerDrag();
 }
 function pointerDown(event: PointerEvent, layer: LayerInstance) {
-  if (event.button !== 0) return
-  event.preventDefault()
-  stopPointerDrag()
-  ;(event.currentTarget as HTMLButtonElement).focus()
-  pointerDrag = { layer, id: event.pointerId, x: event.clientX, y: event.clientY }
-  document.addEventListener('pointermove', pointerMove)
-  document.addEventListener('pointerup', pointerUp)
-  document.addEventListener('pointercancel', cancelPointerDrag)
-  window.addEventListener('blur', cancelPointerDrag)
+  if (event.button !== 0) {
+    return;
+  }
+  event.preventDefault();
+  stopPointerDrag();
+  (event.currentTarget as HTMLButtonElement).focus();
+  pointerDrag = { layer, id: event.pointerId, x: event.clientX, y: event.clientY };
+  document.addEventListener('pointermove', pointerMove);
+  document.addEventListener('pointerup', pointerUp);
+  document.addEventListener('pointercancel', cancelPointerDrag);
+  window.addEventListener('blur', cancelPointerDrag);
 }
 function pointerMove(event: PointerEvent) {
-  if (!pointerDrag || event.pointerId !== pointerDrag.id) return
+  if (!pointerDrag || event.pointerId !== pointerDrag.id) {
+    return;
+  }
   if (
     !dragging.value &&
     Math.hypot(event.clientX - pointerDrag.x, event.clientY - pointerDrag.y) < 5
-  )
-    return
-  event.preventDefault()
-  dragging.value = pointerDrag.layer
+  ) {
+    return;
+  }
+  event.preventDefault();
+  dragging.value = pointerDrag.layer;
   const row = document
     .elementFromPoint(event.clientX, event.clientY)
-    ?.closest<HTMLElement>('.gis-ui-layer-row.is-root')
-  const target = tree.value.find((node) => row?.id === `${detailsId}-row-${node.layer.id}`)?.layer
-  dropTarget.value = target && target !== dragging.value ? target.id : undefined
+    ?.closest<HTMLElement>('.gis-ui-layer-row.is-root');
+  const target = tree.value.find((node) => row?.id === `${detailsId}-row-${node.layer.id}`)?.layer;
+  dropTarget.value = target && target !== dragging.value ? target.id : undefined;
   if (row) {
-    const bounds = row.getBoundingClientRect()
-    dropAfter.value = event.clientY > bounds.top + bounds.height / 2
+    const bounds = row.getBoundingClientRect();
+    dropAfter.value = event.clientY > bounds.top + bounds.height / 2;
   }
 }
 function pointerUp(event: PointerEvent) {
-  if (!pointerDrag || event.pointerId !== pointerDrag.id) return
-  const target = tree.value.find((node) => node.layer.id === dropTarget.value)?.layer
-  try {
-    if (dragging.value && target)
-      reorderRootLayers(app.layers, dragging.value, target, dropAfter.value)
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+  if (!pointerDrag || event.pointerId !== pointerDrag.id) {
+    return;
   }
-  stopPointerDrag()
+  const target = tree.value.find((node) => node.layer.id === dropTarget.value)?.layer;
+  try {
+    if (dragging.value && target) {
+      reorderRootLayers(app.layers, dragging.value, target, dropAfter.value);
+    }
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause);
+  }
+  stopPointerDrag();
 }
 </script>
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-const props = defineProps<{ modelValue: string; label: string; symbol?: string }>()
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
-const picker = computed(() => /^#[\da-f]{6}/i.exec(props.modelValue)?.[0] ?? '#3399cc')
+import { computed } from 'vue';
+const props = defineProps<{ modelValue: string; label: string; symbol?: string }>();
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+const picker = computed(() => /^#[\da-f]{6}/i.exec(props.modelValue)?.[0] ?? '#3399cc');
 </script>
 <template>
   <label

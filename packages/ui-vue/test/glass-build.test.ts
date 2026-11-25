@@ -1,13 +1,13 @@
 // @vitest-environment node
-import { expect, it } from 'vitest'
-import { compile } from 'sass'
-import { build } from 'vite'
-import { fileURLToPath } from 'node:url'
+import { expect, it } from 'vitest';
+import { compile } from 'sass';
+import { build } from 'vite';
+import { fileURLToPath } from 'node:url';
 
-const stylesheet = fileURLToPath(new URL('../src/styles.scss', import.meta.url))
+const stylesheet = fileURLToPath(new URL('../src/styles.scss', import.meta.url));
 
 it('preserves floating backdrop filters without animating their overlay containers', async () => {
-  const css = compile(stylesheet).css
+  const css = compile(stylesheet).css;
   const result = await build({
     configFile: false,
     logLevel: 'silent',
@@ -15,28 +15,28 @@ it('preserves floating backdrop filters without animating their overlay containe
       {
         name: 'glass-build-regression',
         resolveId(id) {
-          if (id.endsWith('glass-entry')) return '\0glass-entry'
-          if (id === 'glass.css') return '\0glass.css'
+          if (id.endsWith('glass-entry')) return '\0glass-entry';
+          if (id === 'glass.css') return '\0glass.css';
         },
         load(id) {
-          if (id === '\0glass-entry') return 'import "glass.css"'
-          if (id === '\0glass.css') return css
+          if (id === '\0glass-entry') return 'import "glass.css"';
+          if (id === '\0glass.css') return css;
         },
       },
     ],
     build: { write: false, lib: { entry: 'glass-entry', formats: ['es'] } },
-  })
+  });
   const outputs = (Array.isArray(result) ? result : [result]).flatMap((item) =>
     'output' in item ? item.output : []
-  )
+  );
   const built = outputs
     .filter((item) => item.type === 'asset' && item.fileName.endsWith('.css'))
     .map((item) => (item.type === 'asset' ? String(item.source) : ''))
-    .join('')
-  const styleRules = [...built.matchAll(/([^{}]+)\{([^{}]+)\}/g)]
-  const rules = styleRules.filter((rule) => /-webkit-backdrop-filter\s*:/.test(rule[2]!))
-  expect(rules.length).toBeGreaterThan(0)
-  for (const rule of rules) expect(rule[2], rule[1]).toMatch(/(?<![-\w])backdrop-filter\s*:/)
+    .join('');
+  const styleRules = [...built.matchAll(/([^{}]+)\{([^{}]+)\}/g)];
+  const rules = styleRules.filter((rule) => /-webkit-backdrop-filter\s*:/.test(rule[2]!));
+  expect(rules.length).toBeGreaterThan(0);
+  for (const rule of rules) expect(rule[2], rule[1]).toMatch(/(?<![-\w])backdrop-filter\s*:/);
   for (const selector of [
     '.gis-ui-title',
     '.gis-ui-panel-shell',
@@ -61,41 +61,43 @@ it('preserves floating backdrop filters without animating their overlay containe
     expect(
       rules.some((rule) => rule[1]!.includes(selector)),
       selector
-    ).toBe(true)
+    ).toBe(true);
   }
   const pickerSurface = styleRules.find(
     ([, selector, declarations]) =>
       selector?.trim() === '.gis-ui-feature-picker-surface' && declarations?.includes('clip-path:')
-  )
-  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-top')
-  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-bottom')
+  );
+  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-top');
+  expect(pickerSurface?.[2]).toContain('--gis-ui-picker-tip-bottom');
   const pickerOutline = styleRules.find(([, selector]) =>
     /\.gis-ui-feature-picker-surface::?after\b/.test(selector ?? '')
-  )
+  );
   expect(pickerOutline?.[2]).toMatch(
     /background(?:-color)?:\s*var\(--gis-ui-material-border,\s*var\(--gis-ui-glass-border/
-  )
-  expect(pickerOutline?.[2]).toMatch(/clip-path:\s*polygon\(evenodd/)
+  );
+  expect(pickerOutline?.[2]).toMatch(/clip-path:\s*polygon\(evenodd/);
   const pickerGlass = rules.find(([, selector]) =>
     selector?.includes('.gis-ui-feature-picker-surface')
-  )
-  expect(pickerGlass?.[2]).toContain('--gis-ui-material-opacity')
-  expect(pickerGlass?.[2]).toContain('--gis-ui-material-filter')
-  const statusGlass = rules.find(([, selector]) => selector?.includes('.gis-ui-status-content'))
-  expect(statusGlass?.[2]).toContain('--gis-ui-glass-blur')
-  const animations = styleRules.filter((rule) => /(?:^|;)\s*animation(?:-name)?\s*:/.test(rule[2]!))
-  const animatedSelectors = animations.map((rule) => rule[1]!).join(',')
-  expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--(?:top|left)\b/)
-  expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--bottom(?=\s*[,)]|\s*$)/)
+  );
+  expect(pickerGlass?.[2]).toContain('--gis-ui-material-opacity');
+  expect(pickerGlass?.[2]).toContain('--gis-ui-material-filter');
+  const statusGlass = rules.find(([, selector]) => selector?.includes('.gis-ui-status-content'));
+  expect(statusGlass?.[2]).toContain('--gis-ui-glass-blur');
+  const animations = styleRules.filter((rule) =>
+    /(?:^|;)\s*animation(?:-name)?\s*:/.test(rule[2]!)
+  );
+  const animatedSelectors = animations.map((rule) => rule[1]!).join(',');
+  expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--(?:top|left)\b/);
+  expect(animatedSelectors).not.toMatch(/\.gis-ui-overlay--bottom(?=\s*[,)]|\s*$)/);
   const statusEntrance = animations.find(([, selector]) =>
     selector?.includes('.gis-ui-overlay--bottom .gis-ui-status-content')
-  )
-  expect(statusEntrance?.[2]).toContain('backwards')
-})
+  );
+  expect(statusEntrance?.[2]).toContain('backwards');
+});
 
 it('shares material finishes across floating menus and inset controls', () => {
-  const { css } = compile(stylesheet)
-  const rules = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)]
+  const { css } = compile(stylesheet);
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)];
   const surfaces = [
     '.gis-ui-select-menu',
     '.gis-ui-search-feedback',
@@ -111,7 +113,7 @@ it('shares material finishes across floating menus and inset controls', () => {
     '.gis-ui-tooltip',
     '.gis-ui-feature-picker-surface',
     '.gis-ui-measurement-label',
-  ]
+  ];
   for (const surface of surfaces) {
     expect(
       rules.some(
@@ -121,46 +123,46 @@ it('shares material finishes across floating menus and inset controls', () => {
           declarations!.includes('border-color: var(--gis-ui-material-border')
       ),
       surface
-    ).toBe(true)
+    ).toBe(true);
   }
-  const pulse = rules.find(([, selector]) => selector?.trim() === '.gis-ui-tool-hint-pulse')
-  expect(pulse?.[2]).toContain('background: var(--gis-ui-primary)')
-})
+  const pulse = rules.find(([, selector]) => selector?.trim() === '.gis-ui-tool-hint-pulse');
+  expect(pulse?.[2]).toContain('background: var(--gis-ui-primary)');
+});
 
 it('paints selected switches with the primary color and animates the subtitle dot', () => {
-  const { css } = compile(stylesheet)
-  const selection = css.match(/\.gis-ui-switch button\.is-active\s*\{([^}]+)\}/)?.[1]
-  expect(selection).toMatch(/background: var\(--gis-ui-primary, #3b82f6\);/)
-  expect(selection).toMatch(/color: #fff;/)
+  const { css } = compile(stylesheet);
+  const selection = css.match(/\.gis-ui-switch button\.is-active\s*\{([^}]+)\}/)?.[1];
+  expect(selection).toMatch(/background: var\(--gis-ui-primary, #3b82f6\);/);
+  expect(selection).toMatch(/color: #fff;/);
   expect(css).toMatch(
     /\.gis-ui-brand-subtitle::before\s*\{\s*animation: gis-ui-subtitle-pulse [^;]*infinite;/
-  )
-})
+  );
+});
 
 it('shares reference panel finishes and displays the scrollbar thumb on a transparent track', () => {
-  const { css } = compile(stylesheet)
-  expect(css).toMatch(/--gis-ui-liquid-shadow:[^;]*0 14px 34px -6px[^;]*inset 0 -2px 8px/)
-  expect(css).toMatch(/--gis-ui-liquid-shadow:[^;]*0 14px 36px -6px[^;]*inset 0 -2px 6px/)
-  expect(css).toContain('--gis-ui-material-opacity: max(94%, var(--gis-ui-glass-opacity))')
-  expect(css).toContain('background-image: var(--gis-ui-material-image, none)')
-  expect(css).toMatch(/\.gis-ui-scroll-track\s*\{[^}]*background: transparent;/)
+  const { css } = compile(stylesheet);
+  expect(css).toMatch(/--gis-ui-liquid-shadow:[^;]*0 14px 34px -6px[^;]*inset 0 -2px 8px/);
+  expect(css).toMatch(/--gis-ui-liquid-shadow:[^;]*0 14px 36px -6px[^;]*inset 0 -2px 6px/);
+  expect(css).toContain('--gis-ui-material-opacity: max(94%, var(--gis-ui-glass-opacity))');
+  expect(css).toContain('background-image: var(--gis-ui-material-image, none)');
+  expect(css).toMatch(/\.gis-ui-scroll-track\s*\{[^}]*background: transparent;/);
   expect(css).toMatch(
     /\.gis-ui-scroll-thumb\s*\{[^}]*background: (?:rgb\(148 163 184 \/ 30%\)|rgba\(148, 163, 184, 0\.3\));/
-  )
-})
+  );
+});
 
 it('keeps thinner layer and legend scrollbars interactive only when revealed', () => {
-  const { css } = compile(stylesheet)
+  const { css } = compile(stylesheet);
   for (const panel of ['layer-manager', 'legend']) {
-    const track = `.gis-ui-panel-host--${panel} > .gis-ui-panel-shell > .gis-ui-panel-body > .gis-ui-scroll-track`
-    expect(css).toContain(`${track} > .gis-ui-scroll-thumb.is-y`)
-    expect(css).toContain(`${track} > .gis-ui-scroll-thumb.is-x`)
-    const idle = `.gis-ui-panel-host--${panel}:not(:hover) > .gis-ui-panel-shell > .gis-ui-panel-body:not(.is-scrolling) > .gis-ui-scroll-track`
-    expect(css).toContain(idle)
-    expect(css).toContain(`${idle} > .gis-ui-scroll-thumb:not(:focus-visible)`)
+    const track = `.gis-ui-panel-host--${panel} > .gis-ui-panel-shell > .gis-ui-panel-body > .gis-ui-scroll-track`;
+    expect(css).toContain(`${track} > .gis-ui-scroll-thumb.is-y`);
+    expect(css).toContain(`${track} > .gis-ui-scroll-thumb.is-x`);
+    const idle = `.gis-ui-panel-host--${panel}:not(:hover) > .gis-ui-panel-shell > .gis-ui-panel-body:not(.is-scrolling) > .gis-ui-scroll-track`;
+    expect(css).toContain(idle);
+    expect(css).toContain(`${idle} > .gis-ui-scroll-thumb:not(:focus-visible)`);
   }
-  expect(css).toMatch(/\.gis-ui-scroll-thumb\.is-y\s*\{\s*border-inline-width: 2px;/)
-  expect(css).toMatch(/\.gis-ui-scroll-thumb\.is-x\s*\{\s*border-block-width: 2px;/)
-  expect(css).toMatch(/\.gis-ui-scroll-track\s*\{\s*pointer-events: none;/)
-  expect(css).toMatch(/\.gis-ui-scroll-thumb:not\(:focus-visible\)\s*\{\s*opacity: 0;/)
-})
+  expect(css).toMatch(/\.gis-ui-scroll-thumb\.is-y\s*\{\s*border-inline-width: 2px;/);
+  expect(css).toMatch(/\.gis-ui-scroll-thumb\.is-x\s*\{\s*border-block-width: 2px;/);
+  expect(css).toMatch(/\.gis-ui-scroll-track\s*\{\s*pointer-events: none;/);
+  expect(css).toMatch(/\.gis-ui-scroll-thumb:not\(:focus-visible\)\s*\{\s*opacity: 0;/);
+});

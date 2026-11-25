@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId } from 'vue';
 import {
   parseGISAppConfig,
   type LayerField,
@@ -7,30 +7,30 @@ import {
   type LegendItem,
   type LegendRange,
   type LegendValue,
-} from '@joinmap/gis-core'
-import type { LegendEditValue, UniformLayerStyle } from './legend-editor-types.js'
-import { selectValueKey } from './select-values.js'
-import LegendColor from './LegendColor.vue'
-import LegendAction from './LegendAction.vue'
-import LegendStyleDialog from './LegendStyleDialog.vue'
-import GisSelect from './GisSelect.vue'
-import GisMultiSelect from './GisMultiSelect.vue'
-import SvgIcon from './SvgIcon.vue'
+} from '@joinmap/gis-core';
+import type { LegendEditValue, UniformLayerStyle } from './legend-editor-types.js';
+import { selectValueKey } from './select-values.js';
+import LegendColor from './LegendColor.vue';
+import LegendAction from './LegendAction.vue';
+import LegendStyleDialog from './LegendStyleDialog.vue';
+import GisSelect from './GisSelect.vue';
+import GisMultiSelect from './GisMultiSelect.vue';
+import SvgIcon from './SvgIcon.vue';
 
-defineOptions({ inheritAttrs: false })
+defineOptions({ inheritAttrs: false });
 const props = defineProps<{
-  legend?: LayerLegend
-  layerStyle?: UniformLayerStyle
-  fields?: readonly LayerField[]
-  getFieldValues?: (field: string) => readonly LegendValue[]
-  symbol?: string
-  title?: string
-  saving?: boolean
-  blocked?: boolean
-  error?: string
-  labels?: Readonly<Record<string, string>>
-}>()
-const emit = defineEmits<{ submit: [value: LegendEditValue]; cancel: [] }>()
+  legend?: LayerLegend;
+  layerStyle?: UniformLayerStyle;
+  fields?: readonly LayerField[];
+  getFieldValues?: (field: string) => readonly LegendValue[];
+  symbol?: string;
+  title?: string;
+  saving?: boolean;
+  blocked?: boolean;
+  error?: string;
+  labels?: Readonly<Record<string, string>>;
+}>();
+const emit = defineEmits<{ submit: [value: LegendEditValue]; cancel: [] }>();
 const defaults: Record<string, string> = {
   title: 'Legend',
   color: 'Color',
@@ -78,14 +78,14 @@ const defaults: Record<string, string> = {
   generate: 'Generate rules',
   generationEmpty: 'This field has no suitable values.',
   generationLimit: 'Use a field with at most 12 different values, or add rules manually.',
-}
-const text = (key: string) => props.labels?.[key] ?? defaults[key] ?? key
-const uid = useId()
-let sequence = 0
+};
+const text = (key: string) => props.labels?.[key] ?? defaults[key] ?? key;
+const uid = useId();
+let sequence = 0;
 function copyLegend(): LayerLegend {
   const copy = JSON.parse(
     JSON.stringify(props.legend ?? { type: 'category', items: [] })
-  ) as LayerLegend
+  ) as LayerLegend;
   return {
     ...copy,
     ...(copy.items
@@ -95,66 +95,72 @@ function copyLegend(): LayerLegend {
           ),
         }
       : {}),
-  }
+  };
 }
-const draft = ref(copyLegend())
+const draft = ref(copyLegend());
 const style = ref<UniformLayerStyle>({
   fillColor: '#ffffff66',
   strokeColor: '#3399cc',
   strokeWidth: 1.25,
   pointRadius: 5,
   ...props.layerStyle,
-})
-const advanced = ref(false)
+});
+const advanced = ref(false);
 const validation = ref(''),
-  candidates = ref<readonly LegendValue[]>([])
-const items = computed(() => draft.value.items ?? [])
-const ranges = computed(() => draft.value.ranges ?? [])
+  candidates = ref<readonly LegendValue[]>([]);
+const items = computed(() => draft.value.items ?? []);
+const ranges = computed(() => draft.value.ranges ?? []);
 const classified = computed(
   () => !!draft.value.field && (draft.value.type === 'category' || draft.value.type === 'interval')
-)
-const uniform = computed(() => !draft.value.field && draft.value.type === 'category')
-const convertingToUniform = computed(() => uniform.value && !!props.legend?.field)
-const colorLabel = computed(() => (classified.value ? text('default') : text('layerColor')))
+);
+const uniform = computed(() => !draft.value.field && draft.value.type === 'category');
+const convertingToUniform = computed(() => uniform.value && !!props.legend?.field);
+const colorLabel = computed(() => (classified.value ? text('default') : text('layerColor')));
 const defaultColor = computed({
   get: () => (props.symbol === 'line' ? style.value.strokeColor : style.value.fillColor),
   set: (color) => {
-    if (props.symbol === 'line') style.value.strokeColor = color
-    else style.value.fillColor = color
+    if (props.symbol === 'line') {
+      style.value.strokeColor = color;
+    } else {
+      style.value.fillColor = color;
+    }
   },
-})
+});
 const fields = computed(() =>
   (props.fields ?? []).filter((field) => draft.value.type !== 'interval' || field.type === 'number')
-)
+);
 const typeOptions = computed(() => [
   { value: 'category', label: text('category') },
   { value: 'interval', label: text('interval') },
-])
+]);
 const fieldOptions = computed(() => {
-  const options = fields.value.map((field) => ({ value: field.name, label: field.name }))
-  if (draft.value.field && !options.some((field) => field.value === draft.value.field))
-    options.unshift({ value: draft.value.field, label: draft.value.field })
-  if (draft.value.type === 'category') options.unshift({ value: '', label: text('uniform') })
-  return options
-})
+  const choices = fields.value.map((field) => ({ value: field.name, label: field.name }));
+  if (draft.value.field && !choices.some((field) => field.value === draft.value.field)) {
+    choices.unshift({ value: draft.value.field, label: draft.value.field });
+  }
+  if (draft.value.type === 'category') {
+    choices.unshift({ value: '', label: text('uniform') });
+  }
+  return choices;
+});
 function refreshValues() {
   try {
-    candidates.value = draft.value.field ? (props.getFieldValues?.(draft.value.field) ?? []) : []
+    candidates.value = draft.value.field ? (props.getFieldValues?.(draft.value.field) ?? []) : [];
   } catch {
-    candidates.value = []
-    validation.value = text('invalid')
+    candidates.value = [];
+    validation.value = text('invalid');
   }
 }
 function options(index: number) {
   const used = new Map(
-    items.value.flatMap((item, i) =>
-      i === index
+    items.value.flatMap((item, itemIndex) =>
+      itemIndex === index
         ? []
         : (item.values ?? []).map(
             (value) => [selectValueKey(value), item.label || item.id] as const
           )
     )
-  )
+  );
   return candidates.value.map((value) => ({
     value,
     label: String(value) || '""',
@@ -162,23 +168,27 @@ function options(index: number) {
     hint: used.has(selectValueKey(value))
       ? `${text('used')}: ${used.get(selectValueKey(value))}`
       : undefined,
-  }))
+  }));
 }
 function setField(field: string) {
-  draft.value = { ...draft.value, field: field || undefined, useLayerStyle: false }
-  validation.value = ''
-  refreshValues()
+  draft.value = { ...draft.value, field: field || undefined, useLayerStyle: false };
+  validation.value = '';
+  refreshValues();
 }
 function setType(type: string) {
-  if (type !== 'category' && type !== 'interval') return
+  if (type !== 'category' && type !== 'interval') {
+    return;
+  }
   const field =
     type === 'category' ||
-    props.fields?.some((field) => field.name === draft.value.field && field.type === 'number')
+    props.fields?.some(
+      (candidate) => candidate.name === draft.value.field && candidate.type === 'number'
+    )
       ? draft.value.field
-      : undefined
-  draft.value = { type, field }
-  validation.value = ''
-  refreshValues()
+      : undefined;
+  draft.value = { type, field };
+  validation.value = '';
+  refreshValues();
 }
 const ruleColors = [
   '#2563eb',
@@ -193,23 +203,25 @@ const ruleColors = [
   '#0f766e',
   '#65a30d',
   '#64748b',
-]
+];
 function generate() {
-  validation.value = ''
-  refreshValues()
-  if (validation.value) return
+  validation.value = '';
+  refreshValues();
+  if (validation.value) {
+    return;
+  }
   if (draft.value.type === 'interval') {
     const values = candidates.value
       .filter((value) => typeof value === 'number')
-      .sort((a, b) => a - b)
+      .sort((leftValue, rightValue) => leftValue - rightValue);
     const min = values[0],
-      max = values.at(-1)
+      max = values.at(-1);
     if (min === undefined || max === undefined) {
-      validation.value = text('generationEmpty')
-      return
+      validation.value = text('generationEmpty');
+      return;
     }
-    const size = Math.min(5, values.length)
-    const padding = Math.max(1, Math.abs(min) * Number.EPSILON)
+    const size = Math.min(5, values.length);
+    const padding = Math.max(1, Math.abs(min) * Number.EPSILON);
     const boundaries =
       min === max
         ? [min - padding, max + padding].map((value) => (Number.isFinite(value) ? value : min))
@@ -217,10 +229,10 @@ function generate() {
             ...new Set(
               Array.from(
                 { length: size + 1 },
-                (_, index) => min * (1 - index / size) + max * (index / size)
+                (_unused, index) => min * (1 - index / size) + max * (index / size)
               )
             ),
-          ].sort((a, b) => a - b)
+          ].sort((leftValue, rightValue) => leftValue - rightValue);
     draft.value = {
       ...draft.value,
       ranges: boundaries.slice(0, -1).map((lower, index) => ({
@@ -230,15 +242,15 @@ function generate() {
         color: ruleColors[index]!,
         includeMax: index === boundaries.length - 2,
       })),
-    }
+    };
   } else {
     if (!candidates.value.length) {
-      validation.value = text('generationEmpty')
-      return
+      validation.value = text('generationEmpty');
+      return;
     }
     if (candidates.value.length > ruleColors.length) {
-      validation.value = text('generationLimit')
-      return
+      validation.value = text('generationLimit');
+      return;
     }
     draft.value = {
       ...draft.value,
@@ -249,57 +261,73 @@ function generate() {
         values: [value],
         color: ruleColors[index]!,
       })),
-    }
+    };
   }
 }
 function add() {
-  const id = `${uid}-${++sequence}`
+  const id = `${uid}-${++sequence}`;
   if (draft.value.type === 'interval') {
-    const min = ranges.value.length ? Math.max(...ranges.value.map((range) => range.max)) : 0
+    const min = ranges.value.length ? Math.max(...ranges.value.map((range) => range.max)) : 0;
     draft.value = {
       ...draft.value,
       ranges: [...ranges.value, { id, min, max: min + 100, color: defaultColor.value }],
-    }
-  } else
+    };
+  } else {
     draft.value = {
       ...draft.value,
       items: [...items.value, { id, values: [], label: '', color: defaultColor.value }],
       useLayerStyle: false,
-    }
+    };
+  }
 }
 function remove(index: number) {
   draft.value =
     draft.value.type === 'interval'
-      ? { ...draft.value, ranges: ranges.value.filter((_, i) => i !== index) }
-      : { ...draft.value, items: items.value.filter((_, i) => i !== index), useLayerStyle: false }
+      ? {
+          ...draft.value,
+          ranges: ranges.value.filter((_range, rangeIndex) => rangeIndex !== index),
+        }
+      : {
+          ...draft.value,
+          items: items.value.filter((_item, itemIndex) => itemIndex !== index),
+          useLayerStyle: false,
+        };
 }
 function changeItem(index: number, patch: Partial<LegendItem>) {
-  const uniform = !draft.value.field && items.value.length === 1 && !!props.layerStyle
-  if (uniform && patch.color) defaultColor.value = patch.color
+  const usesLayerStyle = !draft.value.field && items.value.length === 1 && !!props.layerStyle;
+  if (usesLayerStyle && patch.color) {
+    defaultColor.value = patch.color;
+  }
   draft.value = {
     ...draft.value,
-    useLayerStyle: uniform,
-    items: items.value.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-  }
+    useLayerStyle: usesLayerStyle,
+    items: items.value.map((item, itemIndex) =>
+      itemIndex === index ? { ...item, ...patch } : item
+    ),
+  };
 }
 function changeRange(index: number, patch: Partial<LegendRange>) {
   draft.value = {
     ...draft.value,
-    ranges: ranges.value.map((range, i) => (i === index ? { ...range, ...patch } : range)),
-  }
+    ranges: ranges.value.map((range, rangeIndex) =>
+      rangeIndex === index ? { ...range, ...patch } : range
+    ),
+  };
 }
 function validColor(value: string) {
-  const node = document.createElement('span')
-  node.style.color = value
-  return !!node.style.color
+  const node = document.createElement('span');
+  node.style.color = value;
+  return !!node.style.color;
 }
 function submit() {
-  if (props.saving || props.blocked) return
-  validation.value = ''
+  if (props.saving || props.blocked) {
+    return;
+  }
+  validation.value = '';
   try {
-    let legend: LayerLegend = JSON.parse(JSON.stringify(draft.value))
+    let legend: LayerLegend = JSON.parse(JSON.stringify(draft.value));
     if (convertingToUniform.value) {
-      const symbol = props.symbol === 'line' || props.symbol === 'circle' ? props.symbol : 'fill'
+      const symbol = props.symbol === 'line' || props.symbol === 'circle' ? props.symbol : 'fill';
       legend = {
         ...legend,
         useLayerStyle: !!props.layerStyle,
@@ -311,31 +339,37 @@ function submit() {
             symbol,
           },
         ],
-      }
+      };
     }
     if (legend.type === 'interval') {
-      if (!legend.field) throw new Error()
-      legend = { ...legend, ranges: [...ranges.value].sort((a, b) => a.min - b.min) }
+      if (!legend.field) {
+        throw new Error();
+      }
+      legend = {
+        ...legend,
+        ranges: [...ranges.value].sort((leftRange, rightRange) => leftRange.min - rightRange.min),
+      };
     }
     if (
       !validColor(style.value.fillColor) ||
       !validColor(style.value.strokeColor) ||
       items.value.some((item) => item.color && !validColor(item.color)) ||
       ranges.value.some((range) => !validColor(range.color))
-    )
-      throw new Error()
+    ) {
+      throw new Error();
+    }
     const normalized = parseGISAppConfig({
       layers: [{ id: 'draft', type: 'geojson', style: style.value, legend }],
-    }).layers![0]!.legend!
+    }).layers![0]!.legend!;
     emit('submit', {
       legend: normalized,
       ...(props.layerStyle ? { style: { ...style.value } } : {}),
-    })
+    });
   } catch {
-    validation.value = text('invalid')
+    validation.value = text('invalid');
   }
 }
-refreshValues()
+refreshValues();
 </script>
 
 <template>

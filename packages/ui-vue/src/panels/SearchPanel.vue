@@ -1,146 +1,164 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue'
-import type { SearchResult } from '../types.js'
-import { useGISApp } from '../use-gis-app.js'
-import { useGISUI } from '../use-gis-ui.js'
-import { useAppState } from '../use-app-state.js'
-import SvgIcon from '../components/SvgIcon.vue'
-import GisSelect from '../components/GisSelect.vue'
-import ScrollArea from '../components/ScrollArea.vue'
+import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue';
+import type { SearchResult } from '../types.js';
+import { useGISApp } from '../use-gis-app.js';
+import { useGISUI } from '../use-gis-ui.js';
+import { useAppState } from '../use-app-state.js';
+import SvgIcon from '../components/SvgIcon.vue';
+import GisSelect from '../components/GisSelect.vue';
+import ScrollArea from '../components/ScrollArea.vue';
 
 const props = withDefaults(
   defineProps<{
-    placeholder?: string
-    emptyText?: string
-    maxResults?: number
-    dropdown?: boolean
+    placeholder?: string;
+    emptyText?: string;
+    maxResults?: number;
+    dropdown?: boolean;
   }>(),
   {
     maxResults: 8,
     dropdown: false,
   }
-)
+);
 
-const app = useGISApp()
-const ui = useGISUI()
-const snapshot = useAppState((state) => state.layers)
-const providers = shallowRef(app.search.listProviders())
-const providerCount = computed(() => providers.value.length)
-const selectedLayer = ref('')
+const app = useGISApp();
+const ui = useGISUI();
+const snapshot = useAppState((state) => state.layers);
+const providers = shallowRef(app.search.listProviders());
+const providerCount = computed(() => providers.value.length);
+const selectedLayer = ref('');
 const searchableLayers = computed(() =>
   snapshot.value.filter(
     (layer) =>
       layer.type !== 'GROUP' &&
       providers.value.some((provider) => !provider.layerIds || provider.layerIds.includes(layer.id))
   )
-)
+);
 const generalSearch = computed(
   () => snapshot.value.length === 0 && providers.value.some((provider) => !provider.layerIds)
-)
+);
 const layerOptions = computed(() =>
   searchableLayers.value.map((layer) => ({ value: layer.id, label: layer.title || layer.id }))
-)
-const canSearch = computed(() => !!selectedLayer.value || generalSearch.value)
-const placeholderText = computed(() => props.placeholder ?? ui.locale.t('search.placeholder'))
-const emptyText = computed(() => props.emptyText ?? ui.locale.t('search.empty'))
-const keyword = ref('')
-const results = ref<SearchResult[]>([])
-const loading = ref(false)
-const error = ref<string>()
-const hasSearched = ref(false)
-const root = ref<HTMLElement>()
-const dropdownOpen = ref(false)
-const feedbackId = `gis-search-${useId()}`
-let controller: AbortController | undefined
-let requestId = 0
+);
+const canSearch = computed(() => !!selectedLayer.value || generalSearch.value);
+const placeholderText = computed(() => props.placeholder ?? ui.locale.t('search.placeholder'));
+const emptyText = computed(() => props.emptyText ?? ui.locale.t('search.empty'));
+const keyword = ref('');
+const results = ref<SearchResult[]>([]);
+const loading = ref(false);
+const error = ref<string>();
+const hasSearched = ref(false);
+const root = ref<HTMLElement>();
+const dropdownOpen = ref(false);
+const feedbackId = `gis-search-${useId()}`;
+let controller: AbortController | undefined;
+let requestId = 0;
 
 function resetSearch() {
-  controller?.abort()
-  requestId++
-  loading.value = false
-  results.value = []
-  hasSearched.value = false
-  error.value = undefined
-  dropdownOpen.value = false
+  controller?.abort();
+  requestId++;
+  loading.value = false;
+  results.value = [];
+  hasSearched.value = false;
+  error.value = undefined;
+  dropdownOpen.value = false;
 }
 const stopProviders = app.search.subscribe(() => {
-  providers.value = app.search.listProviders()
-  resetSearch()
-})
+  providers.value = app.search.listProviders();
+  resetSearch();
+});
 watch(
   searchableLayers,
   (layers) => {
-    if (!layers.some((layer) => layer.id === selectedLayer.value))
-      selectedLayer.value = layers[0]?.id ?? ''
+    if (!layers.some((layer) => layer.id === selectedLayer.value)) {
+      selectedLayer.value = layers[0]?.id ?? '';
+    }
   },
   { immediate: true, flush: 'sync' }
-)
-watch(selectedLayer, resetSearch, { flush: 'sync' })
+);
+watch(selectedLayer, resetSearch, { flush: 'sync' });
 watch(
   () => snapshot.value.find((layer) => layer.id === selectedLayer.value)?.version,
   resetSearch,
   { flush: 'sync' }
-)
+);
 
 function dismiss() {
-  dropdownOpen.value = false
+  dropdownOpen.value = false;
 }
 function outsidePointer(event: PointerEvent) {
-  if (event.target instanceof Node && !root.value?.contains(event.target)) dismiss()
+  if (event.target instanceof Node && !root.value?.contains(event.target)) {
+    dismiss();
+  }
 }
 function focus() {
-  if (hasSearched.value || providerCount.value === 0) dropdownOpen.value = true
+  if (hasSearched.value || providerCount.value === 0) {
+    dropdownOpen.value = true;
+  }
 }
 function blur(event: FocusEvent) {
-  if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget))
-    dismiss()
+  if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget)) {
+    dismiss();
+  }
 }
 watch(dropdownOpen, (open) => {
-  document.removeEventListener('pointerdown', outsidePointer)
-  if (open && props.dropdown) document.addEventListener('pointerdown', outsidePointer)
-})
+  document.removeEventListener('pointerdown', outsidePointer);
+  if (open && props.dropdown) {
+    document.addEventListener('pointerdown', outsidePointer);
+  }
+});
 onBeforeUnmount(() => {
-  stopProviders()
-  controller?.abort()
-  document.removeEventListener('pointerdown', outsidePointer)
-})
+  stopProviders();
+  controller?.abort();
+  document.removeEventListener('pointerdown', outsidePointer);
+});
 
 async function search() {
-  if (!canSearch.value || !keyword.value.trim()) return
-  controller?.abort()
-  const currentController = new AbortController()
-  controller = currentController
-  const currentRequest = ++requestId
-  loading.value = true
-  dropdownOpen.value = true
-  error.value = undefined
-  hasSearched.value = true
+  if (!canSearch.value || !keyword.value.trim()) {
+    return;
+  }
+  controller?.abort();
+  const currentController = new AbortController();
+  controller = currentController;
+  const currentRequest = ++requestId;
+  loading.value = true;
+  dropdownOpen.value = true;
+  error.value = undefined;
+  hasSearched.value = true;
   try {
     const nextResults = await app.search.search({
       keyword: keyword.value,
       layerId: selectedLayer.value || undefined,
       signal: currentController.signal,
-    })
-    if (currentRequest === requestId) results.value = nextResults.slice(0, props.maxResults)
+    });
+    if (currentRequest === requestId) {
+      results.value = nextResults.slice(0, props.maxResults);
+    }
   } catch (cause) {
     if (currentRequest === requestId && !currentController.signal.aborted) {
-      error.value = cause instanceof Error ? cause.message : String(cause)
-      results.value = []
+      error.value = cause instanceof Error ? cause.message : String(cause);
+      results.value = [];
     }
   } finally {
-    if (currentRequest === requestId) loading.value = false
+    if (currentRequest === requestId) {
+      loading.value = false;
+    }
   }
 }
 
 function selectResult(result: SearchResult) {
-  dismiss()
-  if (!app.map.isReady) return
+  dismiss();
+  if (!app.map.isReady) {
+    return;
+  }
   try {
-    app.map.locate(result)
-    if (result.feature) app.interactions.select({ feature: result.feature })
+    app.map.locate(result);
+    if (result.feature) {
+      app.interactions.select({ feature: result.feature });
+    }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-    dropdownOpen.value = true
+    error.value = cause instanceof Error ? cause.message : String(cause);
+    dropdownOpen.value = true;
   }
 }
 </script>

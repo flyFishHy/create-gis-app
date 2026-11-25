@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { PanelPosition } from '@joinmap/gis-core'
-import { useGISUI } from '../use-gis-ui.js'
-import PanelHost from './PanelHost.vue'
+import { computed } from 'vue';
+import type { PanelPosition } from '@joinmap/gis-core';
+import { useGISUI } from '../use-gis-ui.js';
+import PanelHost from './PanelHost.vue';
 
-const props = defineProps<{ position: PanelPosition; exclude?: readonly string[] }>()
-const ui = useGISUI()
+const props = defineProps<{ position: PanelPosition; exclude?: readonly string[] }>();
+const ui = useGISUI();
 const panelIds = computed(() =>
   ui.panels
     .list(props.position)
@@ -14,7 +14,7 @@ const panelIds = computed(() =>
         panel.id !== 'toolbar' && panel.id !== 'status' && !props.exclude?.includes(panel.id)
     )
     .map((panel) => panel.id)
-)
+);
 </script>
 
 <template>

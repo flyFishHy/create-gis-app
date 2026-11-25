@@ -105,6 +105,16 @@ packages/
 `ui-vue` 不应直接依赖 `adapter-ol`。UI 需要地图能力时，调用 Core 的
 `MapService`、`LayerService`、`InteractionService`
 等；需要引擎专属能力时，应由业务插件或明确的 OL 扩展包处理。
+LayerManager 删除自定义 OL 图层时通过 Core 解除地图挂载。共享 Source 的数据由
+业务插件或调用方管理，其他使用该 Source 的图层可继续显示。
+内置 WMS 和 WMTS 图层沿用 LayerManager 的显隐、排序和透明度操作。
+服务 URL、请求参数和 WMTS 矩阵集由 OpenLayers 图层工厂解析。
+Vue 工作区在地图挂载元素上通过 `--gis-map-measurement-color` 传递当前主题主色。
+主题更新后，既有量测结果和当前量测草图都使用更新后的颜色。
+图例编辑器通过 LayerService 读取字段及候选值。GeoJSON 图层数据更新后，
+下次读取返回更新后的候选值。
+取消地图工具时，OpenLayers 撤回尚未提交的几何修改。已结束绘制的有效结果可以在切换
+工具后完成首次建层，完成时保留当前工具。
 
 ### 2.2 建议导出入口
 

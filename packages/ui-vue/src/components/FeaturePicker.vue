@@ -1,82 +1,89 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
-import type { FeaturePickCandidate, FeaturePickState } from '@joinmap/gis-core'
-import { useAppState } from '../use-app-state.js'
-import { useGISApp } from '../use-gis-app.js'
-import { useGISUI } from '../use-gis-ui.js'
-import SvgIcon from './SvgIcon.vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
+import type { FeaturePickCandidate, FeaturePickState } from '@joinmap/gis-core';
+import { useAppState } from '../use-app-state.js';
+import { useGISApp } from '../use-gis-app.js';
+import { useGISUI } from '../use-gis-ui.js';
+import SvgIcon from './SvgIcon.vue';
 
-const app = useGISApp()
-const ui = useGISUI()
-const id = useId()
-const pick = shallowRef<FeaturePickState>()
-const layers = useAppState((snapshot) => snapshot.layers)
-const overlay = ref<HTMLElement>()
-const surface = ref<HTMLElement>()
-const nativeTarget = shallowRef<HTMLElement>()
-const position = shallowRef({ left: '0px', top: '0px', '--gis-ui-map-popup-anchor-x': '50%' })
-const tailSide = ref<'top' | 'bottom'>()
-let unregister: (() => void) | undefined
-let removeNativePopup: (() => void) | undefined
+const app = useGISApp();
+const ui = useGISUI();
+const id = useId();
+const pick = shallowRef<FeaturePickState>();
+const layers = useAppState((snapshot) => snapshot.layers);
+const overlay = ref<HTMLElement>();
+const surface = ref<HTMLElement>();
+const nativeTarget = shallowRef<HTMLElement>();
+const position = shallowRef({ left: '0px', top: '0px', '--gis-ui-map-popup-anchor-x': '50%' });
+const tailSide = ref<'top' | 'bottom'>();
+let unregister: (() => void) | undefined;
+let removeNativePopup: (() => void) | undefined;
 
 onMounted(() => {
   unregister = app.interactions.registerFeaturePicker((value) => {
-    pick.value = value
-  })
-})
+    pick.value = value;
+  });
+});
 onBeforeUnmount(() => {
-  unregister?.()
-  removeNativePopup?.()
-})
+  unregister?.();
+  removeNativePopup?.();
+});
 
 watch(
   () => pick.value?.anchor,
   (anchor) => {
-    removeNativePopup?.()
-    removeNativePopup = undefined
-    nativeTarget.value = undefined
-    if (!anchor || !app.map.isReady) return
-    const element = document.createElement('div')
-    element.className = 'gis-ui-feature-picker-native'
-    removeNativePopup = app.map.addPopupOverlay(element, anchor)
-    if (removeNativePopup) nativeTarget.value = element
+    removeNativePopup?.();
+    removeNativePopup = undefined;
+    nativeTarget.value = undefined;
+    if (!anchor || !app.map.isReady) {
+      return;
+    }
+    const element = document.createElement('div');
+    element.className = 'gis-ui-feature-picker-native';
+    removeNativePopup = app.map.addPopupOverlay(element, anchor);
+    if (removeNativePopup) {
+      nativeTarget.value = element;
+    }
   },
   { flush: 'sync' }
-)
+);
 
 watch(
   pick,
   (value) => {
     const host = overlay.value,
-      panel = surface.value
-    if (!value || !host || !panel) return
+      panel = surface.value;
+    if (!value || !host || !panel) {
+      return;
+    }
     if (!nativeTarget.value) {
-      const [x, y] = value.pixel
-      const gap = 8
-      const { offsetWidth: width, offsetHeight: height } = panel
-      const clamp = (value: number, available: number, size: number) =>
-        Math.max(0, Math.min(value, available - size))
-      const left = clamp(x - width / 2, host.clientWidth, width)
-      const above = y - gap - height
+      const [pixelX, pixelY] = value.pixel;
+      const gap = 8;
+      const { offsetWidth: width, offsetHeight: height } = panel;
+      const clamp = (coordinate: number, available: number, size: number) =>
+        Math.max(0, Math.min(coordinate, available - size));
+      const left = clamp(pixelX - width / 2, host.clientWidth, width);
+      const above = pixelY - gap - height;
       const top = clamp(
-        above >= 0 || y > host.clientHeight / 2 ? above : y + gap,
+        above >= 0 || pixelY > host.clientHeight / 2 ? above : pixelY + gap,
         host.clientHeight,
         height
-      )
+      );
       position.value = {
         left: `${left}px`,
         top: `${top}px`,
-        '--gis-ui-map-popup-anchor-x': `${x - left}px`,
-      }
-      tailSide.value = top >= y ? 'top' : top + height <= y ? 'bottom' : undefined
+        '--gis-ui-map-popup-anchor-x': `${pixelX - left}px`,
+      };
+      tailSide.value = top >= pixelY ? 'top' : top + height <= pixelY ? 'bottom' : undefined;
     }
-    if (value.status === 'choices')
+    if (value.status === 'choices') {
       panel
         .querySelector<HTMLButtonElement>('.gis-ui-feature-picker-choice')
-        ?.focus({ preventScroll: true })
+        ?.focus({ preventScroll: true });
+    }
   },
   { flush: 'post' }
-)
+);
 
 function title(candidate: FeaturePickCandidate, index: number): string {
   const label = [
@@ -85,28 +92,30 @@ function title(candidate: FeaturePickCandidate, index: number): string {
     candidate.properties?.title,
     candidate.properties?.label,
     candidate.id,
-  ].find((value) => (typeof value === 'string' && value.trim()) || typeof value === 'number')
+  ].find((value) => (typeof value === 'string' && value.trim()) || typeof value === 'number');
   return label === undefined
     ? `${ui.locale.t('featurePicker.untitled')} ${index + 1}`
-    : String(label)
+    : String(label);
 }
 
 function focusMap() {
   overlay.value?.parentElement
     ?.querySelector<HTMLElement>('.gis-ui-map-viewport')
-    ?.focus({ preventScroll: true })
+    ?.focus({ preventScroll: true });
 }
 
 function cancel() {
-  focusMap()
-  app.interactions.cancelFeaturePick()
+  focusMap();
+  app.interactions.cancelFeaturePick();
 }
 
 function choose(candidate: FeaturePickCandidate) {
-  if (pick.value?.status !== 'choices' || !pick.value.candidates.includes(candidate)) return
-  focusMap()
-  const { title: _title, ...feature } = candidate
-  app.interactions.select({ feature })
+  if (pick.value?.status !== 'choices' || !pick.value.candidates.includes(candidate)) {
+    return;
+  }
+  focusMap();
+  const { title: _title, ...feature } = candidate;
+  app.interactions.select({ feature });
 }
 </script>
 

@@ -36,7 +36,7 @@
             },
           },
         },
-      }
+      };
     </script>
 
     <style>
@@ -813,7 +813,7 @@
           layerHeatmap: 'Load Density Heatmap',
           layerGrid: 'WGS84 Coordinate Grid',
         },
-      }
+      };
 
       // 2. 全局应用状态
       const state = {
@@ -846,7 +846,7 @@
         tempVertices: [],
         mouseGeoPos: null,
         measurements: [], // 存储已完成的测量路径
-      }
+      };
 
       // 3. 图层配置数据
       const layers = [
@@ -944,7 +944,7 @@
             },
           ],
         },
-      ]
+      ];
 
       // 4. 预置丰富空间矢量要素数据集 (支持多时段动态数值响应)
       let features = [
@@ -1115,7 +1115,7 @@
           notes: '黄浦江实时水位与降雨量联合感知终端。',
           coords: [121.498, 31.2475],
         },
-      ]
+      ];
 
       // 时段系数，用于模拟时间选择器切换后的动态变化
       const TIME_MULTIPLIERS = {
@@ -1123,11 +1123,11 @@
         '2026-11-17T12:00': { factor: 1.05, label: '午间平稳 +5%' },
         '2026-11-17T15:30': { factor: 1.0, label: '当前实时基准' },
         '2026-11-17T20:00': { factor: 1.26, label: '夜间峰值 +26%' },
-      }
+      };
 
       // Canvas 引用
-      const canvas = document.getElementById('gis-canvas')
-      const ctx = canvas.getContext('2d')
+      const canvas = document.getElementById('gis-canvas');
+      const ctx = canvas.getContext('2d');
 
       /**
        * =========================================================================
@@ -1136,88 +1136,88 @@
        */
       function getMetersPerPixel() {
         // 标准 Web Mercator 地面分辨率公式
-        const latRad = (state.map.centerLat * Math.PI) / 180
-        return (156543.03392 * Math.cos(latRad)) / Math.pow(2, state.map.zoom)
+        const latRad = (state.map.centerLat * Math.PI) / 180;
+        return (156543.03392 * Math.cos(latRad)) / Math.pow(2, state.map.zoom);
       }
 
       function geoToScreen(lon, lat) {
-        const mpp = getMetersPerPixel()
-        const metersPerDegLat = 111320
-        const metersPerDegLon = 111320 * Math.cos((state.map.centerLat * Math.PI) / 180)
+        const mpp = getMetersPerPixel();
+        const metersPerDegLat = 111320;
+        const metersPerDegLon = 111320 * Math.cos((state.map.centerLat * Math.PI) / 180);
 
-        const dxMeters = (lon - state.map.centerLon) * metersPerDegLon
-        const dyMeters = (lat - state.map.centerLat) * metersPerDegLat
+        const dxMeters = (lon - state.map.centerLon) * metersPerDegLon;
+        const dyMeters = (lat - state.map.centerLat) * metersPerDegLat;
 
-        const x = canvas.clientWidth / 2 + dxMeters / mpp
-        const y = canvas.clientHeight / 2 - dyMeters / mpp
-        return { x, y }
+        const x = canvas.clientWidth / 2 + dxMeters / mpp;
+        const y = canvas.clientHeight / 2 - dyMeters / mpp;
+        return { x, y };
       }
 
       function screenToGeo(x, y) {
-        const mpp = getMetersPerPixel()
-        const metersPerDegLat = 111320
-        const metersPerDegLon = 111320 * Math.cos((state.map.centerLat * Math.PI) / 180)
+        const mpp = getMetersPerPixel();
+        const metersPerDegLat = 111320;
+        const metersPerDegLon = 111320 * Math.cos((state.map.centerLat * Math.PI) / 180);
 
-        const dxMeters = (x - canvas.clientWidth / 2) * mpp
-        const dyMeters = (canvas.clientHeight / 2 - y) * mpp
+        const dxMeters = (x - canvas.clientWidth / 2) * mpp;
+        const dyMeters = (canvas.clientHeight / 2 - y) * mpp;
 
-        const lon = state.map.centerLon + dxMeters / metersPerDegLon
-        const lat = state.map.centerLat + dyMeters / metersPerDegLat
-        return { lon, lat }
+        const lon = state.map.centerLon + dxMeters / metersPerDegLon;
+        const lat = state.map.centerLat + dyMeters / metersPerDegLat;
+        return { lon, lat };
       }
 
       // 计算两点间 Haversine 球面距离 (单位: 米)
       function calcDistanceMeters(p1, p2) {
-        const R = 6371000
-        const dLat = ((p2[1] - p1[1]) * Math.PI) / 180
-        const dLon = ((p2[0] - p1[0]) * Math.PI) / 180
+        const R = 6371000;
+        const dLat = ((p2[1] - p1[1]) * Math.PI) / 180;
+        const dLon = ((p2[0] - p1[0]) * Math.PI) / 180;
         const a =
           Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.cos((p1[1] * Math.PI) / 180) *
             Math.cos((p2[1] * Math.PI) / 180) *
             Math.sin(dLon / 2) *
-            Math.sin(dLon / 2)
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        return R * c
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
       }
 
       // 计算折线总长度 (km)
       function calcPolylineLengthKm(coords) {
-        let total = 0
+        let total = 0;
         for (let i = 0; i < coords.length - 1; i++) {
-          total += calcDistanceMeters(coords[i], coords[i + 1])
+          total += calcDistanceMeters(coords[i], coords[i + 1]);
         }
-        return total / 1000
+        return total / 1000;
       }
 
       // 计算多边形球面近似面积 (km²)
       function calcPolygonAreaKm2(coords) {
-        if (coords.length < 3) return 0
-        const refLat = coords[0][1]
-        const mPerDegLat = 111320
-        const mPerDegLon = 111320 * Math.cos((refLat * Math.PI) / 180)
+        if (coords.length < 3) return 0;
+        const refLat = coords[0][1];
+        const mPerDegLat = 111320;
+        const mPerDegLon = 111320 * Math.cos((refLat * Math.PI) / 180);
 
-        let area = 0
+        let area = 0;
         for (let i = 0; i < coords.length; i++) {
-          const j = (i + 1) % coords.length
-          const x1 = coords[i][0] * mPerDegLon
-          const y1 = coords[i][1] * mPerDegLat
-          const x2 = coords[j][0] * mPerDegLon
-          const y2 = coords[j][1] * mPerDegLat
-          area += x1 * y2 - x2 * y1
+          const j = (i + 1) % coords.length;
+          const x1 = coords[i][0] * mPerDegLon;
+          const y1 = coords[i][1] * mPerDegLat;
+          const x2 = coords[j][0] * mPerDegLon;
+          const y2 = coords[j][1] * mPerDegLat;
+          area += x1 * y2 - x2 * y1;
         }
-        return Math.abs(area / 2) / 1_000_000
+        return Math.abs(area / 2) / 1_000_000;
       }
 
       function getFeatureCenter(f) {
-        if (f.geomType === 'point') return f.coords
+        if (f.geomType === 'point') return f.coords;
         let sumLon = 0,
-          sumLat = 0
+          sumLat = 0;
         f.coords.forEach((c) => {
-          sumLon += c[0]
-          sumLat += c[1]
-        })
-        return [sumLon / f.coords.length, sumLat / f.coords.length]
+          sumLon += c[0];
+          sumLat += c[1];
+        });
+        return [sumLon / f.coords.length, sumLat / f.coords.length];
       }
 
       /**
@@ -1226,84 +1226,84 @@
        * =========================================================================
        */
       function resizeCanvas() {
-        const wrapper = document.getElementById('map-viewport-wrapper')
-        const dpr = window.devicePixelRatio || 1
-        canvas.width = wrapper.clientWidth * dpr
-        canvas.height = wrapper.clientHeight * dpr
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-        renderMap()
+        const wrapper = document.getElementById('map-viewport-wrapper');
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = wrapper.clientWidth * dpr;
+        canvas.height = wrapper.clientHeight * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        renderMap();
       }
 
       function renderMap() {
-        const w = canvas.clientWidth
-        const h = canvas.clientHeight
-        if (w === 0 || h === 0) return
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (w === 0 || h === 0) return;
 
-        const isDark = state.theme === 'dark'
+        const isDark = state.theme === 'dark';
 
         // 1. 底图背景色
-        ctx.fillStyle = isDark ? '#090f1d' : '#eef2f6'
-        ctx.fillRect(0, 0, w, h)
+        ctx.fillStyle = isDark ? '#090f1d' : '#eef2f6';
+        ctx.fillRect(0, 0, w, h);
 
         // 2. 绘制模拟矢量底图地理要素（黄浦江水系 + 城市主干路网 + 街区肌理）
-        drawBaseVectorGeography(isDark)
+        drawBaseVectorGeography(isDark);
 
         // 3. 绘制经纬参考网格图层
-        const gridLayer = layers.find((l) => l.id === 'grid')
+        const gridLayer = layers.find((l) => l.id === 'grid');
         if (gridLayer && gridLayer.visible) {
-          drawCoordinateGrid(isDark, gridLayer.opacity)
+          drawCoordinateGrid(isDark, gridLayer.opacity);
         }
 
         // 4. 绘制面状功能区图层 (Polygon)
-        const zoneLayer = layers.find((l) => l.id === 'zones')
+        const zoneLayer = layers.find((l) => l.id === 'zones');
         if (zoneLayer && zoneLayer.visible) {
           features
             .filter((f) => f.layerId === 'zones')
             .forEach((f) => {
-              drawPolygonFeature(f, zoneLayer.opacity, isDark)
-            })
+              drawPolygonFeature(f, zoneLayer.opacity, isDark);
+            });
         }
 
         // 5. 绘制负荷热力图图层 (Heatmap)
-        const heatLayer = layers.find((l) => l.id === 'heatmap')
+        const heatLayer = layers.find((l) => l.id === 'heatmap');
         if (heatLayer && heatLayer.visible) {
-          drawHeatmapLayer(heatLayer.opacity)
+          drawHeatmapLayer(heatLayer.opacity);
         }
 
         // 6. 绘制管线/道路网络图层 (LineString)
-        const pipeLayer = layers.find((l) => l.id === 'pipelines')
+        const pipeLayer = layers.find((l) => l.id === 'pipelines');
         if (pipeLayer && pipeLayer.visible) {
           features
             .filter((f) => f.layerId === 'pipelines')
             .forEach((f) => {
-              drawLineFeature(f, pipeLayer.opacity, isDark)
-            })
+              drawLineFeature(f, pipeLayer.opacity, isDark);
+            });
         }
 
         // 7. 绘制监测站与点要素图层 (Point)
-        const sensorLayer = layers.find((l) => l.id === 'sensors')
+        const sensorLayer = layers.find((l) => l.id === 'sensors');
         if (sensorLayer && sensorLayer.visible) {
           features
             .filter((f) => f.layerId === 'sensors')
             .forEach((f) => {
-              drawPointFeature(f, sensorLayer.opacity, isDark)
-            })
+              drawPointFeature(f, sensorLayer.opacity, isDark);
+            });
         }
 
         // 8. 绘制已保存的空间量测结果
-        state.measurements.forEach((m) => drawMeasurementOverlay(m, isDark, false))
+        state.measurements.forEach((m) => drawMeasurementOverlay(m, isDark, false));
 
         // 9. 绘制当前正在交互绘制/测量的草图
         if (state.tempVertices.length > 0) {
-          const previewCoords = [...state.tempVertices]
+          const previewCoords = [...state.tempVertices];
           if (state.mouseGeoPos) {
-            previewCoords.push([state.mouseGeoPos.lon, state.mouseGeoPos.lat])
+            previewCoords.push([state.mouseGeoPos.lon, state.mouseGeoPos.lat]);
           }
-          drawActiveSketch(previewCoords, isDark)
+          drawActiveSketch(previewCoords, isDark);
         }
 
         // 更新底部比例尺
-        updateScaleBarUI()
+        updateScaleBarUI();
       }
 
       // 绘制逼真的黄浦江水系与城市道路底图
@@ -1322,21 +1322,21 @@
           [121.4988, 31.2415],
           [121.5015, 31.2505],
           [121.4945, 31.26],
-        ]
+        ];
 
-        ctx.save()
-        ctx.beginPath()
+        ctx.save();
+        ctx.beginPath();
         riverCoords.forEach((c, idx) => {
-          const pt = geoToScreen(c[0], c[1])
-          if (idx === 0) ctx.moveTo(pt.x, pt.y)
-          else ctx.lineTo(pt.x, pt.y)
-        })
-        ctx.closePath()
-        ctx.fillStyle = isDark ? '#0f2544' : '#bae6fd'
-        ctx.fill()
-        ctx.strokeStyle = isDark ? '#1e3a8a' : '#7dd3fc'
-        ctx.lineWidth = 1.5
-        ctx.stroke()
+          const pt = geoToScreen(c[0], c[1]);
+          if (idx === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = isDark ? '#0f2544' : '#bae6fd';
+        ctx.fill();
+        ctx.strokeStyle = isDark ? '#1e3a8a' : '#7dd3fc';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
 
         // 模拟城市主干路网骨架
         const roads = [
@@ -1370,359 +1370,363 @@
             [121.524, 31.232],
             [121.521, 31.21],
           ],
-        ]
+        ];
 
-        ctx.strokeStyle = isDark ? 'rgba(51, 65, 85, 0.55)' : 'rgba(203, 213, 225, 0.9)'
-        ctx.lineWidth = state.map.zoom > 13 ? 3 : 1.8
+        ctx.strokeStyle = isDark ? 'rgba(51, 65, 85, 0.55)' : 'rgba(203, 213, 225, 0.9)';
+        ctx.lineWidth = state.map.zoom > 13 ? 3 : 1.8;
         roads.forEach((road) => {
-          ctx.beginPath()
+          ctx.beginPath();
           road.forEach((c, i) => {
-            const pt = geoToScreen(c[0], c[1])
-            if (i === 0) ctx.moveTo(pt.x, pt.y)
-            else ctx.lineTo(pt.x, pt.y)
-          })
-          ctx.stroke()
-        })
+            const pt = geoToScreen(c[0], c[1]);
+            if (i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.stroke();
+        });
 
         // 水系注记
-        const riverLabelPt = geoToScreen(121.4932, 31.2355)
-        ctx.font = 'italic 600 11px Inter, sans-serif'
-        ctx.fillStyle = isDark ? 'rgba(96, 165, 250, 0.45)' : 'rgba(2, 132, 199, 0.55)'
-        ctx.textAlign = 'center'
+        const riverLabelPt = geoToScreen(121.4932, 31.2355);
+        ctx.font = 'italic 600 11px Inter, sans-serif';
+        ctx.fillStyle = isDark ? 'rgba(96, 165, 250, 0.45)' : 'rgba(2, 132, 199, 0.55)';
+        ctx.textAlign = 'center';
         ctx.fillText(
           state.lang === 'zh' ? '黄 浦 江' : 'HUANGPU RIVER',
           riverLabelPt.x,
           riverLabelPt.y
-        )
-        ctx.restore()
+        );
+        ctx.restore();
       }
 
       // 绘制 WGS84 经纬网格
       function drawCoordinateGrid(isDark, opacity) {
-        const topLeft = screenToGeo(0, 0)
-        const bottomRight = screenToGeo(canvas.clientWidth, canvas.clientHeight)
-        const step = state.map.zoom >= 14 ? 0.005 : 0.01
+        const topLeft = screenToGeo(0, 0);
+        const bottomRight = screenToGeo(canvas.clientWidth, canvas.clientHeight);
+        const step = state.map.zoom >= 14 ? 0.005 : 0.01;
 
-        const startLon = Math.floor(topLeft.lon / step) * step
-        const endLon = Math.ceil(bottomRight.lon / step) * step
-        const startLat = Math.floor(bottomRight.lat / step) * step
-        const endLat = Math.ceil(topLeft.lat / step) * step
+        const startLon = Math.floor(topLeft.lon / step) * step;
+        const endLon = Math.ceil(bottomRight.lon / step) * step;
+        const startLat = Math.floor(bottomRight.lat / step) * step;
+        const endLat = Math.ceil(topLeft.lat / step) * step;
 
-        ctx.save()
-        ctx.globalAlpha = opacity * 0.4
-        ctx.strokeStyle = isDark ? '#334155' : '#94a3b8'
-        ctx.lineWidth = 0.8
-        ctx.setLineDash([4, 4])
-        ctx.font = '10px "JetBrains Mono", monospace'
-        ctx.fillStyle = isDark ? '#64748b' : '#64748b'
+        ctx.save();
+        ctx.globalAlpha = opacity * 0.4;
+        ctx.strokeStyle = isDark ? '#334155' : '#94a3b8';
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([4, 4]);
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = isDark ? '#64748b' : '#64748b';
 
         for (let lon = startLon; lon <= endLon; lon += step) {
-          const pt = geoToScreen(lon, state.map.centerLat)
-          ctx.beginPath()
-          ctx.moveTo(pt.x, 0)
-          ctx.lineTo(pt.x, canvas.clientHeight)
-          ctx.stroke()
-          ctx.fillText(`${lon.toFixed(3)}°E`, pt.x + 3, 14)
+          const pt = geoToScreen(lon, state.map.centerLat);
+          ctx.beginPath();
+          ctx.moveTo(pt.x, 0);
+          ctx.lineTo(pt.x, canvas.clientHeight);
+          ctx.stroke();
+          ctx.fillText(`${lon.toFixed(3)}°E`, pt.x + 3, 14);
         }
 
         for (let lat = startLat; lat <= endLat; lat += step) {
-          const pt = geoToScreen(state.map.centerLon, lat)
-          ctx.beginPath()
-          ctx.moveTo(0, pt.y)
-          ctx.lineTo(canvas.clientWidth, pt.y)
-          ctx.stroke()
-          ctx.fillText(`${lat.toFixed(3)}°N`, 6, pt.y - 3)
+          const pt = geoToScreen(state.map.centerLon, lat);
+          ctx.beginPath();
+          ctx.moveTo(0, pt.y);
+          ctx.lineTo(canvas.clientWidth, pt.y);
+          ctx.stroke();
+          ctx.fillText(`${lat.toFixed(3)}°N`, 6, pt.y - 3);
         }
-        ctx.restore()
+        ctx.restore();
       }
 
       // 绘制多边形面要素
       function drawPolygonFeature(f, opacity, isDark) {
-        const isSelected = state.selectedFeatureId === f.id
-        const isHovered = state.hoveredFeatureId === f.id
+        const isSelected = state.selectedFeatureId === f.id;
+        const isHovered = state.hoveredFeatureId === f.id;
 
-        ctx.save()
-        ctx.beginPath()
+        ctx.save();
+        ctx.beginPath();
         f.coords.forEach((c, i) => {
-          const pt = geoToScreen(c[0], c[1])
-          if (i === 0) ctx.moveTo(pt.x, pt.y)
-          else ctx.lineTo(pt.x, pt.y)
-        })
-        ctx.closePath()
+          const pt = geoToScreen(c[0], c[1]);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.closePath();
 
-        ctx.globalAlpha = opacity * (isSelected || isHovered ? 0.48 : 0.28)
-        ctx.fillStyle = f.fillColor || '#3b82f6'
-        ctx.fill()
+        ctx.globalAlpha = opacity * (isSelected || isHovered ? 0.48 : 0.28);
+        ctx.fillStyle = f.fillColor || '#3b82f6';
+        ctx.fill();
 
-        ctx.globalAlpha = opacity
-        ctx.lineWidth = isSelected ? 3 : isHovered ? 2.5 : 1.6
-        ctx.strokeStyle = isSelected ? '#ffffff' : f.strokeColor || '#60a5fa'
-        if (!isDark && isSelected) ctx.strokeStyle = '#1d4ed8'
-        ctx.stroke()
+        ctx.globalAlpha = opacity;
+        ctx.lineWidth = isSelected ? 3 : isHovered ? 2.5 : 1.6;
+        ctx.strokeStyle = isSelected ? '#ffffff' : f.strokeColor || '#60a5fa';
+        if (!isDark && isSelected) ctx.strokeStyle = '#1d4ed8';
+        ctx.stroke();
 
         // 中心注记标签
-        const center = getFeatureCenter(f)
-        const cpt = geoToScreen(center[0], center[1])
-        ctx.globalAlpha = Math.min(1, opacity + 0.15)
-        ctx.font = '600 11px Inter, sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b'
-        const label = state.lang === 'zh' ? f.name : f.nameEn || f.name
-        ctx.fillText(label, cpt.x, cpt.y)
-        ctx.restore()
+        const center = getFeatureCenter(f);
+        const cpt = geoToScreen(center[0], center[1]);
+        ctx.globalAlpha = Math.min(1, opacity + 0.15);
+        ctx.font = '600 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
+        const label = state.lang === 'zh' ? f.name : f.nameEn || f.name;
+        ctx.fillText(label, cpt.x, cpt.y);
+        ctx.restore();
       }
 
       // 绘制热力场渲染
       function drawHeatmapLayer(opacity) {
-        const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1
-        const sensorFeatures = features.filter((f) => f.geomType === 'point')
+        const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1;
+        const sensorFeatures = features.filter((f) => f.geomType === 'point');
 
-        ctx.save()
-        ctx.globalAlpha = opacity * 0.75
-        ctx.globalCompositeOperation = state.theme === 'dark' ? 'screen' : 'multiply'
+        ctx.save();
+        ctx.globalAlpha = opacity * 0.75;
+        ctx.globalCompositeOperation = state.theme === 'dark' ? 'screen' : 'multiply';
 
         sensorFeatures.forEach((ptFeature) => {
-          const pt = geoToScreen(ptFeature.coords[0], ptFeature.coords[1])
+          const pt = geoToScreen(ptFeature.coords[0], ptFeature.coords[1]);
           const radius =
-            (state.map.zoom - 8) * 16 * (ptFeature.status === 'warning' ? 1.35 : 1.0) * mult
-          if (radius <= 0) return
+            (state.map.zoom - 8) * 16 * (ptFeature.status === 'warning' ? 1.35 : 1.0) * mult;
+          if (radius <= 0) return;
 
-          const grad = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, radius)
+          const grad = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, radius);
           if (ptFeature.status === 'warning') {
-            grad.addColorStop(0, 'rgba(239, 68, 68, 0.85)')
-            grad.addColorStop(0.45, 'rgba(245, 158, 11, 0.45)')
-            grad.addColorStop(1, 'rgba(245, 158, 11, 0)')
+            grad.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+            grad.addColorStop(0.45, 'rgba(245, 158, 11, 0.45)');
+            grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
           } else {
-            grad.addColorStop(0, 'rgba(6, 182, 212, 0.75)')
-            grad.addColorStop(0.5, 'rgba(16, 185, 129, 0.35)')
-            grad.addColorStop(1, 'rgba(16, 185, 129, 0)')
+            grad.addColorStop(0, 'rgba(6, 182, 212, 0.75)');
+            grad.addColorStop(0.5, 'rgba(16, 185, 129, 0.35)');
+            grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
           }
 
-          ctx.fillStyle = grad
-          ctx.beginPath()
-          ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2)
-          ctx.fill()
-        })
-        ctx.restore()
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
       }
 
       // 绘制线要素 (管线/道路)
       function drawLineFeature(f, opacity, isDark) {
-        const isSelected = state.selectedFeatureId === f.id
-        const isHovered = state.hoveredFeatureId === f.id
+        const isSelected = state.selectedFeatureId === f.id;
+        const isHovered = state.hoveredFeatureId === f.id;
 
-        ctx.save()
-        ctx.globalAlpha = opacity
-        ctx.beginPath()
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.beginPath();
         f.coords.forEach((c, i) => {
-          const pt = geoToScreen(c[0], c[1])
-          if (i === 0) ctx.moveTo(pt.x, pt.y)
-          else ctx.lineTo(pt.x, pt.y)
-        })
+          const pt = geoToScreen(c[0], c[1]);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
 
         if (isSelected || isHovered) {
-          ctx.shadowColor = f.strokeColor || '#06b6d4'
-          ctx.shadowBlur = 12
+          ctx.shadowColor = f.strokeColor || '#06b6d4';
+          ctx.shadowBlur = 12;
         }
 
-        ctx.lineWidth = isSelected ? 5 : isHovered ? 4 : 3
-        ctx.strokeStyle = isSelected ? (isDark ? '#ffffff' : '#1d4ed8') : f.strokeColor || '#06b6d4'
-        ctx.lineCap = 'round'
-        ctx.lineJoin = 'round'
-        if (f.dashed) ctx.setLineDash([8, 6])
-        ctx.stroke()
+        ctx.lineWidth = isSelected ? 5 : isHovered ? 4 : 3;
+        ctx.strokeStyle = isSelected
+          ? isDark
+            ? '#ffffff'
+            : '#1d4ed8'
+          : f.strokeColor || '#06b6d4';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (f.dashed) ctx.setLineDash([8, 6]);
+        ctx.stroke();
 
         // 绘制顶点节点
-        ctx.setLineDash([])
+        ctx.setLineDash([]);
         f.coords.forEach((c) => {
-          const pt = geoToScreen(c[0], c[1])
-          ctx.beginPath()
-          ctx.arc(pt.x, pt.y, isSelected ? 4 : 2.5, 0, Math.PI * 2)
-          ctx.fillStyle = isDark ? '#0f172a' : '#ffffff'
-          ctx.fill()
-          ctx.lineWidth = 1.5
-          ctx.strokeStyle = f.strokeColor || '#06b6d4'
-          ctx.stroke()
-        })
-        ctx.restore()
+          const pt = geoToScreen(c[0], c[1]);
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, isSelected ? 4 : 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = f.strokeColor || '#06b6d4';
+          ctx.stroke();
+        });
+        ctx.restore();
       }
 
       // 绘制点要素 (监测站)
       function drawPointFeature(f, opacity, isDark) {
-        const pt = geoToScreen(f.coords[0], f.coords[1])
-        const isSelected = state.selectedFeatureId === f.id
-        const isHovered = state.hoveredFeatureId === f.id
+        const pt = geoToScreen(f.coords[0], f.coords[1]);
+        const isSelected = state.selectedFeatureId === f.id;
+        const isHovered = state.hoveredFeatureId === f.id;
 
         const statusColors = {
           normal: '#10b981',
           warning: '#f59e0b',
           maintenance: '#ef4444',
-        }
-        const color = statusColors[f.status] || '#3b82f6'
+        };
+        const color = statusColors[f.status] || '#3b82f6';
 
-        ctx.save()
-        ctx.globalAlpha = opacity
+        ctx.save();
+        ctx.globalAlpha = opacity;
 
         // 选中外圈光晕环
         if (isSelected || isHovered) {
-          ctx.beginPath()
-          ctx.arc(pt.x, pt.y, isSelected ? 16 : 13, 0, Math.PI * 2)
-          ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.15)'
-          ctx.fill()
-          ctx.lineWidth = 1.5
-          ctx.strokeStyle = '#3b82f6'
-          ctx.stroke()
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, isSelected ? 16 : 13, 0, Math.PI * 2);
+          ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#3b82f6';
+          ctx.stroke();
         }
 
         // 主圆点
-        ctx.beginPath()
-        ctx.arc(pt.x, pt.y, isSelected ? 7.5 : 6, 0, Math.PI * 2)
-        ctx.fillStyle = color
-        ctx.fill()
-        ctx.lineWidth = 2
-        ctx.strokeStyle = isDark ? '#0f172a' : '#ffffff'
-        ctx.stroke()
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, isSelected ? 7.5 : 6, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = isDark ? '#0f172a' : '#ffffff';
+        ctx.stroke();
 
         // 数值与名称气泡标注 (Zoom >= 12 时显示)
         if (state.map.zoom >= 12 || isSelected || isHovered) {
-          const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1
+          const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1;
           const dynamicVal =
-            f.status === 'maintenance' ? 0 : (f.baseValue * mult).toFixed(f.baseValue < 10 ? 2 : 0)
-          const nameText = state.lang === 'zh' ? f.name : f.nameEn || f.name
-          const label = `${nameText} (${dynamicVal} ${f.unit})`
+            f.status === 'maintenance' ? 0 : (f.baseValue * mult).toFixed(f.baseValue < 10 ? 2 : 0);
+          const nameText = state.lang === 'zh' ? f.name : f.nameEn || f.name;
+          const label = `${nameText} (${dynamicVal} ${f.unit})`;
 
-          ctx.font = '500 11px Inter, sans-serif'
-          const textWidth = ctx.measureText(label).width
-          const boxW = textWidth + 14
-          const boxH = 22
-          const boxX = pt.x - boxW / 2
-          const boxY = pt.y - 32
+          ctx.font = '500 11px Inter, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const boxW = textWidth + 14;
+          const boxH = 22;
+          const boxX = pt.x - boxW / 2;
+          const boxY = pt.y - 32;
 
           // 圆角背景框
-          ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)'
-          ctx.beginPath()
-          ctx.roundRect(boxX, boxY, boxW, boxH, 6)
-          ctx.fill()
-          ctx.lineWidth = 1
+          ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.92)';
+          ctx.beginPath();
+          ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+          ctx.fill();
+          ctx.lineWidth = 1;
           ctx.strokeStyle = isSelected
             ? '#3b82f6'
             : isDark
               ? 'rgba(148, 163, 184, 0.25)'
-              : 'rgba(15, 23, 42, 0.15)'
-          ctx.stroke()
+              : 'rgba(15, 23, 42, 0.15)';
+          ctx.stroke();
 
-          ctx.fillStyle = isDark ? '#f1f5f9' : '#0f172a'
-          ctx.textAlign = 'center'
-          ctx.fillText(label, pt.x, boxY + 14.5)
+          ctx.fillStyle = isDark ? '#f1f5f9' : '#0f172a';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, pt.x, boxY + 14.5);
         }
 
-        ctx.restore()
+        ctx.restore();
       }
 
       // 绘制正在绘制或测量的草图
       function drawActiveSketch(coords, isDark) {
-        if (coords.length === 0) return
-        ctx.save()
-        ctx.beginPath()
+        if (coords.length === 0) return;
+        ctx.save();
+        ctx.beginPath();
         coords.forEach((c, i) => {
-          const pt = geoToScreen(c[0], c[1])
-          if (i === 0) ctx.moveTo(pt.x, pt.y)
-          else ctx.lineTo(pt.x, pt.y)
-        })
+          const pt = geoToScreen(c[0], c[1]);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
 
         if (
           (state.activeTool === 'polygon' || state.activeTool === 'measure') &&
           coords.length >= 3
         ) {
-          ctx.closePath()
+          ctx.closePath();
           ctx.fillStyle =
-            state.activeTool === 'measure' ? 'rgba(6, 182, 212, 0.18)' : 'rgba(168, 85, 247, 0.22)'
-          ctx.fill()
+            state.activeTool === 'measure' ? 'rgba(6, 182, 212, 0.18)' : 'rgba(168, 85, 247, 0.22)';
+          ctx.fill();
         }
 
-        ctx.lineWidth = 2.5
-        ctx.strokeStyle = state.activeTool === 'measure' ? '#06b6d4' : '#a855f7'
-        ctx.setLineDash([6, 4])
-        ctx.stroke()
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = state.activeTool === 'measure' ? '#06b6d4' : '#a855f7';
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
 
         // 顶点圆点
-        ctx.setLineDash([])
+        ctx.setLineDash([]);
         coords.forEach((c) => {
-          const pt = geoToScreen(c[0], c[1])
-          ctx.beginPath()
-          ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2)
-          ctx.fillStyle = '#ffffff'
-          ctx.fill()
-          ctx.lineWidth = 2
-          ctx.strokeStyle = '#06b6d4'
-          ctx.stroke()
-        })
+          const pt = geoToScreen(c[0], c[1]);
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#06b6d4';
+          ctx.stroke();
+        });
 
         // 实时更新测量卡片数值
         if (state.activeTool === 'measure' && coords.length >= 2) {
-          const distKm = calcPolylineLengthKm(coords)
-          const areaKm2 = coords.length >= 3 ? calcPolygonAreaKm2(coords) : 0
-          const card = document.getElementById('measure-result-card')
-          card.classList.remove('hidden')
+          const distKm = calcPolylineLengthKm(coords);
+          const areaKm2 = coords.length >= 3 ? calcPolygonAreaKm2(coords) : 0;
+          const card = document.getElementById('measure-result-card');
+          card.classList.remove('hidden');
           document.getElementById('measure-dist-val').textContent =
-            distKm < 1 ? `${(distKm * 1000).toFixed(1)} m` : `${distKm.toFixed(3)} km`
+            distKm < 1 ? `${(distKm * 1000).toFixed(1)} m` : `${distKm.toFixed(3)} km`;
 
-          const areaBox = document.getElementById('measure-area-box')
+          const areaBox = document.getElementById('measure-area-box');
           if (coords.length >= 3) {
-            areaBox.classList.remove('hidden')
-            document.getElementById('measure-area-val').textContent = `${areaKm2.toFixed(3)} km²`
+            areaBox.classList.remove('hidden');
+            document.getElementById('measure-area-val').textContent = `${areaKm2.toFixed(3)} km²`;
           } else {
-            areaBox.classList.add('hidden')
+            areaBox.classList.add('hidden');
           }
         }
-        ctx.restore()
+        ctx.restore();
       }
 
       // 绘制已固化的测量标注
       function drawMeasurementOverlay(m, isDark) {
-        const coords = m.coords
-        if (coords.length < 2) return
-        ctx.save()
-        ctx.beginPath()
+        const coords = m.coords;
+        if (coords.length < 2) return;
+        ctx.save();
+        ctx.beginPath();
         coords.forEach((c, i) => {
-          const pt = geoToScreen(c[0], c[1])
-          if (i === 0) ctx.moveTo(pt.x, pt.y)
-          else ctx.lineTo(pt.x, pt.y)
-        })
+          const pt = geoToScreen(c[0], c[1]);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
         if (coords.length >= 3) {
-          ctx.closePath()
-          ctx.fillStyle = 'rgba(6, 182, 212, 0.14)'
-          ctx.fill()
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.14)';
+          ctx.fill();
         }
-        ctx.strokeStyle = '#06b6d4'
-        ctx.lineWidth = 2
-        ctx.setLineDash([5, 5])
-        ctx.stroke()
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
 
         // 终点标签
-        const last = geoToScreen(coords[coords.length - 1][0], coords[coords.length - 1][1])
-        const distKm = calcPolylineLengthKm(coords)
-        const areaKm2 = coords.length >= 3 ? calcPolygonAreaKm2(coords) : 0
+        const last = geoToScreen(coords[coords.length - 1][0], coords[coords.length - 1][1]);
+        const distKm = calcPolylineLengthKm(coords);
+        const areaKm2 = coords.length >= 3 ? calcPolygonAreaKm2(coords) : 0;
         const text =
           coords.length >= 3
             ? `${distKm.toFixed(2)} km | ${areaKm2.toFixed(3)} km²`
-            : `${distKm.toFixed(2)} km`
+            : `${distKm.toFixed(2)} km`;
 
-        ctx.setLineDash([])
-        ctx.font = '600 11px "JetBrains Mono", monospace'
-        const w = ctx.measureText(text).width + 14
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'
-        ctx.beginPath()
-        ctx.roundRect(last.x + 8, last.y - 12, w, 22, 6)
-        ctx.fill()
-        ctx.strokeStyle = '#06b6d4'
-        ctx.lineWidth = 1
-        ctx.stroke()
+        ctx.setLineDash([]);
+        ctx.font = '600 11px "JetBrains Mono", monospace';
+        const w = ctx.measureText(text).width + 14;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(last.x + 8, last.y - 12, w, 22, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
-        ctx.fillStyle = '#22d3ee'
-        ctx.textAlign = 'left'
-        ctx.fillText(text, last.x + 15, last.y + 3)
-        ctx.restore()
+        ctx.fillStyle = '#22d3ee';
+        ctx.textAlign = 'left';
+        ctx.fillText(text, last.x + 15, last.y + 3);
+        ctx.restore();
       }
 
       /**
@@ -1732,171 +1736,172 @@
        */
       function hitTestFeatures(screenX, screenY) {
         // 1. 优先检测点要素 (半径 14px)
-        const sensorLayer = layers.find((l) => l.id === 'sensors')
+        const sensorLayer = layers.find((l) => l.id === 'sensors');
         if (sensorLayer && sensorLayer.visible) {
-          const pts = features.filter((f) => f.layerId === 'sensors')
+          const pts = features.filter((f) => f.layerId === 'sensors');
           for (let i = pts.length - 1; i >= 0; i--) {
-            const pt = geoToScreen(pts[i].coords[0], pts[i].coords[1])
-            const dist = Math.hypot(pt.x - screenX, pt.y - screenY)
-            if (dist <= 14) return pts[i]
+            const pt = geoToScreen(pts[i].coords[0], pts[i].coords[1]);
+            const dist = Math.hypot(pt.x - screenX, pt.y - screenY);
+            if (dist <= 14) return pts[i];
           }
         }
 
         // 2. 检测线要素 (点到线段距离 <= 8px)
-        const pipeLayer = layers.find((l) => l.id === 'pipelines')
+        const pipeLayer = layers.find((l) => l.id === 'pipelines');
         if (pipeLayer && pipeLayer.visible) {
-          const lines = features.filter((f) => f.layerId === 'pipelines')
+          const lines = features.filter((f) => f.layerId === 'pipelines');
           for (let f of lines) {
             for (let i = 0; i < f.coords.length - 1; i++) {
-              const p1 = geoToScreen(f.coords[i][0], f.coords[i][1])
-              const p2 = geoToScreen(f.coords[i + 1][0], f.coords[i + 1][1])
+              const p1 = geoToScreen(f.coords[i][0], f.coords[i][1]);
+              const p2 = geoToScreen(f.coords[i + 1][0], f.coords[i + 1][1]);
               if (distToSegment({ x: screenX, y: screenY }, p1, p2) <= 8) {
-                return f
+                return f;
               }
             }
           }
         }
 
         // 3. 检测面要素 (射线法 Point in Polygon)
-        const zoneLayer = layers.find((l) => l.id === 'zones')
+        const zoneLayer = layers.find((l) => l.id === 'zones');
         if (zoneLayer && zoneLayer.visible) {
-          const polys = features.filter((f) => f.layerId === 'zones')
+          const polys = features.filter((f) => f.layerId === 'zones');
           for (let i = polys.length - 1; i >= 0; i--) {
-            const screenPoly = polys[i].coords.map((c) => geoToScreen(c[0], c[1]))
+            const screenPoly = polys[i].coords.map((c) => geoToScreen(c[0], c[1]));
             if (pointInPolygon({ x: screenX, y: screenY }, screenPoly)) {
-              return polys[i]
+              return polys[i];
             }
           }
         }
 
-        return null
+        return null;
       }
 
       function distToSegment(p, v, w) {
-        const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2)
-        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y)
-        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2
-        t = Math.max(0, Math.min(1, t))
-        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)))
+        const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
       }
 
       function pointInPolygon(point, vs) {
-        let inside = false
+        let inside = false;
         for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
           const xi = vs[i].x,
-            yi = vs[i].y
+            yi = vs[i].y;
           const xj = vs[j].x,
-            yj = vs[j].y
+            yj = vs[j].y;
           const intersect =
-            yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi
-          if (intersect) inside = !inside
+            yi > point.y !== yj > point.y &&
+            point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+          if (intersect) inside = !inside;
         }
-        return inside
+        return inside;
       }
 
       // 绑定 Canvas 交互事件
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
+        if (e.button !== 0) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-        state.map.isDragging = true
-        state.map.dragStartX = x
-        state.map.dragStartY = y
-        state.map.dragStartLon = state.map.centerLon
-        state.map.dragStartLat = state.map.centerLat
-      })
+        state.map.isDragging = true;
+        state.map.dragStartX = x;
+        state.map.dragStartY = y;
+        state.map.dragStartLon = state.map.centerLon;
+        state.map.dragStartLat = state.map.centerLat;
+      });
 
       canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-        const geo = screenToGeo(x, y)
-        state.map.mouseLon = geo.lon
-        state.map.mouseLat = geo.lat
-        state.mouseGeoPos = geo
+        const geo = screenToGeo(x, y);
+        state.map.mouseLon = geo.lon;
+        state.map.mouseLat = geo.lat;
+        state.mouseGeoPos = geo;
 
         // 更新底部状态栏实时经纬度
         document.getElementById('status-coords').textContent =
-          `${geo.lon.toFixed(4)}° E, ${geo.lat.toFixed(4)}° N`
+          `${geo.lon.toFixed(4)}° E, ${geo.lat.toFixed(4)}° N`;
 
         if (state.map.isDragging) {
-          const dx = x - state.map.dragStartX
-          const dy = y - state.map.dragStartY
-          const mpp = getMetersPerPixel()
-          const metersPerDegLat = 111320
-          const metersPerDegLon = 111320 * Math.cos((state.map.dragStartLat * Math.PI) / 180)
+          const dx = x - state.map.dragStartX;
+          const dy = y - state.map.dragStartY;
+          const mpp = getMetersPerPixel();
+          const metersPerDegLat = 111320;
+          const metersPerDegLon = 111320 * Math.cos((state.map.dragStartLat * Math.PI) / 180);
 
-          state.map.centerLon = state.map.dragStartLon - (dx * mpp) / metersPerDegLon
-          state.map.centerLat = state.map.dragStartLat + (dy * mpp) / metersPerDegLat
-          renderMap()
-          return
+          state.map.centerLon = state.map.dragStartLon - (dx * mpp) / metersPerDegLon;
+          state.map.centerLat = state.map.dragStartLat + (dy * mpp) / metersPerDegLat;
+          renderMap();
+          return;
         }
 
         if (state.activeTool === 'pan') {
-          const hit = hitTestFeatures(x, y)
-          const newHoverId = hit ? hit.id : null
-          canvas.style.cursor = hit ? 'pointer' : 'grab'
+          const hit = hitTestFeatures(x, y);
+          const newHoverId = hit ? hit.id : null;
+          canvas.style.cursor = hit ? 'pointer' : 'grab';
           if (newHoverId !== state.hoveredFeatureId) {
-            state.hoveredFeatureId = newHoverId
-            renderMap()
+            state.hoveredFeatureId = newHoverId;
+            renderMap();
           }
         } else {
-          canvas.style.cursor = 'crosshair'
+          canvas.style.cursor = 'crosshair';
           if (state.tempVertices.length > 0) {
-            renderMap()
+            renderMap();
           }
         }
-      })
+      });
 
       canvas.addEventListener('mouseup', (e) => {
-        const rect = canvas.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const movedDist = Math.hypot(x - state.map.dragStartX, y - state.map.dragStartY)
-        state.map.isDragging = false
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const movedDist = Math.hypot(x - state.map.dragStartX, y - state.map.dragStartY);
+        state.map.isDragging = false;
 
         // 判定为点击而非拖拽
         if (movedDist < 5) {
-          handleMapClick(x, y)
+          handleMapClick(x, y);
         }
-      })
+      });
 
       canvas.addEventListener('dblclick', (e) => {
         if (
           ['line', 'polygon', 'measure'].includes(state.activeTool) &&
           state.tempVertices.length >= 2
         ) {
-          finishSketchGeometry()
+          finishSketchGeometry();
         }
-      })
+      });
 
       canvas.addEventListener(
         'wheel',
         (e) => {
-          e.preventDefault()
-          const delta = e.deltaY < 0 ? 0.45 : -0.45
-          zoomMap(delta)
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.45 : -0.45;
+          zoomMap(delta);
         },
         { passive: false }
-      )
+      );
 
       // 处理地图点击动作
       function handleMapClick(x, y) {
-        const geo = screenToGeo(x, y)
+        const geo = screenToGeo(x, y);
 
         if (state.activeTool === 'pan') {
-          const hit = hitTestFeatures(x, y)
-          state.selectedFeatureId = hit ? hit.id : null
-          renderAttributePanel()
-          renderMap()
-          return
+          const hit = hitTestFeatures(x, y);
+          state.selectedFeatureId = hit ? hit.id : null;
+          renderAttributePanel();
+          renderMap();
+          return;
         }
 
         if (state.activeTool === 'point') {
-          const newId = `PT-${Math.floor(106 + Math.random() * 890)}`
+          const newId = `PT-${Math.floor(106 + Math.random() * 890)}`;
           const newFeature = {
             id: newId,
             layerId: 'sensors',
@@ -1912,44 +1917,44 @@
             unit: 'm³/h',
             notes: '通过 GIS 看板交互绘制新增的空间监测点。',
             coords: [Number(geo.lon.toFixed(5)), Number(geo.lat.toFixed(5))],
-          }
-          features.push(newFeature)
-          state.selectedFeatureId = newId
-          setActiveTool('pan')
-          renderAttributePanel()
-          renderMap()
-          showToast(I18N[state.lang].toastCreated)
-          return
+          };
+          features.push(newFeature);
+          state.selectedFeatureId = newId;
+          setActiveTool('pan');
+          renderAttributePanel();
+          renderMap();
+          showToast(I18N[state.lang].toastCreated);
+          return;
         }
 
         if (['line', 'polygon', 'measure'].includes(state.activeTool)) {
-          state.tempVertices.push([Number(geo.lon.toFixed(5)), Number(geo.lat.toFixed(5))])
-          renderMap()
+          state.tempVertices.push([Number(geo.lon.toFixed(5)), Number(geo.lat.toFixed(5))]);
+          renderMap();
         }
       }
 
       // 完成多顶点线/面/测量绘制
       function finishSketchGeometry() {
         // 双击通常会触发两次 click，去除末尾重复点
-        const pts = [...state.tempVertices]
+        const pts = [...state.tempVertices];
         if (pts.length >= 2) {
-          const last = pts[pts.length - 1]
-          const prev = pts[pts.length - 2]
+          const last = pts[pts.length - 1];
+          const prev = pts[pts.length - 2];
           if (Math.abs(last[0] - prev[0]) < 1e-6 && Math.abs(last[1] - prev[1]) < 1e-6) {
-            pts.pop()
+            pts.pop();
           }
         }
 
         if (state.activeTool === 'measure' && pts.length >= 2) {
-          state.measurements.push({ coords: pts })
-          state.tempVertices = []
-          setActiveTool('pan')
-          renderMap()
-          return
+          state.measurements.push({ coords: pts });
+          state.tempVertices = [];
+          setActiveTool('pan');
+          renderMap();
+          return;
         }
 
         if (state.activeTool === 'line' && pts.length >= 2) {
-          const newId = `PL-${Math.floor(203 + Math.random() * 700)}`
+          const newId = `PL-${Math.floor(203 + Math.random() * 700)}`;
           features.push({
             id: newId,
             layerId: 'pipelines',
@@ -1967,18 +1972,18 @@
             unit: 'MPa',
             notes: '在线绘制生成的矢量管线要素。',
             coords: pts,
-          })
-          state.selectedFeatureId = newId
-          state.tempVertices = []
-          setActiveTool('pan')
-          renderAttributePanel()
-          renderMap()
-          showToast(I18N[state.lang].toastCreated)
-          return
+          });
+          state.selectedFeatureId = newId;
+          state.tempVertices = [];
+          setActiveTool('pan');
+          renderAttributePanel();
+          renderMap();
+          showToast(I18N[state.lang].toastCreated);
+          return;
         }
 
         if (state.activeTool === 'polygon' && pts.length >= 3) {
-          const newId = `ZN-${Math.floor(10 + Math.random() * 89)}`
+          const newId = `ZN-${Math.floor(10 + Math.random() * 89)}`;
           features.push({
             id: newId,
             layerId: 'zones',
@@ -1996,13 +2001,13 @@
             unit: '% 负荷',
             notes: '在线勾绘生成的自定义功能区域。',
             coords: pts,
-          })
-          state.selectedFeatureId = newId
-          state.tempVertices = []
-          setActiveTool('pan')
-          renderAttributePanel()
-          renderMap()
-          showToast(I18N[state.lang].toastCreated)
+          });
+          state.selectedFeatureId = newId;
+          state.tempVertices = [];
+          setActiveTool('pan');
+          renderAttributePanel();
+          renderMap();
+          showToast(I18N[state.lang].toastCreated);
         }
       }
 
@@ -2015,56 +2020,56 @@
         state.map.zoom = Math.max(
           state.map.minZoom,
           Math.min(state.map.maxZoom, state.map.zoom + delta)
-        )
-        document.getElementById('status-zoom').textContent = `Z${state.map.zoom.toFixed(1)}`
-        renderMap()
+        );
+        document.getElementById('status-zoom').textContent = `Z${state.map.zoom.toFixed(1)}`;
+        renderMap();
       }
 
       function resetMapView() {
-        flyToLocation(121.495, 31.235, 13.2)
+        flyToLocation(121.495, 31.235, 13.2);
       }
 
       function flyToLocation(targetLon, targetLat, targetZoom = 14.5) {
-        if (state.map.flyAnim) cancelAnimationFrame(state.map.flyAnim)
+        if (state.map.flyAnim) cancelAnimationFrame(state.map.flyAnim);
 
-        const startLon = state.map.centerLon
-        const startLat = state.map.centerLat
-        const startZoom = state.map.zoom
-        const duration = 650
-        const startTime = performance.now()
+        const startLon = state.map.centerLon;
+        const startLat = state.map.centerLat;
+        const startZoom = state.map.zoom;
+        const duration = 650;
+        const startTime = performance.now();
 
         function step(now) {
-          const t = Math.min(1, (now - startTime) / duration)
+          const t = Math.min(1, (now - startTime) / duration);
           // EaseOutCubic 缓动曲线
-          const ease = 1 - Math.pow(1 - t, 3)
+          const ease = 1 - Math.pow(1 - t, 3);
 
-          state.map.centerLon = startLon + (targetLon - startLon) * ease
-          state.map.centerLat = startLat + (targetLat - startLat) * ease
-          state.map.zoom = startZoom + (targetZoom - startZoom) * ease
+          state.map.centerLon = startLon + (targetLon - startLon) * ease;
+          state.map.centerLat = startLat + (targetLat - startLat) * ease;
+          state.map.zoom = startZoom + (targetZoom - startZoom) * ease;
 
-          document.getElementById('status-zoom').textContent = `Z${state.map.zoom.toFixed(1)}`
-          renderMap()
+          document.getElementById('status-zoom').textContent = `Z${state.map.zoom.toFixed(1)}`;
+          renderMap();
 
           if (t < 1) {
-            state.map.flyAnim = requestAnimationFrame(step)
+            state.map.flyAnim = requestAnimationFrame(step);
           }
         }
-        state.map.flyAnim = requestAnimationFrame(step)
+        state.map.flyAnim = requestAnimationFrame(step);
       }
 
       function updateScaleBarUI() {
-        const mpp = getMetersPerPixel()
-        const barPx = 64 // w-16
-        const distMeters = mpp * barPx
-        const scaleDenom = Math.round(mpp * 3779.5) // 96 DPI 近似比例尺分母
+        const mpp = getMetersPerPixel();
+        const barPx = 64; // w-16
+        const distMeters = mpp * barPx;
+        const scaleDenom = Math.round(mpp * 3779.5); // 96 DPI 近似比例尺分母
 
         const distLabel =
           distMeters >= 1000
             ? `${(distMeters / 1000).toFixed(1)} km`
-            : `${Math.round(distMeters)} m`
+            : `${Math.round(distMeters)} m`;
 
         document.getElementById('status-scale').textContent =
-          `1 : ${scaleDenom.toLocaleString()} (${distLabel})`
+          `1 : ${scaleDenom.toLocaleString()} (${distLabel})`;
       }
 
       /**
@@ -2073,11 +2078,11 @@
        * =========================================================================
        */
       function setLayoutMode(mode) {
-        state.layout = mode
-        document.body.setAttribute('data-layout', mode)
+        state.layout = mode;
+        document.body.setAttribute('data-layout', mode);
 
-        const btnDocked = document.getElementById('btn-layout-docked')
-        const btnOverlay = document.getElementById('btn-layout-overlay')
+        const btnDocked = document.getElementById('btn-layout-docked');
+        const btnOverlay = document.getElementById('btn-layout-overlay');
 
         const activeClasses = [
           'bg-white',
@@ -2085,95 +2090,95 @@
           'text-blue-600',
           'dark:text-blue-400',
           'shadow-sm',
-        ]
-        const inactiveClasses = ['text-slate-500', 'dark:text-slate-400']
+        ];
+        const inactiveClasses = ['text-slate-500', 'dark:text-slate-400'];
 
         if (mode === 'docked') {
-          btnDocked.classList.add(...activeClasses)
-          btnDocked.classList.remove(...inactiveClasses)
-          btnOverlay.classList.remove(...activeClasses)
-          btnOverlay.classList.add(...inactiveClasses)
-          document.getElementById('map-zoom-controls').style.bottom = '16px'
-          document.getElementById('map-zoom-controls').style.right = '16px'
+          btnDocked.classList.add(...activeClasses);
+          btnDocked.classList.remove(...inactiveClasses);
+          btnOverlay.classList.remove(...activeClasses);
+          btnOverlay.classList.add(...inactiveClasses);
+          document.getElementById('map-zoom-controls').style.bottom = '16px';
+          document.getElementById('map-zoom-controls').style.right = '16px';
         } else {
-          btnOverlay.classList.add(...activeClasses)
-          btnOverlay.classList.remove(...inactiveClasses)
-          btnDocked.classList.remove(...activeClasses)
-          btnDocked.classList.add(...inactiveClasses)
+          btnOverlay.classList.add(...activeClasses);
+          btnOverlay.classList.remove(...inactiveClasses);
+          btnDocked.classList.remove(...activeClasses);
+          btnDocked.classList.add(...inactiveClasses);
           // Overlay 模式下避开底部悬浮状态栏和右侧悬浮面板
-          document.getElementById('map-zoom-controls').style.bottom = '56px'
+          document.getElementById('map-zoom-controls').style.bottom = '56px';
           document.getElementById('map-zoom-controls').style.right = state.rightCollapsed
             ? '16px'
-            : '316px'
+            : '316px';
         }
 
         // 布局变更后重新计算画布尺寸
-        setTimeout(resizeCanvas, 360)
+        setTimeout(resizeCanvas, 360);
       }
 
       function toggleSidebar(side) {
         if (side === 'left') {
-          state.leftCollapsed = !state.leftCollapsed
-          document.body.classList.toggle('left-collapsed', state.leftCollapsed)
+          state.leftCollapsed = !state.leftCollapsed;
+          document.body.classList.toggle('left-collapsed', state.leftCollapsed);
           document
             .getElementById('btn-expand-left')
-            .classList.toggle('hidden', !state.leftCollapsed)
+            .classList.toggle('hidden', !state.leftCollapsed);
         } else {
-          state.rightCollapsed = !state.rightCollapsed
-          document.body.classList.toggle('right-collapsed', state.rightCollapsed)
+          state.rightCollapsed = !state.rightCollapsed;
+          document.body.classList.toggle('right-collapsed', state.rightCollapsed);
           document
             .getElementById('btn-expand-right')
-            .classList.toggle('hidden', !state.rightCollapsed)
+            .classList.toggle('hidden', !state.rightCollapsed);
           if (state.layout === 'overlay') {
             document.getElementById('map-zoom-controls').style.right = state.rightCollapsed
               ? '16px'
-              : '316px'
+              : '316px';
           }
         }
-        setTimeout(resizeCanvas, 360)
+        setTimeout(resizeCanvas, 360);
       }
 
       function toggleTheme() {
-        state.theme = state.theme === 'dark' ? 'light' : 'dark'
-        document.documentElement.classList.toggle('dark', state.theme === 'dark')
-        renderMap()
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.classList.toggle('dark', state.theme === 'dark');
+        renderMap();
       }
 
       function toggleLanguage() {
-        state.lang = state.lang === 'zh' ? 'en' : 'zh'
-        applyI18n()
-        renderLayersAndLegend()
-        renderAttributePanel()
-        renderMap()
+        state.lang = state.lang === 'zh' ? 'en' : 'zh';
+        applyI18n();
+        renderLayersAndLegend();
+        renderAttributePanel();
+        renderMap();
       }
 
       function applyI18n() {
-        const dict = I18N[state.lang]
-        document.getElementById('app-title').textContent = dict.appTitle
+        const dict = I18N[state.lang];
+        document.getElementById('app-title').textContent = dict.appTitle;
 
         document.querySelectorAll('[data-i18n]').forEach((el) => {
-          const key = el.getAttribute('data-i18n')
-          if (dict[key]) el.textContent = dict[key]
-        })
+          const key = el.getAttribute('data-i18n');
+          if (dict[key]) el.textContent = dict[key];
+        });
 
         document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-          const key = el.getAttribute('data-i18n-placeholder')
-          if (dict[key]) el.placeholder = dict[key]
-        })
+          const key = el.getAttribute('data-i18n-placeholder');
+          if (dict[key]) el.placeholder = dict[key];
+        });
       }
 
       // 渲染左侧图层管理 + 动态图例
       function renderLayersAndLegend() {
-        const dict = I18N[state.lang]
-        const layerContainer = document.getElementById('layer-list-container')
-        const legendContainer = document.getElementById('legend-items-container')
+        const dict = I18N[state.lang];
+        const layerContainer = document.getElementById('layer-list-container');
+        const legendContainer = document.getElementById('legend-items-container');
 
         layerContainer.innerHTML = layers
           .map((layer) => {
             const count =
               layer.id === 'grid' || layer.id === 'heatmap'
                 ? ''
-                : `<span class="text-[10px] font-mono text-slate-400">(${features.filter((f) => f.layerId === layer.id).length})</span>`
+                : `<span class="text-[10px] font-mono text-slate-400">(${features.filter((f) => f.layerId === layer.id).length})</span>`;
 
             return `
           <div class="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/70 transition-all hover:border-blue-500/40">
@@ -2194,26 +2199,27 @@
               <span class="text-[10px] font-mono text-slate-400 w-7 text-right">${Math.round(layer.opacity * 100)}%</span>
             </div>
           </div>
-        `
+        `;
           })
-          .join('')
+          .join('');
 
         // 动态生成当前激活图层的图例
-        const activeLayers = layers.filter((l) => l.visible)
-        document.getElementById('active-legend-count').textContent = `${activeLayers.length} ACTIVE`
+        const activeLayers = layers.filter((l) => l.visible);
+        document.getElementById('active-legend-count').textContent =
+          `${activeLayers.length} ACTIVE`;
 
         legendContainer.innerHTML = activeLayers
           .map((layer) => {
             const itemsHtml = layer.legendItems
               .map((item) => {
-                const text = state.lang === 'zh' ? item.labelZh : item.labelEn
+                const text = state.lang === 'zh' ? item.labelZh : item.labelEn;
                 if (item.gradient) {
                   return `
               <div class="space-y-1">
                 <div class="h-2 w-full rounded-full" style="background: ${item.gradient}"></div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400">${text}</div>
               </div>
-            `
+            `;
                 }
                 if (item.dotColor) {
                   return `
@@ -2221,7 +2227,7 @@
                 <span class="w-2.5 h-2.5 rounded-full border border-white/40 shrink-0" style="background: ${item.dotColor}"></span>
                 <span class="text-[11px] text-slate-600 dark:text-slate-300">${text}</span>
               </div>
-            `
+            `;
                 }
                 if (item.lineColor) {
                   return `
@@ -2229,47 +2235,47 @@
                 <span class="w-5 h-0 border-t-2 ${item.dashed ? 'border-dashed' : ''} shrink-0" style="border-color: ${item.lineColor}"></span>
                 <span class="text-[11px] text-slate-600 dark:text-slate-300">${text}</span>
               </div>
-            `
+            `;
                 }
                 return `
             <div class="flex items-center gap-2">
               <span class="w-3.5 h-3 rounded-sm border shrink-0" style="background: ${item.color}; border-color: ${item.border}"></span>
               <span class="text-[11px] text-slate-600 dark:text-slate-300">${text}</span>
             </div>
-          `
+          `;
               })
-              .join('')
+              .join('');
 
-            return `<div class="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-slate-800/80 last:border-none">${itemsHtml}</div>`
+            return `<div class="space-y-1.5 pb-2 border-b border-slate-200/60 dark:border-slate-800/80 last:border-none">${itemsHtml}</div>`;
           })
-          .join('')
+          .join('');
 
-        lucide.createIcons()
+        lucide.createIcons();
       }
 
       function toggleLayerVisibility(layerId, visible) {
-        const layer = layers.find((l) => l.id === layerId)
+        const layer = layers.find((l) => l.id === layerId);
         if (layer) {
-          layer.visible = visible
-          renderLayersAndLegend()
-          renderMap()
+          layer.visible = visible;
+          renderLayersAndLegend();
+          renderMap();
         }
       }
 
       function updateLayerOpacity(layerId, val) {
-        const layer = layers.find((l) => l.id === layerId)
+        const layer = layers.find((l) => l.id === layerId);
         if (layer) {
-          layer.opacity = Number(val) / 100
-          renderLayersAndLegend()
-          renderMap()
+          layer.opacity = Number(val) / 100;
+          renderLayersAndLegend();
+          renderMap();
         }
       }
 
       // 渲染右侧属性编辑面板
       function renderAttributePanel() {
-        const dict = I18N[state.lang]
-        const container = document.getElementById('attribute-content')
-        const feature = features.find((f) => f.id === state.selectedFeatureId)
+        const dict = I18N[state.lang];
+        const container = document.getElementById('attribute-content');
+        const feature = features.find((f) => f.id === state.selectedFeatureId);
 
         if (!feature) {
           container.innerHTML = `
@@ -2280,23 +2286,23 @@
             <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">${dict.emptyAttrTitle}</h3>
             <p class="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">${dict.emptyAttrDesc}</p>
           </div>
-        `
-          lucide.createIcons()
-          return
+        `;
+          lucide.createIcons();
+          return;
         }
 
-        const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1
+        const mult = TIME_MULTIPLIERS[state.timeSlot]?.factor || 1;
         const computedVal =
           feature.status === 'maintenance'
             ? 0
-            : (feature.baseValue * mult).toFixed(feature.baseValue < 10 ? 2 : 0)
-        const center = getFeatureCenter(feature)
+            : (feature.baseValue * mult).toFixed(feature.baseValue < 10 ? 2 : 0);
+        const center = getFeatureCenter(feature);
 
-        let geomLabel = dict.geomPoint
-        let metricHtml = ''
+        let geomLabel = dict.geomPoint;
+        let metricHtml = '';
         if (feature.geomType === 'line') {
-          geomLabel = dict.geomLine
-          const lenKm = calcPolylineLengthKm(feature.coords)
+          geomLabel = dict.geomLine;
+          const lenKm = calcPolylineLengthKm(feature.coords);
           metricHtml = `
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">${dict.attrMetric}</label>
@@ -2304,10 +2310,10 @@
               ${lenKm.toFixed(3)} km (${feature.coords.length} 节点)
             </div>
           </div>
-        `
+        `;
         } else if (feature.geomType === 'polygon') {
-          geomLabel = dict.geomPolygon
-          const areaKm2 = calcPolygonAreaKm2(feature.coords)
+          geomLabel = dict.geomPolygon;
+          const areaKm2 = calcPolygonAreaKm2(feature.coords);
           metricHtml = `
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">${dict.attrMetric}</label>
@@ -2315,7 +2321,7 @@
               ${areaKm2.toFixed(3)} km²
             </div>
           </div>
-        `
+        `;
         }
 
         container.innerHTML = `
@@ -2398,44 +2404,44 @@
             </button>
           </div>
         </form>
-      `
-        lucide.createIcons()
+      `;
+        lucide.createIcons();
       }
 
       function saveFeatureAttributes(e) {
-        e.preventDefault()
-        const f = features.find((item) => item.id === state.selectedFeatureId)
-        if (!f) return
+        e.preventDefault();
+        const f = features.find((item) => item.id === state.selectedFeatureId);
+        if (!f) return;
 
-        const newName = document.getElementById('attr-input-name').value.trim()
+        const newName = document.getElementById('attr-input-name').value.trim();
         if (newName) {
-          if (state.lang === 'zh') f.name = newName
-          else f.nameEn = newName
+          if (state.lang === 'zh') f.name = newName;
+          else f.nameEn = newName;
         }
-        f.category = document.getElementById('attr-input-cat').value.trim()
-        f.status = document.getElementById('attr-input-status').value
-        f.baseValue = parseFloat(document.getElementById('attr-input-val').value) || 0
-        f.notes = document.getElementById('attr-input-notes').value.trim()
+        f.category = document.getElementById('attr-input-cat').value.trim();
+        f.status = document.getElementById('attr-input-status').value;
+        f.baseValue = parseFloat(document.getElementById('attr-input-val').value) || 0;
+        f.notes = document.getElementById('attr-input-notes').value.trim();
 
-        renderAttributePanel()
-        renderMap()
-        showToast(I18N[state.lang].toastSaved)
+        renderAttributePanel();
+        renderMap();
+        showToast(I18N[state.lang].toastSaved);
       }
 
       function deleteSelectedFeature() {
-        features = features.filter((f) => f.id !== state.selectedFeatureId)
-        state.selectedFeatureId = null
-        renderLayersAndLegend()
-        renderAttributePanel()
-        renderMap()
-        showToast(I18N[state.lang].toastDeleted)
+        features = features.filter((f) => f.id !== state.selectedFeatureId);
+        state.selectedFeatureId = null;
+        renderLayersAndLegend();
+        renderAttributePanel();
+        renderMap();
+        showToast(I18N[state.lang].toastDeleted);
       }
 
       function flyToSelectedFeature() {
-        const f = features.find((item) => item.id === state.selectedFeatureId)
-        if (!f) return
-        const center = getFeatureCenter(f)
-        flyToLocation(center[0], center[1], 14.8)
+        const f = features.find((item) => item.id === state.selectedFeatureId);
+        if (!f) return;
+        const center = getFeatureCenter(f);
+        flyToLocation(center[0], center[1], 14.8);
       }
 
       /**
@@ -2444,58 +2450,58 @@
        * =========================================================================
        */
       function setActiveTool(tool) {
-        state.activeTool = tool
-        state.tempVertices = []
+        state.activeTool = tool;
+        state.tempVertices = [];
 
         document.querySelectorAll('.tool-btn').forEach((btn) => {
-          btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm')
-          btn.classList.add('text-slate-600', 'dark:text-slate-300')
-        })
+          btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+          btn.classList.add('text-slate-600', 'dark:text-slate-300');
+        });
 
-        const activeBtn = document.getElementById(`tool-${tool}`)
+        const activeBtn = document.getElementById(`tool-${tool}`);
         if (activeBtn) {
-          activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm')
-          activeBtn.classList.remove('text-slate-600', 'dark:text-slate-300')
+          activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+          activeBtn.classList.remove('text-slate-600', 'dark:text-slate-300');
         }
 
-        const banner = document.getElementById('tool-hint-banner')
-        const hintText = document.getElementById('tool-hint-text')
-        const dict = I18N[state.lang]
+        const banner = document.getElementById('tool-hint-banner');
+        const hintText = document.getElementById('tool-hint-text');
+        const dict = I18N[state.lang];
 
         if (tool === 'pan') {
-          banner.classList.add('hidden')
+          banner.classList.add('hidden');
         } else {
-          banner.classList.remove('hidden')
+          banner.classList.remove('hidden');
           const mapHints = {
             point: dict.hintPoint,
             line: dict.hintLine,
             polygon: dict.hintPolygon,
             measure: dict.hintMeasure,
-          }
-          hintText.textContent = mapHints[tool] || ''
+          };
+          hintText.textContent = mapHints[tool] || '';
         }
 
-        renderMap()
+        renderMap();
       }
 
       function clearMeasurementsAndTemp() {
-        state.tempVertices = []
-        state.measurements = []
-        document.getElementById('measure-result-card').classList.add('hidden')
-        setActiveTool('pan')
-        renderMap()
-        showToast(I18N[state.lang].toastCleared)
+        state.tempVertices = [];
+        state.measurements = [];
+        document.getElementById('measure-result-card').classList.add('hidden');
+        setActiveTool('pan');
+        renderMap();
+        showToast(I18N[state.lang].toastCleared);
       }
 
       function handleTimeChange(val) {
-        state.timeSlot = val
-        renderAttributePanel()
-        renderMap()
+        state.timeSlot = val;
+        renderAttributePanel();
+        renderMap();
       }
 
       function handleSearchInput(keyword) {
-        const dropdown = document.getElementById('search-results-dropdown')
-        const q = keyword.trim().toLowerCase()
+        const dropdown = document.getElementById('search-results-dropdown');
+        const q = keyword.trim().toLowerCase();
 
         const matched = features.filter(
           (f) =>
@@ -2503,17 +2509,17 @@
             (f.nameEn && f.nameEn.toLowerCase().includes(q)) ||
             f.id.toLowerCase().includes(q) ||
             f.category.toLowerCase().includes(q)
-        )
+        );
 
         if (matched.length === 0) {
-          dropdown.classList.add('hidden')
-          return
+          dropdown.classList.add('hidden');
+          return;
         }
 
-        dropdown.classList.remove('hidden')
+        dropdown.classList.remove('hidden');
         dropdown.innerHTML = matched
           .map((f) => {
-            const title = state.lang === 'zh' ? f.name : f.nameEn || f.name
+            const title = state.lang === 'zh' ? f.name : f.nameEn || f.name;
             return `
           <button type="button" onclick="selectSearchResult('${f.id}')"
             class="w-full px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-700/80 flex items-center justify-between gap-2 transition-colors">
@@ -2523,45 +2529,45 @@
             </div>
             <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 shrink-0">${f.id}</span>
           </button>
-        `
+        `;
           })
-          .join('')
+          .join('');
       }
 
       function selectSearchResult(featureId) {
-        document.getElementById('search-results-dropdown').classList.add('hidden')
-        const f = features.find((item) => item.id === featureId)
-        if (!f) return
+        document.getElementById('search-results-dropdown').classList.add('hidden');
+        const f = features.find((item) => item.id === featureId);
+        if (!f) return;
 
-        state.selectedFeatureId = f.id
-        if (state.rightCollapsed) toggleSidebar('right')
-        renderAttributePanel()
+        state.selectedFeatureId = f.id;
+        if (state.rightCollapsed) toggleSidebar('right');
+        renderAttributePanel();
 
-        const center = getFeatureCenter(f)
-        flyToLocation(center[0], center[1], 14.8)
+        const center = getFeatureCenter(f);
+        flyToLocation(center[0], center[1], 14.8);
       }
 
       // 点击外部关闭搜索下拉框
       document.addEventListener('click', (e) => {
-        const input = document.getElementById('search-input')
-        const dropdown = document.getElementById('search-results-dropdown')
+        const input = document.getElementById('search-input');
+        const dropdown = document.getElementById('search-results-dropdown');
         if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-          dropdown.classList.add('hidden')
+          dropdown.classList.add('hidden');
         }
-      })
+      });
 
       function showToast(msg) {
-        const container = document.getElementById('toast-container')
-        const toast = document.createElement('div')
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
         toast.className =
-          'px-3.5 py-2 rounded-xl bg-slate-900/95 text-white text-xs font-medium shadow-xl border border-slate-700/80 backdrop-blur flex items-center gap-2 transition-all duration-300'
-        toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>${msg}</span>`
-        container.appendChild(toast)
+          'px-3.5 py-2 rounded-xl bg-slate-900/95 text-white text-xs font-medium shadow-xl border border-slate-700/80 backdrop-blur flex items-center gap-2 transition-all duration-300';
+        toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>${msg}</span>`;
+        container.appendChild(toast);
         setTimeout(() => {
-          toast.style.opacity = '0'
-          toast.style.transform = 'translateY(8px)'
-          setTimeout(() => toast.remove(), 300)
-        }, 2600)
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(() => toast.remove(), 300);
+        }, 2600);
       }
 
       /**
@@ -2569,15 +2575,15 @@
        * 系统初始化启动入口
        * =========================================================================
        */
-      window.addEventListener('resize', resizeCanvas)
+      window.addEventListener('resize', resizeCanvas);
 
       window.onload = function () {
-        lucide.createIcons()
-        applyI18n()
-        renderLayersAndLegend()
-        renderAttributePanel()
-        resizeCanvas()
-      }
+        lucide.createIcons();
+        applyI18n();
+        renderLayersAndLegend();
+        renderAttributePanel();
+        resizeCanvas();
+      };
     </script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import DashboardLayout from './DashboardLayout.vue'
+import DashboardLayout from './DashboardLayout.vue';
 
-withDefaults(defineProps<{ drawerVisible?: boolean }>(), { drawerVisible: false })
+withDefaults(defineProps<{ drawerVisible?: boolean }>(), { drawerVisible: false });
 </script>
 
 <template>

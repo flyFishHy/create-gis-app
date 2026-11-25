@@ -21,29 +21,29 @@ export type GISRuntimeErrorCode =
   | 'DATA_PROCESSOR_DUPLICATE'
   | 'TOOL_NOT_FOUND'
   | 'TOOL_DUPLICATE'
-  | 'TOOL_ACTIVATION_FAILED'
+  | 'TOOL_ACTIVATION_FAILED';
 
 export class GISRuntimeError extends Error {
-  readonly code: GISRuntimeErrorCode
-  readonly stage?: string
-  readonly detail?: unknown
-  override readonly cause?: unknown
-  readonly cleanupErrors?: readonly unknown[]
+  readonly code: GISRuntimeErrorCode;
+  readonly stage?: string;
+  readonly detail?: unknown;
+  override readonly cause?: unknown;
+  readonly cleanupErrors?: readonly unknown[];
 
   constructor(options: {
-    code: GISRuntimeErrorCode
-    message: string
-    stage?: string
-    detail?: unknown
-    cause?: unknown
-    cleanupErrors?: readonly unknown[]
+    code: GISRuntimeErrorCode;
+    message: string;
+    stage?: string;
+    detail?: unknown;
+    cause?: unknown;
+    cleanupErrors?: readonly unknown[];
   }) {
-    super(options.message, { cause: options.cause })
-    this.name = 'GISRuntimeError'
-    this.code = options.code
-    this.stage = options.stage
-    this.detail = options.detail
-    this.cause = options.cause
-    this.cleanupErrors = options.cleanupErrors
+    super(options.message, { cause: options.cause });
+    this.name = 'GISRuntimeError';
+    this.code = options.code;
+    this.stage = options.stage;
+    this.detail = options.detail;
+    this.cause = options.cause;
+    this.cleanupErrors = options.cleanupErrors;
   }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import DashboardLayout from './DashboardLayout.vue'
+import DashboardLayout from './DashboardLayout.vue';
 
-withDefaults(defineProps<{ rightVisible?: boolean }>(), { rightVisible: true })
+withDefaults(defineProps<{ rightVisible?: boolean }>(), { rightVisible: true });
 </script>
 
 <template>

@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { LayerStyle } from '@joinmap/gis-core'
+import { computed } from 'vue';
+import type { LayerStyle } from '@joinmap/gis-core';
 
-const props = defineProps<{ color?: string; symbol?: string; layerStyle?: LayerStyle }>()
-const width = computed(() => props.layerStyle?.strokeWidth ?? 2)
+const props = defineProps<{ color?: string; symbol?: string; layerStyle?: LayerStyle }>();
+const width = computed(() => props.layerStyle?.strokeWidth ?? 2);
 const dash = computed(() =>
   props.layerStyle?.lineDash === 'dashed'
     ? '6 4'
     : props.layerStyle?.lineDash === 'dotted'
       ? '1 3'
       : undefined
-)
+);
 </script>
 
 <template>

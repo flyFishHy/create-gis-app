@@ -1,7 +1,7 @@
-import type { AppStateSnapshot, LayerInstance } from '../types.js'
-import { stateValue } from './json-value.js'
+import type { AppStateSnapshot, LayerInstance } from '../types.js';
+import { stateValue } from './json-value.js';
 
-type DomainSnapshot = Pick<AppStateSnapshot, 'map' | 'layers' | 'data'>
+type DomainSnapshot = Pick<AppStateSnapshot, 'map' | 'layers' | 'data'>;
 
 /** Project owning services into JSON metadata; no writable domain copies. */
 export function createSnapshotReader(
@@ -23,5 +23,5 @@ export function createSnapshotReader(
       metadata: stateValue(layer.getMetadata()) as AppStateSnapshot['layers'][number]['metadata'],
     })),
     data: data(),
-  })
+  });
 }

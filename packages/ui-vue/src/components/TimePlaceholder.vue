@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import SvgIcon from './SvgIcon.vue'
-import { useGISUI } from '../use-gis-ui.js'
-const ui = useGISUI()
+import SvgIcon from './SvgIcon.vue';
+import { useGISUI } from '../use-gis-ui.js';
+const ui = useGISUI();
 </script>
 
 <template>

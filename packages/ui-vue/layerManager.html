@@ -782,8 +782,8 @@
        * OpenLayers 图层管理面板完整应用逻辑
        * ==========================================================================
        */
-      ;(function () {
-        'use strict'
+      (function () {
+        'use strict';
 
         // ------------------------------------------------------------------------
         // 1. Crisp SVG 图标库 (Lucide 风格，1.85px 统一描边)
@@ -822,20 +822,20 @@
           moon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
                </svg>`,
-        }
+        };
 
         // ------------------------------------------------------------------------
         // 2. 初始化 OpenLayers 业务矢量数据与图层
         // ------------------------------------------------------------------------
-        const CENTER_LONLAT = [116.3974, 39.9093] // 北京核心区基准坐标
-        const INITIAL_CENTER = ol.proj.fromLonLat(CENTER_LONLAT)
+        const CENTER_LONLAT = [116.3974, 39.9093]; // 北京核心区基准坐标
+        const INITIAL_CENTER = ol.proj.fromLonLat(CENTER_LONLAT);
 
         // 工具函数：创建线段 Feature
         function createLineFeature(coordsLonLat, name) {
           return new ol.Feature({
             geometry: new ol.geom.LineString(coordsLonLat.map((c) => ol.proj.fromLonLat(c))),
             name,
-          })
+          });
         }
 
         // 工具函数：创建多边形 Feature
@@ -843,7 +843,7 @@
           return new ol.Feature({
             geometry: new ol.geom.Polygon([ringLonLat.map((c) => ol.proj.fromLonLat(c))]),
             name,
-          })
+          });
         }
 
         // 工具函数：创建点位 Feature
@@ -852,7 +852,7 @@
             geometry: new ol.geom.Point(ol.proj.fromLonLat(lonLat)),
             name,
             value,
-          })
+          });
         }
 
         // [图层组 1 子图层 A] 城市主干道矢量图层
@@ -885,13 +885,13 @@
               '二环快速路'
             ),
           ],
-        })
+        });
         const primaryRoadsLayer = new ol.layer.Vector({
           source: primaryRoadsSource,
           style: new ol.style.Style({
             stroke: new ol.style.Stroke({ color: '#f59e0b', width: 4.5, lineCap: 'round' }),
           }),
-        })
+        });
 
         // [图层组 1 子图层 B] 城市次干道与支路矢量图层
         const secondaryRoadsSource = new ol.source.Vector({
@@ -925,20 +925,20 @@
               '东单北大街'
             ),
           ],
-        })
+        });
         const secondaryRoadsLayer = new ol.layer.Vector({
           source: secondaryRoadsSource,
           style: new ol.style.Style({
             stroke: new ol.style.Stroke({ color: '#38bdf8', width: 2.5, lineDash: [6, 4] }),
           }),
-        })
+        });
 
         // [业务图层组 1] 城市核心区路网矢量组 (LayerGroup)
         const roadNetworkGroup = new ol.layer.Group({
           layers: [secondaryRoadsLayer, primaryRoadsLayer],
           visible: true,
           opacity: 0.95,
-        })
+        });
 
         // [业务图层 2] 物联网环境监测点位图层
         const iotPointsData = [
@@ -949,10 +949,10 @@
           { coord: [116.358, 39.936], name: '西直门枢纽站', val: 84 },
           { coord: [116.432, 39.941], name: '东直门枢纽站', val: 91 },
           { coord: [116.395, 39.881], name: '天坛公园生态站', val: 99 },
-        ]
+        ];
         const iotSource = new ol.source.Vector({
           features: iotPointsData.map((d) => createPointFeature(d.coord, d.name, d.val)),
-        })
+        });
         const iotLayer = new ol.layer.Vector({
           source: iotSource,
           visible: true,
@@ -980,9 +980,9 @@
                   padding: [2, 5, 2, 5],
                 }),
               }),
-            ]
+            ];
           },
-        })
+        });
 
         // [业务图层组 2] 重点功能区规划边界组 (LayerGroup)
         const coreZoneLayer = new ol.layer.Vector({
@@ -1004,7 +1004,7 @@
             fill: new ol.style.Fill({ color: 'rgba(168, 85, 247, 0.22)' }),
             stroke: new ol.style.Stroke({ color: '#a855f7', width: 2.2 }),
           }),
-        })
+        });
 
         const cbdZoneLayer = new ol.layer.Vector({
           source: new ol.source.Vector({
@@ -1025,13 +1025,13 @@
             fill: new ol.style.Fill({ color: 'rgba(236, 72, 153, 0.20)' }),
             stroke: new ol.style.Stroke({ color: '#ec4899', width: 2.2, lineDash: [5, 5] }),
           }),
-        })
+        });
 
         const districtGroup = new ol.layer.Group({
           layers: [coreZoneLayer, cbdZoneLayer],
           visible: true,
           opacity: 0.85,
-        })
+        });
 
         // [底图图层 4] 电子矢量地图底图 (OSM)
         const baseMapLayer = new ol.layer.Tile({
@@ -1039,7 +1039,7 @@
           visible: true,
           opacity: 1.0,
           className: 'ol-layer-basemap-canvas',
-        })
+        });
 
         // 初始化 OpenLayers Map 实例
         const map = new ol.Map({
@@ -1051,18 +1051,18 @@
             minZoom: 3,
             maxZoom: 19,
           }),
-        })
+        });
 
         // 实时更新左上角坐标与缩放层级读数
         function updateMapHud() {
-          const view = map.getView()
-          const center = ol.proj.toLonLat(view.getCenter())
-          const zoom = view.getZoom().toFixed(1)
+          const view = map.getView();
+          const center = ol.proj.toLonLat(view.getCenter());
+          const zoom = view.getZoom().toFixed(1);
           document.getElementById('coord-readout').textContent =
-            `中心坐标: ${center[0].toFixed(4)}° E, ${center[1].toFixed(4)}° N · 层级: ${zoom}`
+            `中心坐标: ${center[0].toFixed(4)}° E, ${center[1].toFixed(4)}° N · 层级: ${zoom}`;
         }
-        map.on('moveend', updateMapHud)
-        updateMapHud()
+        map.on('moveend', updateMapHud);
+        updateMapHud();
 
         // ------------------------------------------------------------------------
         // 3. 图层面板状态模型（数组顺序即面板从上到下顺序，索引0拥有最高 zIndex）
@@ -1150,161 +1150,161 @@
               'EPSG:3857'
             ),
           },
-        ]
+        ];
 
         // 同步所有图层的 OpenLayers zIndex（面板最顶部对应最高渲染层级）
         function syncLayerZIndices() {
-          const total = layerState.length
+          const total = layerState.length;
           layerState.forEach((item, index) => {
-            const zIndex = (total - index) * 10
-            item.olLayer.setZIndex(zIndex)
-          })
+            const zIndex = (total - index) * 10;
+            item.olLayer.setZIndex(zIndex);
+          });
         }
-        syncLayerZIndices()
+        syncLayerZIndices();
 
         // ------------------------------------------------------------------------
         // 4. Toast 通知提示工具
         // ------------------------------------------------------------------------
-        let toastTimer = null
+        let toastTimer = null;
         function showToast(message) {
-          const toastEl = document.getElementById('toast')
-          toastEl.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--accent-color);"></span><span>${message}</span>`
-          toastEl.classList.add('show')
-          clearTimeout(toastTimer)
+          const toastEl = document.getElementById('toast');
+          toastEl.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--accent-color);"></span><span>${message}</span>`;
+          toastEl.classList.add('show');
+          clearTimeout(toastTimer);
           toastTimer = setTimeout(() => {
-            toastEl.classList.remove('show')
-          }, 2000)
+            toastEl.classList.remove('show');
+          }, 2000);
         }
 
         // ------------------------------------------------------------------------
         // 5. 核心渲染与交互绑定
         // ------------------------------------------------------------------------
-        const layerListEl = document.getElementById('layer-list')
-        const visibleCountBadge = document.getElementById('visible-count-badge')
-        let searchKeyword = ''
-        let draggedIndex = null
+        const layerListEl = document.getElementById('layer-list');
+        const visibleCountBadge = document.getElementById('visible-count-badge');
+        let searchKeyword = '';
+        let draggedIndex = null;
 
         function updateVisibleBadge() {
-          const visibleCount = layerState.filter((l) => l.visible).length
-          visibleCountBadge.textContent = `${visibleCount}/${layerState.length}`
+          const visibleCount = layerState.filter((l) => l.visible).length;
+          visibleCountBadge.textContent = `${visibleCount}/${layerState.length}`;
         }
 
         function renderLayerList() {
-          updateVisibleBadge()
-          layerListEl.innerHTML = ''
+          updateVisibleBadge();
+          layerListEl.innerHTML = '';
 
-          const kw = searchKeyword.trim().toLowerCase()
+          const kw = searchKeyword.trim().toLowerCase();
 
           layerState.forEach((item, index) => {
             // 搜索过滤逻辑
-            const matchParent = item.title.toLowerCase().includes(kw)
+            const matchParent = item.title.toLowerCase().includes(kw);
             const matchingChildren = item.children
               ? item.children.filter((c) => c.title.toLowerCase().includes(kw))
-              : []
+              : [];
 
             if (kw && !matchParent && matchingChildren.length === 0) {
-              return
+              return;
             }
 
-            const card = document.createElement('div')
-            card.className = `layer-card${item.expanded ? ' is-expanded' : ''}${!item.visible ? ' is-hidden' : ''}`
-            card.dataset.index = index
-            card.setAttribute('role', 'listitem')
+            const card = document.createElement('div');
+            card.className = `layer-card${item.expanded ? ' is-expanded' : ''}${!item.visible ? ' is-hidden' : ''}`;
+            card.dataset.index = index;
+            card.setAttribute('role', 'listitem');
 
             // --- 卡片顶部主行：[eye icon] [图层title]      [drag icon][flyTo icon][展开/收起icon] ---
-            const header = document.createElement('div')
-            header.className = 'layer-card-header'
+            const header = document.createElement('div');
+            header.className = 'layer-card-header';
 
             // 左侧：显隐 Eye 按钮 + 图层色标与标题
-            const leftGroup = document.createElement('div')
-            leftGroup.className = 'layer-left-group'
+            const leftGroup = document.createElement('div');
+            leftGroup.className = 'layer-left-group';
 
-            const eyeBtn = document.createElement('button')
-            eyeBtn.className = `icon-btn ${item.visible ? 'active-eye' : 'off-eye'}`
-            eyeBtn.title = item.visible ? '隐藏图层' : '显示图层'
-            eyeBtn.setAttribute('aria-label', `${item.visible ? '隐藏' : '显示'} ${item.title}`)
-            eyeBtn.innerHTML = item.visible ? ICONS.eye : ICONS.eyeOff
+            const eyeBtn = document.createElement('button');
+            eyeBtn.className = `icon-btn ${item.visible ? 'active-eye' : 'off-eye'}`;
+            eyeBtn.title = item.visible ? '隐藏图层' : '显示图层';
+            eyeBtn.setAttribute('aria-label', `${item.visible ? '隐藏' : '显示'} ${item.title}`);
+            eyeBtn.innerHTML = item.visible ? ICONS.eye : ICONS.eyeOff;
             eyeBtn.addEventListener('click', (e) => {
-              e.stopPropagation()
-              toggleLayerVisibility(item)
-            })
+              e.stopPropagation();
+              toggleLayerVisibility(item);
+            });
 
-            const titleWrap = document.createElement('div')
-            titleWrap.className = 'layer-title-wrap'
-            titleWrap.title = `${item.title}（点击展开/收起详情）`
+            const titleWrap = document.createElement('div');
+            titleWrap.className = 'layer-title-wrap';
+            titleWrap.title = `${item.title}（点击展开/收起详情）`;
             titleWrap.innerHTML = `
             <span class="layer-color-dot" style="background:${item.color};"></span>
             <span class="layer-title">${item.title}</span>
-          `
+          `;
             titleWrap.addEventListener('click', () => {
-              item.expanded = !item.expanded
-              renderLayerList()
-            })
+              item.expanded = !item.expanded;
+              renderLayerList();
+            });
 
-            leftGroup.appendChild(eyeBtn)
-            leftGroup.appendChild(titleWrap)
+            leftGroup.appendChild(eyeBtn);
+            leftGroup.appendChild(titleWrap);
 
             // 右侧：[drag icon][flyTo icon][展开/收起icon]
-            const rightActions = document.createElement('div')
-            rightActions.className = 'layer-right-actions'
+            const rightActions = document.createElement('div');
+            rightActions.className = 'layer-right-actions';
 
             // 1. 拖拽手柄图标 [drag icon]
-            const dragBtn = document.createElement('button')
-            dragBtn.className = 'icon-btn drag-handle'
-            dragBtn.title = '上下拖拽排序'
-            dragBtn.innerHTML = ICONS.drag
+            const dragBtn = document.createElement('button');
+            dragBtn.className = 'icon-btn drag-handle';
+            dragBtn.title = '上下拖拽排序';
+            dragBtn.innerHTML = ICONS.drag;
             // 仅在按下拖拽手柄时允许卡片触发 HTML5 拖拽，避免干扰透明度滑块拖拽
             dragBtn.addEventListener('pointerdown', () => {
-              card.setAttribute('draggable', 'true')
-            })
+              card.setAttribute('draggable', 'true');
+            });
             dragBtn.addEventListener('pointerup', () => {
-              card.removeAttribute('draggable')
-            })
+              card.removeAttribute('draggable');
+            });
 
             // 2. 定位图标 [flyTo icon]
-            const flyToBtn = document.createElement('button')
-            flyToBtn.className = 'icon-btn'
-            flyToBtn.title = '飞行定位至图层范围'
-            flyToBtn.innerHTML = ICONS.flyTo
+            const flyToBtn = document.createElement('button');
+            flyToBtn.className = 'icon-btn';
+            flyToBtn.title = '飞行定位至图层范围';
+            flyToBtn.innerHTML = ICONS.flyTo;
             flyToBtn.addEventListener('click', (e) => {
-              e.stopPropagation()
-              flyToLayerExtent(item)
-            })
+              e.stopPropagation();
+              flyToLayerExtent(item);
+            });
 
             // 3. 展开/收起图标 [展开/收起 icon]
-            const expandBtn = document.createElement('button')
-            expandBtn.className = 'icon-btn'
-            expandBtn.title = item.expanded ? '收起图层设置' : '展开图层设置'
-            expandBtn.innerHTML = ICONS.chevronDown
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'icon-btn';
+            expandBtn.title = item.expanded ? '收起图层设置' : '展开图层设置';
+            expandBtn.innerHTML = ICONS.chevronDown;
             expandBtn.addEventListener('click', (e) => {
-              e.stopPropagation()
-              item.expanded = !item.expanded
-              renderLayerList()
-            })
+              e.stopPropagation();
+              item.expanded = !item.expanded;
+              renderLayerList();
+            });
 
-            rightActions.appendChild(dragBtn)
-            rightActions.appendChild(flyToBtn)
-            rightActions.appendChild(expandBtn)
+            rightActions.appendChild(dragBtn);
+            rightActions.appendChild(flyToBtn);
+            rightActions.appendChild(expandBtn);
 
-            header.appendChild(leftGroup)
-            header.appendChild(rightActions)
-            card.appendChild(header)
+            header.appendChild(leftGroup);
+            header.appendChild(rightActions);
+            card.appendChild(header);
 
             // --- 卡片展开抽屉区域 ---
-            const drawer = document.createElement('div')
-            drawer.className = 'layer-drawer'
+            const drawer = document.createElement('div');
+            drawer.className = 'layer-drawer';
 
-            const drawerInner = document.createElement('div')
-            drawerInner.className = 'layer-drawer-inner'
+            const drawerInner = document.createElement('div');
+            drawerInner.className = 'layer-drawer-inner';
 
-            const drawerContent = document.createElement('div')
-            drawerContent.className = 'layer-drawer-content'
+            const drawerContent = document.createElement('div');
+            drawerContent.className = 'layer-drawer-content';
 
             // 1) 透明度控制行：[opacity icon] [可拖拽的进度条] [百分比]
-            const opacityRow = document.createElement('div')
-            opacityRow.className = 'opacity-row'
+            const opacityRow = document.createElement('div');
+            opacityRow.className = 'opacity-row';
 
-            const pct = Math.round(item.opacity * 100)
+            const pct = Math.round(item.opacity * 100);
             opacityRow.innerHTML = `
             <span class="opacity-icon" title="图层不透明度">${ICONS.opacity}</span>
             <div class="custom-slider" role="slider" aria-label="${item.title} 不透明度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
@@ -1314,85 +1314,85 @@
               <div class="custom-slider-thumb" style="left: ${pct}%;"></div>
             </div>
             <span class="opacity-value">${pct}%</span>
-          `
+          `;
 
-            const sliderEl = opacityRow.querySelector('.custom-slider')
-            const fillEl = opacityRow.querySelector('.custom-slider-fill')
-            const thumbEl = opacityRow.querySelector('.custom-slider-thumb')
-            const valEl = opacityRow.querySelector('.opacity-value')
+            const sliderEl = opacityRow.querySelector('.custom-slider');
+            const fillEl = opacityRow.querySelector('.custom-slider-fill');
+            const thumbEl = opacityRow.querySelector('.custom-slider-thumb');
+            const valEl = opacityRow.querySelector('.opacity-value');
 
             bindCustomSlider(sliderEl, (ratio) => {
-              item.opacity = ratio
-              item.olLayer.setOpacity(ratio)
-              const displayPct = Math.round(ratio * 100)
-              fillEl.style.width = `${displayPct}%`
-              thumbEl.style.left = `${displayPct}%`
-              valEl.textContent = `${displayPct}%`
-              sliderEl.setAttribute('aria-valuenow', displayPct)
-            })
+              item.opacity = ratio;
+              item.olLayer.setOpacity(ratio);
+              const displayPct = Math.round(ratio * 100);
+              fillEl.style.width = `${displayPct}%`;
+              thumbEl.style.left = `${displayPct}%`;
+              valEl.textContent = `${displayPct}%`;
+              sliderEl.setAttribute('aria-valuenow', displayPct);
+            });
 
-            drawerContent.appendChild(opacityRow)
+            drawerContent.appendChild(opacityRow);
 
             // 2) 子图层树列表（若有子图层）
             if (item.children && item.children.length > 0) {
-              const subList = document.createElement('div')
-              subList.className = 'sublayers-list'
+              const subList = document.createElement('div');
+              subList.className = 'sublayers-list';
 
-              const childrenToRender = kw && !matchParent ? matchingChildren : item.children
+              const childrenToRender = kw && !matchParent ? matchingChildren : item.children;
 
               childrenToRender.forEach((sub) => {
-                const subRow = document.createElement('div')
-                subRow.className = `sublayer-item${!sub.visible ? ' is-hidden' : ''}`
+                const subRow = document.createElement('div');
+                subRow.className = `sublayer-item${!sub.visible ? ' is-hidden' : ''}`;
 
-                const subEyeBtn = document.createElement('button')
-                subEyeBtn.className = `icon-btn ${sub.visible ? 'active-eye' : 'off-eye'}`
-                subEyeBtn.style.width = '24px'
-                subEyeBtn.style.height = '24px'
-                subEyeBtn.title = sub.visible ? '隐藏子图层' : '显示子图层'
-                subEyeBtn.innerHTML = sub.visible ? ICONS.eye : ICONS.eyeOff
+                const subEyeBtn = document.createElement('button');
+                subEyeBtn.className = `icon-btn ${sub.visible ? 'active-eye' : 'off-eye'}`;
+                subEyeBtn.style.width = '24px';
+                subEyeBtn.style.height = '24px';
+                subEyeBtn.title = sub.visible ? '隐藏子图层' : '显示子图层';
+                subEyeBtn.innerHTML = sub.visible ? ICONS.eye : ICONS.eyeOff;
 
-                const subTitle = document.createElement('span')
-                subTitle.className = 'sublayer-title'
-                subTitle.textContent = sub.title
+                const subTitle = document.createElement('span');
+                subTitle.className = 'sublayer-title';
+                subTitle.textContent = sub.title;
 
-                const subSwatch = document.createElement('span')
-                subSwatch.className = 'sublayer-swatch'
-                subSwatch.style.background = sub.color
+                const subSwatch = document.createElement('span');
+                subSwatch.className = 'sublayer-swatch';
+                subSwatch.style.background = sub.color;
 
                 const toggleSub = () => {
-                  sub.visible = !sub.visible
-                  sub.olLayer.setVisible(sub.visible)
+                  sub.visible = !sub.visible;
+                  sub.olLayer.setVisible(sub.visible);
 
                   // 父级与子图层状态联动：
                   // 若存在任意可见子图层，确保父级图层组可见；若全部子图层关闭，父级同步切换为 eye-off
-                  const anyChildVisible = item.children.some((c) => c.visible)
-                  item.visible = anyChildVisible
-                  item.olLayer.setVisible(anyChildVisible)
+                  const anyChildVisible = item.children.some((c) => c.visible);
+                  item.visible = anyChildVisible;
+                  item.olLayer.setVisible(anyChildVisible);
 
-                  renderLayerList()
-                }
+                  renderLayerList();
+                };
 
-                subEyeBtn.addEventListener('click', toggleSub)
-                subTitle.addEventListener('click', toggleSub)
+                subEyeBtn.addEventListener('click', toggleSub);
+                subTitle.addEventListener('click', toggleSub);
 
-                subRow.appendChild(subEyeBtn)
-                subRow.appendChild(subTitle)
-                subRow.appendChild(subSwatch)
-                subList.appendChild(subRow)
-              })
+                subRow.appendChild(subEyeBtn);
+                subRow.appendChild(subTitle);
+                subRow.appendChild(subSwatch);
+                subList.appendChild(subRow);
+              });
 
-              drawerContent.appendChild(subList)
+              drawerContent.appendChild(subList);
             }
 
-            drawerInner.appendChild(drawerContent)
-            drawer.appendChild(drawerInner)
-            card.appendChild(drawer)
+            drawerInner.appendChild(drawerContent);
+            drawer.appendChild(drawerInner);
+            card.appendChild(drawer);
 
             // --- 绑定卡片拖拽排序事件 ---
-            bindCardDragEvents(card, index)
+            bindCardDragEvents(card, index);
 
-            layerListEl.appendChild(card)
-          })
+            layerListEl.appendChild(card);
+          });
 
           // 无匹配搜索结果提示
           if (layerListEl.children.length === 0) {
@@ -1400,7 +1400,7 @@
             <div style="text-align:center;padding:24px 12px;color:var(--text-muted);font-size:12.5px;">
               未找到匹配 “${searchKeyword}” 的图层
             </div>
-          `
+          `;
           }
         }
 
@@ -1408,148 +1408,148 @@
         // 6. 交互逻辑实现：显隐切换、飞行定位、自定义滑块拖拽、列表拖拽排序
         // ------------------------------------------------------------------------
         function toggleLayerVisibility(item) {
-          const nextVisible = !item.visible
-          item.visible = nextVisible
-          item.olLayer.setVisible(nextVisible)
+          const nextVisible = !item.visible;
+          item.visible = nextVisible;
+          item.olLayer.setVisible(nextVisible);
 
           // 如果是图层组，切换父级 eye 时同步所有子图层状态
           if (item.children && item.children.length > 0) {
             item.children.forEach((sub) => {
-              sub.visible = nextVisible
-              sub.olLayer.setVisible(nextVisible)
-            })
+              sub.visible = nextVisible;
+              sub.olLayer.setVisible(nextVisible);
+            });
           }
 
-          renderLayerList()
-          showToast(`${nextVisible ? '已显示' : '已隐藏'}：${item.title}`)
+          renderLayerList();
+          showToast(`${nextVisible ? '已显示' : '已隐藏'}：${item.title}`);
         }
 
         function flyToLayerExtent(item) {
           if (!item.visible) {
-            toggleLayerVisibility(item)
+            toggleLayerVisibility(item);
           }
           if (item.extent && !ol.extent.isEmpty(item.extent)) {
             map.getView().fit(item.extent, {
               padding: [80, 390, 80, 80], // 右侧预留图层管理面板宽度，确保要素居中可见
               duration: 750,
               maxZoom: 15,
-            })
-            showToast(`已定位至：${item.title}`)
+            });
+            showToast(`已定位至：${item.title}`);
           }
         }
 
         // Pointer Events 实现流畅的自定义进度条滑块拖拽（兼容鼠标与触摸屏）
         function bindCustomSlider(sliderEl, onChange) {
           const updateFromEvent = (clientX) => {
-            const rect = sliderEl.getBoundingClientRect()
-            let ratio = (clientX - rect.left) / rect.width
-            ratio = Math.max(0, Math.min(1, ratio))
-            onChange(ratio)
-          }
+            const rect = sliderEl.getBoundingClientRect();
+            let ratio = (clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+            onChange(ratio);
+          };
 
           sliderEl.addEventListener('pointerdown', (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            sliderEl.setPointerCapture(e.pointerId)
-            sliderEl.classList.add('is-dragging')
-            updateFromEvent(e.clientX)
-          })
+            e.preventDefault();
+            e.stopPropagation();
+            sliderEl.setPointerCapture(e.pointerId);
+            sliderEl.classList.add('is-dragging');
+            updateFromEvent(e.clientX);
+          });
 
           sliderEl.addEventListener('pointermove', (e) => {
-            if (!sliderEl.classList.contains('is-dragging')) return
-            updateFromEvent(e.clientX)
-          })
+            if (!sliderEl.classList.contains('is-dragging')) return;
+            updateFromEvent(e.clientX);
+          });
 
           const endDrag = (e) => {
-            if (!sliderEl.classList.contains('is-dragging')) return
-            sliderEl.classList.remove('is-dragging')
+            if (!sliderEl.classList.contains('is-dragging')) return;
+            sliderEl.classList.remove('is-dragging');
             if (sliderEl.hasPointerCapture(e.pointerId)) {
-              sliderEl.releasePointerCapture(e.pointerId)
+              sliderEl.releasePointerCapture(e.pointerId);
             }
-          }
+          };
 
-          sliderEl.addEventListener('pointerup', endDrag)
-          sliderEl.addEventListener('pointercancel', endDrag)
+          sliderEl.addEventListener('pointerup', endDrag);
+          sliderEl.addEventListener('pointercancel', endDrag);
         }
 
         // 卡片上下拖拽排序（同步更新 OpenLayers 图层 zIndex）
         function bindCardDragEvents(card, index) {
           card.addEventListener('dragstart', (e) => {
-            draggedIndex = index
-            card.classList.add('is-dragging')
-            e.dataTransfer.effectAllowed = 'move'
-            e.dataTransfer.setData('text/plain', String(index))
-          })
+            draggedIndex = index;
+            card.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(index));
+          });
 
           card.addEventListener('dragend', () => {
-            draggedIndex = null
-            card.removeAttribute('draggable')
+            draggedIndex = null;
+            card.removeAttribute('draggable');
             document.querySelectorAll('.layer-card').forEach((el) => {
-              el.classList.remove('is-dragging', 'drag-over-top', 'drag-over-bottom')
-            })
-          })
+              el.classList.remove('is-dragging', 'drag-over-top', 'drag-over-bottom');
+            });
+          });
 
           card.addEventListener('dragover', (e) => {
-            e.preventDefault()
-            if (draggedIndex === null || draggedIndex === index) return
+            e.preventDefault();
+            if (draggedIndex === null || draggedIndex === index) return;
 
-            const rect = card.getBoundingClientRect()
-            const midY = rect.top + rect.height / 2
-            card.classList.remove('drag-over-top', 'drag-over-bottom')
+            const rect = card.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            card.classList.remove('drag-over-top', 'drag-over-bottom');
             if (e.clientY < midY) {
-              card.classList.add('drag-over-top')
+              card.classList.add('drag-over-top');
             } else {
-              card.classList.add('drag-over-bottom')
+              card.classList.add('drag-over-bottom');
             }
-          })
+          });
 
           card.addEventListener('dragleave', () => {
-            card.classList.remove('drag-over-top', 'drag-over-bottom')
-          })
+            card.classList.remove('drag-over-top', 'drag-over-bottom');
+          });
 
           card.addEventListener('drop', (e) => {
-            e.preventDefault()
-            if (draggedIndex === null || draggedIndex === index) return
+            e.preventDefault();
+            if (draggedIndex === null || draggedIndex === index) return;
 
-            const rect = card.getBoundingClientRect()
-            const insertAfter = e.clientY >= rect.top + rect.height / 2
+            const rect = card.getBoundingClientRect();
+            const insertAfter = e.clientY >= rect.top + rect.height / 2;
 
-            const [movedItem] = layerState.splice(draggedIndex, 1)
-            let targetIndex = index
-            if (draggedIndex < index) targetIndex--
-            if (insertAfter) targetIndex++
+            const [movedItem] = layerState.splice(draggedIndex, 1);
+            let targetIndex = index;
+            if (draggedIndex < index) targetIndex--;
+            if (insertAfter) targetIndex++;
 
-            layerState.splice(targetIndex, 0, movedItem)
-            syncLayerZIndices()
-            renderLayerList()
-            showToast(`已调整图层层级：${movedItem.title}`)
-          })
+            layerState.splice(targetIndex, 0, movedItem);
+            syncLayerZIndices();
+            renderLayerList();
+            showToast(`已调整图层层级：${movedItem.title}`);
+          });
         }
 
         // ------------------------------------------------------------------------
         // 7. Dark / Light 主题切换与搜索框事件
         // ------------------------------------------------------------------------
-        const htmlEl = document.documentElement
-        const themeToggleBtn = document.getElementById('btn-theme-toggle')
-        const themeLabelEl = document.getElementById('theme-label')
+        const htmlEl = document.documentElement;
+        const themeToggleBtn = document.getElementById('btn-theme-toggle');
+        const themeLabelEl = document.getElementById('theme-label');
 
         function applyTheme(theme) {
-          htmlEl.setAttribute('data-theme', theme)
-          const isDark = theme === 'dark'
+          htmlEl.setAttribute('data-theme', theme);
+          const isDark = theme === 'dark';
           // Dark 模式下显示太阳图标提示可切换至浅色；Light 模式下显示月亮图标提示可切换至深色
-          themeToggleBtn.innerHTML = isDark ? ICONS.sun : ICONS.moon
-          themeToggleBtn.title = isDark ? '切换至 Light 浅色模式' : '切换至 Dark 深空模式'
-          themeLabelEl.textContent = isDark ? 'Dark 烟熏玻璃' : 'Light 霜白玻璃'
+          themeToggleBtn.innerHTML = isDark ? ICONS.sun : ICONS.moon;
+          themeToggleBtn.title = isDark ? '切换至 Light 浅色模式' : '切换至 Dark 深空模式';
+          themeLabelEl.textContent = isDark ? 'Dark 烟熏玻璃' : 'Light 霜白玻璃';
           // 触发 OpenLayers 重新渲染以应用底图滤镜过渡
-          map.render()
+          map.render();
         }
 
         themeToggleBtn.addEventListener('click', () => {
-          const current = htmlEl.getAttribute('data-theme')
-          const next = current === 'dark' ? 'light' : 'dark'
-          applyTheme(next)
-          showToast(`已切换至 ${next === 'dark' ? 'Dark 深空模式' : 'Light 浅色模式'}`)
-        })
+          const current = htmlEl.getAttribute('data-theme');
+          const next = current === 'dark' ? 'light' : 'dark';
+          applyTheme(next);
+          showToast(`已切换至 ${next === 'dark' ? 'Dark 深空模式' : 'Light 浅色模式'}`);
+        });
 
         // 全局视角重置按钮
         document.getElementById('btn-reset-view').addEventListener('click', () => {
@@ -1557,31 +1557,31 @@
             center: INITIAL_CENTER,
             zoom: 12.6,
             duration: 650,
-          })
-          showToast('已重置地图全局视角')
-        })
+          });
+          showToast('已重置地图全局视角');
+        });
 
         // 搜索框过滤交互
-        const searchInput = document.getElementById('layer-search-input')
-        const clearSearchBtn = document.getElementById('btn-clear-search')
+        const searchInput = document.getElementById('layer-search-input');
+        const clearSearchBtn = document.getElementById('btn-clear-search');
 
         searchInput.addEventListener('input', (e) => {
-          searchKeyword = e.target.value
-          clearSearchBtn.style.display = searchKeyword ? 'inline-flex' : 'none'
-          renderLayerList()
-        })
+          searchKeyword = e.target.value;
+          clearSearchBtn.style.display = searchKeyword ? 'inline-flex' : 'none';
+          renderLayerList();
+        });
 
         clearSearchBtn.addEventListener('click', () => {
-          searchKeyword = ''
-          searchInput.value = ''
-          clearSearchBtn.style.display = 'none'
-          renderLayerList()
-        })
+          searchKeyword = '';
+          searchInput.value = '';
+          clearSearchBtn.style.display = 'none';
+          renderLayerList();
+        });
 
         // 初始化渲染
-        applyTheme('dark')
-        renderLayerList()
-      })()
+        applyTheme('dark');
+        renderLayerList();
+      })();
     </script>
   </body>
 </html>

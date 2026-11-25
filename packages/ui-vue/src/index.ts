@@ -1,42 +1,42 @@
-export { createVueUI } from './vue-ui.js'
-export { captureWorkspaceConfig, loadWorkspaceConfig } from './workspace-config.js'
-export type { BuiltinLayoutName, VueUIOptions } from './types.js'
-export { GISAppKey } from './injection.js'
-export { useGISApp } from './use-gis-app.js'
-export { useAppState } from './use-app-state.js'
-export { useGISUI } from './use-gis-ui.js'
-export { default as GISUIRoot } from './GISUIRoot.vue'
-export { default as GISWorkspace } from './GISWorkspace.vue'
-export { default as MapViewport } from './components/MapViewport.vue'
-export { default as TimePlaceholder } from './components/TimePlaceholder.vue'
-export { default as MapStatusPanel } from './panels/MapStatusPanel.vue'
-export { default as PanelHost } from './components/PanelHost.vue'
-export { default as PanelRegion } from './components/PanelRegion.vue'
-export { default as PanelShell } from './components/PanelShell.vue'
-export { default as ScrollArea } from './components/ScrollArea.vue'
-export { default as SvgIcon } from './components/SvgIcon.vue'
-export { default as GisSwitch } from './components/GisSwitch.vue'
-export { default as GisMultiSelect } from './components/GisMultiSelect.vue'
-export type { SelectValue, MultiSelectOption } from './components/select-values.js'
-export { default as Tooltip } from './components/Tooltip.vue'
-export { default as DockedDashboardLayout } from './layouts/DockedDashboardLayout.vue'
-export { default as OverlayDashboardLayout } from './layouts/OverlayDashboardLayout.vue'
-export { default as LayerManagerPanel } from './panels/LayerManagerPanel.vue'
-export { default as LegendPanel } from './panels/LegendPanel.vue'
-export { default as Legend } from './components/Legend.vue'
-export { default as LegendEditor } from './components/LegendEditor.vue'
-export type { UniformLayerStyle, LegendEditValue } from './components/legend-editor-types.js'
-export { default as SearchPanel } from './panels/SearchPanel.vue'
-export { default as Toolbar } from './panels/Toolbar.vue'
-export { default as FeaturePopup } from './panels/FeaturePopup.vue'
-export { default as FeatureDetails } from './components/FeatureDetails.vue'
-export { default as PropertiesPanel } from './panels/PropertiesPanel.vue'
-export { default as KpiPanel } from './panels/KpiPanel.vue'
-export { default as TimeController } from './panels/TimeController.vue'
+export { createVueUI } from './vue-ui.js';
+export { captureWorkspaceConfig, loadWorkspaceConfig } from './workspace-config.js';
+export type { BuiltinLayoutName, VueUIOptions } from './types.js';
+export { GISAppKey } from './injection.js';
+export { useGISApp } from './use-gis-app.js';
+export { useAppState } from './use-app-state.js';
+export { useGISUI } from './use-gis-ui.js';
+export { default as GISUIRoot } from './GISUIRoot.vue';
+export { default as GISWorkspace } from './GISWorkspace.vue';
+export { default as MapViewport } from './components/MapViewport.vue';
+export { default as TimePlaceholder } from './components/TimePlaceholder.vue';
+export { default as MapStatusPanel } from './panels/MapStatusPanel.vue';
+export { default as PanelHost } from './components/PanelHost.vue';
+export { default as PanelRegion } from './components/PanelRegion.vue';
+export { default as PanelShell } from './components/PanelShell.vue';
+export { default as ScrollArea } from './components/ScrollArea.vue';
+export { default as SvgIcon } from './components/SvgIcon.vue';
+export { default as GisSwitch } from './components/GisSwitch.vue';
+export { default as GisMultiSelect } from './components/GisMultiSelect.vue';
+export type { SelectValue, MultiSelectOption } from './components/select-values.js';
+export { default as Tooltip } from './components/Tooltip.vue';
+export { default as DockedDashboardLayout } from './layouts/DockedDashboardLayout.vue';
+export { default as OverlayDashboardLayout } from './layouts/OverlayDashboardLayout.vue';
+export { default as LayerManagerPanel } from './panels/LayerManagerPanel.vue';
+export { default as LegendPanel } from './panels/LegendPanel.vue';
+export { default as Legend } from './components/Legend.vue';
+export { default as LegendEditor } from './components/LegendEditor.vue';
+export type { UniformLayerStyle, LegendEditValue } from './components/legend-editor-types.js';
+export { default as SearchPanel } from './panels/SearchPanel.vue';
+export { default as Toolbar } from './panels/Toolbar.vue';
+export { default as FeaturePopup } from './panels/FeaturePopup.vue';
+export { default as FeatureDetails } from './components/FeatureDetails.vue';
+export { default as PropertiesPanel } from './panels/PropertiesPanel.vue';
+export { default as KpiPanel } from './panels/KpiPanel.vue';
+export { default as TimeController } from './panels/TimeController.vue';
 export {
   default as TimeFilterPicker,
   default as TimePicker,
-} from './components/time-picker/TimeFilterPicker.vue'
+} from './components/time-picker/TimeFilterPicker.vue';
 export type {
   TimeFilterPickerProps,
   TimeFilterPickerEmits,
@@ -44,14 +44,14 @@ export type {
   TimeSelectionMode,
   TimeSelection,
   TimeRange,
-} from './components/time-picker/types.js'
+} from './components/time-picker/types.js';
 export {
   startOfPeriod,
   addPeriod,
   normalizeTimeSelection,
-} from './components/time-picker/time-period.js'
-export { formatTimeSelection, resolveShortcut } from './components/time-picker/time-display.js'
-export type { TimeShortcut } from './components/time-picker/time-display.js'
+} from './components/time-picker/time-period.js';
+export { formatTimeSelection, resolveShortcut } from './components/time-picker/time-display.js';
+export type { TimeShortcut } from './components/time-picker/time-display.js';
 export type {
   UIConfig,
   FeatureRendererDefinition,
@@ -77,4 +77,4 @@ export type {
   ToolbarService,
   VueUIPlugin,
   VuePanelDefinition,
-} from './types.js'
+} from './types.js';

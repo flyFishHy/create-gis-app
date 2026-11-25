@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import SvgIcon from './SvgIcon.vue'
-import Tooltip from './Tooltip.vue'
-defineProps<{ type: string; label: string }>()
+import SvgIcon from './SvgIcon.vue';
+import Tooltip from './Tooltip.vue';
+defineProps<{ type: string; label: string }>();
 </script>
 <template>
   <Tooltip :content="label" placement="bottom"

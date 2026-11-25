@@ -1,15 +1,16 @@
-import { afterEach, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
-import { flushPromises } from '@vue/test-utils'
-import Draw from 'ol/interaction/Draw.js'
-import Feature from 'ol/Feature.js'
-import LineString from 'ol/geom/LineString.js'
-import { createGISApp } from '@joinmap/gis-core'
-import { createOLAdapter, useOLMap, useOLTools } from '../../adapter-ol/src/index.js'
-import { createVueUI } from '../../ui-vue/src/vue-ui.js'
-import type { GISUIContext } from '../../ui-vue/src/types.js'
+import { afterEach, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
+import { flushPromises } from '@vue/test-utils';
+import Draw from 'ol/interaction/Draw.js';
+import Feature from 'ol/Feature.js';
+import LineString from 'ol/geom/LineString.js';
+import VectorLayer from 'ol/layer/Vector.js';
+import { createGISApp } from '@joinmap/gis-core';
+import { createOLAdapter, useOLMap, useOLTools } from '../../adapter-ol/src/index.js';
+import { createVueUI } from '../../ui-vue/src/vue-ui.js';
+import type { GISUIContext } from '../../ui-vue/src/types.js';
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => vi.unstubAllGlobals());
 it('provides tools, properties, pointer status and scale with only the two default plugins', async () => {
   vi.stubGlobal(
     'ResizeObserver',
@@ -18,80 +19,80 @@ it('provides tools, properties, pointer status and scale with only the two defau
       unobserve() {}
       disconnect() {}
     }
-  )
-  const app = createGISApp()
-  let ui!: GISUIContext
-  app.use(createOLAdapter({ controls: false, interactions: false }))
+  );
+  const app = createGISApp();
+  let ui!: GISUIContext;
+  app.use(createOLAdapter({ controls: false, interactions: false }));
   app.use(
     createVueUI({
       extensions: [
         {
           name: 'test-capture',
           install(context) {
-            ui = context
+            ui = context;
           },
         },
       ],
     })
-  )
-  const target = document.createElement('div')
-  document.body.append(target)
+  );
+  const target = document.createElement('div');
+  document.body.append(target);
   try {
     await app.init({
       map: { projection: 'EPSG:3857', center: [0, 0], zoom: 3 },
       ui: { layout: 'overlay-dashboard' },
-    })
-    const map = useOLMap(app)
-    const pointerListeners = () => map.getListeners('pointermove')?.length ?? 0
-    const originalListeners = pointerListeners()
-    await app.mount(target)
-    expect(app.interactions.hasTool('measure-distance')).toBe(true)
-    expect(pointerListeners()).toBe(originalListeners + 1)
-    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull()
-    expect(target.querySelector('.gis-ui-status-details')!.textContent).toMatch(/1:/)
-    const revision = app.context.state.snapshot().revision
-    const coordinates = () => target.querySelector('.gis-ui-status-coordinates output')!
-    expect(coordinates().textContent).toBe('--')
+    });
+    const map = useOLMap(app);
+    const pointerListeners = () => map.getListeners('pointermove')?.length ?? 0;
+    const originalListeners = pointerListeners();
+    await app.mount(target);
+    expect(app.interactions.hasTool('measure-distance')).toBe(true);
+    expect(pointerListeners()).toBe(originalListeners + 1);
+    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull();
+    expect(target.querySelector('.gis-ui-status-details')!.textContent).toMatch(/1:/);
+    const revision = app.context.state.snapshot().revision;
+    const coordinates = () => target.querySelector('.gis-ui-status-coordinates output')!;
+    expect(coordinates().textContent).toBe('--');
     map.dispatchEvent({
       type: 'pointermove',
       coordinate: [1113194.9079, 2273030.927],
       dragging: false,
-    } as never)
-    await nextTick()
-    expect(coordinates().textContent).toBe('10.00000,20.00000')
-    expect(coordinates().children).toHaveLength(0)
-    map.getViewport()!.dispatchEvent(new Event('pointerleave'))
-    await nextTick()
-    expect(coordinates().textContent).toBe('10.00000,20.00000')
+    } as never);
+    await nextTick();
+    expect(coordinates().textContent).toBe('10.00000,20.00000');
+    expect(coordinates().children).toHaveLength(0);
+    map.getViewport()!.dispatchEvent(new Event('pointerleave'));
+    await nextTick();
+    expect(coordinates().textContent).toBe('10.00000,20.00000');
     map.dispatchEvent({
       type: 'pointermove',
       coordinate: [-1113194.9079, -2273030.927],
       dragging: false,
-    } as never)
-    await nextTick()
-    expect(coordinates().textContent).toBe('-10.00000,-20.00000')
-    expect(app.context.state.snapshot().revision).toBe(revision)
-    ui.panels.hide('status')
-    await nextTick()
-    expect(target.querySelector('.gis-ui-status-content')).toBeNull()
-    expect(pointerListeners()).toBe(originalListeners)
-    ui.panels.show('status')
-    await nextTick()
-    expect(pointerListeners()).toBe(originalListeners + 1)
-    expect(coordinates().textContent).toBe('-10.00000,-20.00000')
-    target.querySelector<HTMLButtonElement>('button[aria-label="测量距离"]')!.click()
-    await flushPromises()
+    } as never);
+    await nextTick();
+    expect(coordinates().textContent).toBe('-10.00000,-20.00000');
+    expect(app.context.state.snapshot().revision).toBe(revision);
+    ui.panels.hide('status');
+    await nextTick();
+    expect(target.querySelector('.gis-ui-status-content')).toBeNull();
+    expect(pointerListeners()).toBe(originalListeners);
+    ui.panels.show('status');
+    await nextTick();
+    expect(pointerListeners()).toBe(originalListeners + 1);
+    expect(coordinates().textContent).toBe('-10.00000,-20.00000');
+    target.querySelector<HTMLButtonElement>('button[aria-label="测量距离"]')!.click();
+    await flushPromises();
     const draw = map
       .getInteractions()
       .getArray()
-      .find((item) => item instanceof Draw) as Draw
-    const undo = vi.spyOn(draw, 'removeLastPoint')
-    const viewport = target.querySelector<HTMLElement>('.gis-ui-map-viewport')!
+      .find((item) => item instanceof Draw) as Draw;
+    const undo = vi.spyOn(draw, 'removeLastPoint');
+    const viewport = target.querySelector<HTMLElement>('.gis-ui-map-viewport')!;
     viewport.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
-    )
-    expect(undo).toHaveBeenCalledTimes(1)
-    expect(target.querySelector('.gis-ui-layer-manager')?.textContent).not.toContain('测量结果')
+    );
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(target.querySelector('.gis-ui-layer-manager')?.textContent).not.toContain('测量结果');
     draw.dispatchEvent({
       type: 'drawend',
       feature: new Feature(
@@ -100,29 +101,29 @@ it('provides tools, properties, pointer status and scale with only the two defau
           [1000, 0],
         ])
       ),
-    } as never)
-    await vi.waitFor(() => expect(useOLTools(app).list()).toHaveLength(1))
-    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await flushPromises()
-    expect(app.interactions.getActiveTool()).toBeUndefined()
-    const result = useOLTools(app).list()[0]!
-    useOLTools(app).select(result.id)
-    await nextTick()
+    } as never);
+    await vi.waitFor(() => expect(useOLTools(app).list()).toHaveLength(1));
+    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushPromises();
+    expect(app.interactions.getActiveTool()).toBeUndefined();
+    const result = useOLTools(app).list()[0]!;
+    useOLTools(app).select(result.id);
+    await nextTick();
     expect(target.querySelector('.gis-ui-panel-host--properties')?.textContent).toContain(
       'measure-distance'
-    )
+    );
     const group = [...target.querySelectorAll('.gis-ui-layer-row.is-root')].find(
       (row) => row.querySelector('.gis-ui-layer-name')?.textContent?.trim() === '测量结果'
-    )
+    );
     expect(group?.querySelector('.gis-ui-layer-expand')?.getAttribute('aria-expanded')).toBe(
       'false'
-    )
-    expect(group?.querySelector('.gis-ui-layer-settings')).toBeNull()
-    target.querySelector<HTMLButtonElement>('button[aria-label="删除测量结果"]')!.click()
-    await flushPromises()
-    expect(useOLTools(app).list()).toHaveLength(0)
-    expect(app.interactions.getSelection()).toBeUndefined()
-    expect(app.interactions.getActiveTool()).toBeUndefined()
+    );
+    expect(group?.querySelector('.gis-ui-layer-settings')).toBeNull();
+    target.querySelector<HTMLButtonElement>('button[aria-label="删除测量结果"]')!.click();
+    await flushPromises();
+    expect(useOLTools(app).list()).toHaveLength(0);
+    expect(app.interactions.getSelection()).toBeUndefined();
+    expect(app.interactions.getActiveTool()).toBeUndefined();
     await useOLTools(app).importResults([
       {
         id: 'clear-me',
@@ -130,21 +131,21 @@ it('provides tools, properties, pointer status and scale with only the two defau
         projection: 'EPSG:3857',
         geometry: { type: 'Point', coordinates: [0, 0] },
       },
-    ])
-    target.querySelector<HTMLButtonElement>('button[aria-label="绘制点"]')!.click()
-    await flushPromises()
-    expect(app.interactions.getActiveTool()).toBe('draw-point')
-    target.querySelector<HTMLButtonElement>('button[aria-label="清空全部结果"]')!.click()
-    await flushPromises()
-    expect(useOLTools(app).list()).toHaveLength(0)
-    expect(app.interactions.getActiveTool()).toBeUndefined()
-    await app.unmount()
-    expect(pointerListeners()).toBe(originalListeners)
+    ]);
+    target.querySelector<HTMLButtonElement>('button[aria-label="绘制点"]')!.click();
+    await flushPromises();
+    expect(app.interactions.getActiveTool()).toBe('draw-point');
+    target.querySelector<HTMLButtonElement>('button[aria-label="清空全部结果"]')!.click();
+    await flushPromises();
+    expect(useOLTools(app).list()).toHaveLength(0);
+    expect(app.interactions.getActiveTool()).toBeUndefined();
+    await app.unmount();
+    expect(pointerListeners()).toBe(originalListeners);
   } finally {
-    await app.dispose()
-    target.remove()
+    await app.dispose();
+    target.remove();
   }
-})
+});
 
 it('respects tools:false and explicit properties/status configuration without UI integration plugins', async () => {
   vi.stubGlobal(
@@ -154,12 +155,12 @@ it('respects tools:false and explicit properties/status configuration without UI
       unobserve() {}
       disconnect() {}
     }
-  )
-  const app = createGISApp()
-  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }))
-  app.use(createVueUI())
-  const target = document.createElement('div')
-  document.body.append(target)
+  );
+  const app = createGISApp();
+  app.use(createOLAdapter({ tools: false, controls: false, interactions: false }));
+  app.use(createVueUI());
+  const target = document.createElement('div');
+  document.body.append(target);
   try {
     await app.init({
       map: { center: [0, 0], zoom: 2 },
@@ -170,19 +171,82 @@ it('respects tools:false and explicit properties/status configuration without UI
           { id: 'status', visible: false },
         ],
       },
-    })
-    await app.mount(target)
-    expect(app.interactions.hasTool('draw-point')).toBe(false)
-    expect(() => useOLTools(app)).toThrow()
-    expect(target.querySelector('button[aria-label="放大"]')).not.toBeNull()
-    expect(target.querySelector('button[aria-label="缩小"]')).toBeNull()
-    expect(target.querySelector('button[aria-label="绘制点"]')).toBeNull()
-    expect(target.querySelector('.gis-ui-status-content')).toBeNull()
-    app.interactions.select({ feature: { layerId: 'external', id: 'one' } })
-    await nextTick()
-    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull()
+    });
+    await app.mount(target);
+    expect(app.interactions.hasTool('draw-point')).toBe(false);
+    expect(() => useOLTools(app)).toThrow();
+    expect(target.querySelector('button[aria-label="放大"]')).not.toBeNull();
+    expect(target.querySelector('button[aria-label="缩小"]')).toBeNull();
+    expect(target.querySelector('button[aria-label="绘制点"]')).toBeNull();
+    expect(target.querySelector('.gis-ui-status-content')).toBeNull();
+    app.interactions.select({ feature: { layerId: 'external', id: 'one' } });
+    await nextTick();
+    expect(target.querySelector('.gis-ui-panel-host--properties')).toBeNull();
   } finally {
-    await app.dispose()
-    target.remove()
+    await app.dispose();
+    target.remove();
   }
-})
+});
+
+it('applies the active Vue theme to existing map measurements', async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
+  let ui!: GISUIContext;
+  const app = createGISApp()
+    .use(createOLAdapter({ controls: false, interactions: false }))
+    .use(
+      createVueUI({
+        extensions: [
+          {
+            name: 'capture-theme',
+            install(context) {
+              ui = context;
+            },
+          },
+        ],
+      })
+    );
+  const target = document.createElement('div');
+  document.body.append(target);
+  try {
+    await app.init({
+      map: { projection: 'EPSG:4326', center: [0, 0], zoom: 2 },
+      ui: { theme: { tokens: { colorPrimary: '#08875a' } } },
+    });
+    await app.mount(target);
+    const map = useOLMap(app);
+    await app.interactions.activateTool('measure-angle');
+    const draw = map
+      .getInteractions()
+      .getArray()
+      .find((interaction) => interaction instanceof Draw)!;
+    const feature = new Feature(
+      new LineString([
+        [0, -1],
+        [0, 0],
+        [-1, 0],
+      ])
+    );
+    draw.dispatchEvent({ type: 'drawend', feature } as never);
+    await vi.waitFor(() => expect(app.layers.has('ol-tools:measure-angle')).toBe(true));
+    const layer = map.getLayers().item(0) as VectorLayer;
+    const measured = layer.getSource()!.getFeatures()[0]!;
+    const measurementColor = () => {
+      const styles = measured.getStyleFunction()?.(measured, map.getView().getResolution()!);
+      return (Array.isArray(styles) ? styles[0] : styles)?.getStroke()?.getColor();
+    };
+    await vi.waitFor(() => expect(measurementColor()).toEqual([8, 135, 90, 1]));
+    ui.theme.set({ tokens: { colorPrimary: '#6944af' } });
+    await vi.waitFor(() => expect(measurementColor()).toEqual([105, 68, 175, 1]));
+  } finally {
+    await app.dispose();
+    target.remove();
+    vi.unstubAllGlobals();
+  }
+});

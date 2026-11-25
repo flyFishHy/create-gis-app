@@ -1,23 +1,23 @@
-import { defineComponent, h, ref, onBeforeUnmount } from 'vue'
-import { useOLTools } from '@joinmap/adapter-ol'
-import type { VueUIPlugin } from '@joinmap/ui-vue'
+import { defineComponent, h, ref, onBeforeUnmount } from 'vue';
+import { useOLTools } from '@joinmap/adapter-ol';
+import type { VueUIPlugin } from '@joinmap/ui-vue';
 
 /** Optional advanced result list; the normal toolbar/status/properties need no extension. */
 export function createOLResultsUI(): VueUIPlugin {
   return {
     name: 'ol-results-ui',
     install(ui) {
-      const controller = useOLTools(ui.app)
-      const cleanups: Array<() => void> = []
+      const controller = useOLTools(ui.app);
+      const cleanups: Array<() => void> = [];
       const Results = defineComponent({
         setup() {
-          const revision = ref(0)
+          const revision = ref(0);
           const stop = controller.subscribe(() => {
-            revision.value++
-          })
-          onBeforeUnmount(stop)
+            revision.value++;
+          });
+          onBeforeUnmount(stop);
           return () => {
-            void revision.value
+            void revision.value;
             return h(
               'div',
               { class: 'gis-tool-results' },
@@ -43,10 +43,10 @@ export function createOLResultsUI(): VueUIPlugin {
                   ),
                 ])
               )
-            )
-          }
+            );
+          };
         },
-      })
+      });
       cleanups.push(
         ui.panels.register({
           id: 'tool-results',
@@ -56,10 +56,10 @@ export function createOLResultsUI(): VueUIPlugin {
           defaultVisible: true,
           unframed: true,
         })
-      )
+      );
       return () => {
-        cleanups.reverse().forEach((stop) => stop())
-      }
+        cleanups.reverse().forEach((stop) => stop());
+      };
     },
-  }
+  };
 }

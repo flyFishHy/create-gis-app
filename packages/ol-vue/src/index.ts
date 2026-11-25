@@ -1,1 +1,1 @@
-export { createOLResultsUI } from './ol-results-ui.js'
+export { createOLResultsUI } from './ol-results-ui.js';

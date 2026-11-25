@@ -69,4 +69,4 @@ export const timePickerMessages = {
     'last-7-days': 'Last 7 days',
     'last-30-days': 'Last 30 days',
   },
-} as const
+} as const;

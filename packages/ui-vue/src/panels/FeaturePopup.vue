@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import type { FeatureReference } from '@joinmap/gis-core'
-import { useGISApp } from '../use-gis-app.js'
-import { useGISUI } from '../use-gis-ui.js'
-import FeatureDetails from '../components/FeatureDetails.vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import type { FeatureReference } from '@joinmap/gis-core';
+import { useGISApp } from '../use-gis-app.js';
+import { useGISUI } from '../use-gis-ui.js';
+import FeatureDetails from '../components/FeatureDetails.vue';
 
-const app = useGISApp()
-const ui = useGISUI()
-const feature = ref<FeatureReference>()
-let unsubscribe: (() => void) | undefined
+const app = useGISApp();
+const ui = useGISUI();
+const feature = ref<FeatureReference>();
+let unsubscribe: (() => void) | undefined;
 
 onMounted(() => {
-  feature.value = app.interactions.getSelection()
+  feature.value = app.interactions.getSelection();
   unsubscribe = app.interactions.onSelect((selection) => {
-    feature.value = selection
-  })
-})
-onBeforeUnmount(() => unsubscribe?.())
+    feature.value = selection;
+  });
+});
+onBeforeUnmount(() => unsubscribe?.());
 </script>
 
 <template>

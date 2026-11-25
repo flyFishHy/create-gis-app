@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { ElDatePicker } from 'element-plus'
-import 'element-plus/theme-chalk/base.css'
-import 'element-plus/theme-chalk/el-button.css'
-import 'element-plus/theme-chalk/el-input.css'
-import 'element-plus/theme-chalk/el-scrollbar.css'
-import 'element-plus/theme-chalk/el-popper.css'
-import 'element-plus/theme-chalk/el-date-picker-panel.css'
-import 'element-plus/theme-chalk/el-date-picker.css'
-import GisSelect from '../GisSelect.vue'
-import { calendarDate, startOfPeriod, wallTimeCandidates, zonedTime } from './time-period.js'
-import type { TimeGranularity } from './types.js'
+import { computed, ref, watch } from 'vue';
+import { ElDatePicker } from 'element-plus';
+import 'element-plus/theme-chalk/base.css';
+import 'element-plus/theme-chalk/el-button.css';
+import 'element-plus/theme-chalk/el-input.css';
+import 'element-plus/theme-chalk/el-scrollbar.css';
+import 'element-plus/theme-chalk/el-popper.css';
+import 'element-plus/theme-chalk/el-date-picker-panel.css';
+import 'element-plus/theme-chalk/el-date-picker.css';
+import GisSelect from '../GisSelect.vue';
+import { calendarDate, startOfPeriod, wallTimeCandidates, zonedTime } from './time-period.js';
+import type { TimeGranularity } from './types.js';
 
 const props = defineProps<{
-  modelValue?: number
-  unit: TimeGranularity | 'custom'
-  timeZone: string
-  label: string
-  hourLabel: string
-  clockLabel: string
-  offsetLabel: string
-  gapLabel: string
-  periodAllowed: (time: number) => boolean
-  calendarHost?: HTMLElement
-}>()
-const emit = defineEmits<{ 'update:modelValue': [value: number | undefined] }>()
-const date = ref('')
-const clock = ref('')
-const instant = ref('')
+  modelValue?: number;
+  unit: TimeGranularity | 'custom';
+  timeZone: string;
+  label: string;
+  hourLabel: string;
+  clockLabel: string;
+  offsetLabel: string;
+  gapLabel: string;
+  periodAllowed: (time: number) => boolean;
+  calendarHost?: HTMLElement;
+}>();
+const emit = defineEmits<{ 'update:modelValue': [value: number | undefined] }>();
+const date = ref('');
+const clock = ref('');
+const instant = ref('');
 const pickerType = computed(() =>
   props.unit === 'year' || props.unit === 'month' || props.unit === 'week' ? props.unit : 'date'
-)
+);
 const format = computed(() =>
   props.unit === 'year'
     ? 'YYYY'
@@ -39,107 +39,119 @@ const format = computed(() =>
       : props.unit === 'week'
         ? 'GGGG-[W]WW'
         : 'YYYY-MM-DD'
-)
+);
 const hours = computed(() => {
-  if (props.unit !== 'hour' || !date.value) return []
-  return Array.from({ length: 24 }, (_, hour) => {
-    const label = String(hour).padStart(2, '0') + ':00'
-    const options = wallTimeCandidates(date.value, label, props.timeZone)
+  if (props.unit !== 'hour' || !date.value) {
+    return [];
+  }
+  return Array.from({ length: 24 }, (_unused, hour) => {
+    const label = String(hour).padStart(2, '0') + ':00';
+    const options = wallTimeCandidates(date.value, label, props.timeZone);
     return options.map((value) => ({
       value: String(value.epochMilliseconds),
       label: options.length > 1 ? label + ' (UTC' + value.offset + ')' : label,
       hour,
       offset: value.offset,
-    }))
-  }).flat()
-})
+    }));
+  }).flat();
+});
 const exact = computed(() =>
   props.unit === 'custom' && date.value && clock.value
     ? wallTimeCandidates(date.value, clock.value, props.timeZone)
     : []
-)
+);
 const hourOptions = computed(() =>
   hours.value.map((hour) => ({
     value: hour.value,
     label: hour.label,
     disabled: !props.periodAllowed(Number(hour.value)),
   }))
-)
+);
 const offsetOptions = computed(() =>
   exact.value.map((option) => ({
     value: String(option.epochMilliseconds),
     label: `UTC${option.offset}`,
   }))
-)
+);
 const decoded = computed(() => {
-  if (!date.value) return undefined
-  if (props.unit === 'hour')
+  if (!date.value) {
+    return undefined;
+  }
+  if (props.unit === 'hour') {
     return instant.value && hours.value.some((hour) => hour.value === instant.value)
       ? Number(instant.value)
-      : undefined
+      : undefined;
+  }
   if (props.unit === 'custom') {
-    const candidate = exact.value.find((value) => String(value.epochMilliseconds) === instant.value)
-    return (candidate ?? (exact.value.length === 1 ? exact.value[0] : undefined))?.epochMilliseconds
+    const candidate = exact.value.find(
+      (value) => String(value.epochMilliseconds) === instant.value
+    );
+    return (candidate ?? (exact.value.length === 1 ? exact.value[0] : undefined))
+      ?.epochMilliseconds;
   }
-  const value = calendarDate(date.value, props.timeZone)
-  if (value === undefined) return undefined
+  const value = calendarDate(date.value, props.timeZone);
+  if (value === undefined) {
+    return undefined;
+  }
   try {
-    return startOfPeriod(value, props.unit, props.timeZone)
+    return startOfPeriod(value, props.unit, props.timeZone);
   } catch {
-    return undefined
+    return undefined;
   }
-})
+});
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (value === decoded.value) return
+    if (value === decoded.value) {
+      return;
+    }
     if (value === undefined) {
-      date.value = ''
-      clock.value = ''
-      instant.value = ''
-      return
+      date.value = '';
+      clock.value = '';
+      instant.value = '';
+      return;
     }
     try {
-      const zoned = zonedTime(value, props.timeZone)
-      date.value = zoned.toPlainDate().toString()
+      const zoned = zonedTime(value, props.timeZone);
+      date.value = zoned.toPlainDate().toString();
       clock.value = zoned
         .toPlainTime()
-        .toString({ smallestUnit: zoned.millisecond ? 'millisecond' : 'second' })
-      instant.value = String(value)
+        .toString({ smallestUnit: zoned.millisecond ? 'millisecond' : 'second' });
+      instant.value = String(value);
     } catch {
-      date.value = ''
-      clock.value = ''
-      instant.value = ''
+      date.value = '';
+      clock.value = '';
+      instant.value = '';
     }
   },
   { immediate: true }
-)
+);
 
 function chooseDate(value: unknown) {
-  const previousHour = hours.value.find((option) => option.value === instant.value)
-  date.value = typeof value === 'string' ? value : ''
-  instant.value = ''
+  const previousHour = hours.value.find((option) => option.value === instant.value);
+  date.value = typeof value === 'string' ? value : '';
+  instant.value = '';
   if (previousHour) {
-    const candidates = hours.value.filter((option) => option.hour === previousHour.hour)
+    const candidates = hours.value.filter((option) => option.hour === previousHour.hour);
     const selected =
       candidates.length === 1
         ? candidates[0]
-        : candidates.find((option) => option.offset === previousHour.offset)
-    instant.value = selected?.value ?? ''
+        : candidates.find((option) => option.offset === previousHour.offset);
+    instant.value = selected?.value ?? '';
   }
-  emit('update:modelValue', decoded.value)
+  emit('update:modelValue', decoded.value);
 }
 
 function chooseClock(event: Event) {
-  clock.value = (event.target as HTMLInputElement).value
-  instant.value = ''
-  emit('update:modelValue', decoded.value)
+  clock.value = (event.target as HTMLInputElement).value;
+  instant.value = '';
+  emit('update:modelValue', decoded.value);
 }
 
 function chooseInstant(value: string) {
-  instant.value = value
-  emit('update:modelValue', decoded.value)
+  instant.value = value;
+  emit('update:modelValue', decoded.value);
 }
 
 function disabledDate(value: Date) {
@@ -147,12 +159,12 @@ function disabledDate(value: Date) {
     String(value.getFullYear()).padStart(4, '0'),
     String(value.getMonth() + 1).padStart(2, '0'),
     String(value.getDate()).padStart(2, '0'),
-  ].join('-')
-  const timestamp = calendarDate(day, props.timeZone)
+  ].join('-');
+  const timestamp = calendarDate(day, props.timeZone);
   return (
     timestamp === undefined ||
     (props.unit !== 'hour' && props.unit !== 'custom' && !props.periodAllowed(timestamp))
-  )
+  );
 }
 </script>
 

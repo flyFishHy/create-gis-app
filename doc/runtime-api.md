@@ -269,8 +269,19 @@ current stacking position. LayerService publishes complete parent-child trees.
 Default layers do not modify
 `app.config`. Await `importResults()` so it can create any required default layers.
 Results write through the target's dataset with GeoJSON coordinates in EPSG:4326,
-while the result controller keeps its map-projection format. Clear removes tool
-features and labels while preserving target layers and other features.
+while the result controller reports the coordinates and projection of the bound
+vector source. Clear removes tool features and labels while preserving target
+layers and other features.
+Write access belongs to the original inline GeoJSON layer, source, and DataSet
+instances. Removing and recreating the DataSet under the same ID or replacing the
+layer's native source does not transfer write access.
+
+Cancelling an unfinished Modify gesture restores the original geometry.
+A valid drawing that has reached `drawend` may finish creating its first result
+layer after the user switches tools. `clear()` waits for these pending drawing
+commits before deleting the results. If an import fails after writing to multiple
+targets, every previous write is rolled back where possible. A failed rollback is
+reported in an `AggregateError` with the original write error as its cause.
 
 `FeatureReference.featureKey` is an optional, opaque identity within the current
 layer data. The OL adapter uses it to find the exact local vector feature even
@@ -294,6 +305,8 @@ result. Layers without `identify` participate through their native hits.
 
 OpenLayers plugins can call `createOLLayerHandle(context, olLayer, config)` in
 their layer type factory and add `handle.identify` before returning the handle.
+Removing a custom layer detaches it from the map. Its caller-owned source and
+features remain available to other layers and retain their data.
 For example, a WMS handler can use the query's coordinate, resolution and
 projection to build its feature info request, pass `query.signal` to `fetch`,
 and return parsed attributes. A hit may include an ID, `title`, and geometry
@@ -331,9 +344,88 @@ or undefined on pointer leave. This local stream is excluded from AppState and
 listeners are owned by consumers. Default status uses the 0.28 mm nominal pixel
 for scale; OL supplies the projection-specific resolution calculation.
 
-OL built-ins are xyz/geojson; Core supplies GROUP. `options` supports opacity.
+Replacing the native OL View via `useOLMap(app).setView(view)` refreshes the map
+snapshot and moves View subscriptions to the replacement. Configure the map
+projection during app initialization. Replacing the View with a different
+projection updates the snapshot, but the adapter does not reproject existing
+vector features or tool results. Geometry writes require the drawing or edit
+coordinates, target source, and current View to use equivalent projections.
+An incompatible projection rejects the write and cancels active drawing or
+editing gestures. Deleting results can still use the target's own projection.
+To switch projections for a workspace with loaded
+layers or tool results, create a new app with the desired projection.
+
+OL built-ins are `xyz`, `geojson`, `wms`, and `wmts`. Core supplies `GROUP`.
+`options` supports opacity.
 `style` is a top-level layer field with fillColor/fillOpacity/strokeColor/strokeWidth,
 lineDash/lineCap and pointRadius.
+
+### WMS and WMTS tile layers
+
+`wms` uses a service URL and request parameters in `source.params`. Use a
+non-empty `LAYERS` string and scalar values for the other parameters.
+`wmts` uses the full GetCapabilities URL in `source.url` and the advertised
+layer and tile matrix set identifiers in `source.layer` and `source.matrixSet`.
+The browser must be able to fetch the capabilities document. OpenLayers derives
+the tile grid, style, format, and tile URLs from that document. The temporary
+capabilities data is released when loading completes or fails.
+
+```json
+{
+  "layers": [
+    {
+      "id": "roads",
+      "type": "wms",
+      "source": {
+        "url": "https://maps.example.org/wms",
+        "params": { "LAYERS": "transport:roads", "FORMAT": "image/png", "TRANSPARENT": true }
+      },
+      "options": { "opacity": 0.8 }
+    },
+    {
+      "id": "basemap",
+      "type": "wmts",
+      "source": {
+        "url": "https://maps.example.org/wmts?SERVICE=WMTS&REQUEST=GetCapabilities",
+        "layer": "basemap",
+        "matrixSet": "WebMercatorQuad"
+      },
+      "zIndex": -1
+    }
+  ]
+}
+```
+
+Both types support ordinary layer visibility, ordering, and opacity. For
+application-specific behavior such as WMS GetFeatureInfo, register a distinct
+type and add `handle.identify` there. This example wraps a source that the
+application manages and may share:
+
+```ts
+import { createOLLayerHandle } from '@joinmap/adapter-ol'
+import TileLayer from 'ol/layer/Tile.js'
+import TileWMS from 'ol/source/TileWMS.js'
+
+const roadsSource = new TileWMS({
+  url: 'https://maps.example.org/wms',
+  params: { LAYERS: 'transport:roads' },
+})
+
+app.use({
+  name: 'custom-roads',
+  install(runtime, _options, resources) {
+    runtime.registerLayerType(
+      'roads-overlay',
+      {
+        create(context, config) {
+          return createOLLayerHandle(context, new TileLayer({ source: roadsSource }), config)
+        },
+      },
+      resources
+    )
+  },
+})
+```
 `options.style` is rejected with a migration message. The `modify-result` tool
 edits the selected tool result and recalculates measurements when applicable.
 Drawing and editing can snap to existing drawing and measurement results.
@@ -343,6 +435,9 @@ distance at each following vertex, show the live total at the pointer, and keep
 the final total at the last vertex.
 Angle measurements label the outside of the arc at the second vertex. Completed
 result labels have a remove button and follow their layer's visibility.
+Set `--gis-map-measurement-color` on the map target to color measurement
+outlines, vertices, and angle arcs. It accepts CSS colors and defaults to
+`#3b82f6`. Changing the target or its theme updates existing measurements.
 Drawing and measurement tools deactivate
 after committing a valid result. `deactivateTool(expectedId?)` can limit
 deactivation to the matching active tool.
@@ -395,7 +490,10 @@ optional handle.getFields hook, returning name/type descriptors, not raw feature
 LayerInstance.getFieldValues(field) delegates to an optional handle capability and
 returns frozen, deduplicated scalar values from the currently loaded GeoJSON source,
 including values outside the view or time filter and hidden layers. Data updates
-refresh candidates on the next read. Unsupported/empty/disposed layers return [].
+refresh candidates on the next read. OpenLayers caches the field list and the
+most recently queried field's values until the vector source changes. After a
+silent edit through the native API, call `feature.changed()` to publish the change.
+Unsupported/empty/disposed layers return [].
 Candidate arrays are not cached in AppState. The OL adapter builds an enum lookup
 when rules change rather than scanning every group for each rendered feature.
 Fieldless legacy legends remain presentation definitions; single useLayerStyle

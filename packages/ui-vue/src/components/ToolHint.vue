@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAppState } from '../use-app-state.js'
-import { useGISUI } from '../use-gis-ui.js'
+import { computed } from 'vue';
+import { useAppState } from '../use-app-state.js';
+import { useGISUI } from '../use-gis-ui.js';
 
-const ui = useGISUI()
-const snapshot = useAppState()
+const ui = useGISUI();
+const snapshot = useAppState();
 const hints: Record<string, string> = {
   'draw-point': 'tool.hint.draw-point',
   'draw-line': 'tool.hint.draw-line',
@@ -13,11 +13,11 @@ const hints: Record<string, string> = {
   'measure-area': 'tool.hint.measure-area',
   'measure-angle': 'tool.hint.measure-angle',
   'modify-result': 'tool.hint.modify-result',
-}
+};
 const message = computed(() => {
-  const id = snapshot.value.interactions.activeToolId
-  return id ? hints[id] : undefined
-})
+  const id = snapshot.value.interactions.activeToolId;
+  return id ? hints[id] : undefined;
+});
 </script>
 
 <template>

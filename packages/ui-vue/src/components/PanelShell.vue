@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import ScrollArea from './ScrollArea.vue'
+import ScrollArea from './ScrollArea.vue';
 defineProps<{
-  title?: string
-  icon?: string
-  collapsed: boolean
-  collapsible: boolean
-  closable: boolean
-  labels?: { expand: string; collapse: string; close: string }
-}>()
+  title?: string;
+  icon?: string;
+  collapsed: boolean;
+  collapsible: boolean;
+  closable: boolean;
+  labels?: { expand: string; collapse: string; close: string };
+}>();
 
 const emit = defineEmits<{
-  collapse: []
-  close: []
-}>()
+  collapse: [];
+  close: [];
+}>();
 </script>
 
 <template>

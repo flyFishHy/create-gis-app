@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
+    "lint:quality": "eslint --config eslint.quality.config.js \"packages/*/src/**/*.{js,cjs,mjs,ts,cts,mts,vue}\"",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier \"**/*.{js,cjs,mjs,ts,cts,mts,vue,css,scss,html,json,yml,yaml}\" --write",
     "format:check": "prettier \"**/*.{js,cjs,mjs,ts,cts,mts,vue,css,scss,html,json,yml,yaml}\" --check",

@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
-import type { LayerInstance, LayerLegend } from '@joinmap/gis-core'
-import { useGISApp } from '../use-gis-app.js'
-import { useGISUI } from '../use-gis-ui.js'
-import { useAppState } from '../use-app-state.js'
-import LegendEditor from '../components/LegendEditor.vue'
-import type { LegendEditValue } from '../components/legend-editor-types.js'
+import { computed, onBeforeUnmount, ref, shallowRef } from 'vue';
+import type { LayerInstance, LayerLegend } from '@joinmap/gis-core';
+import { useGISApp } from '../use-gis-app.js';
+import { useGISUI } from '../use-gis-ui.js';
+import { useAppState } from '../use-app-state.js';
+import LegendEditor from '../components/LegendEditor.vue';
+import type { LegendEditValue } from '../components/legend-editor-types.js';
 
-const props = defineProps<{ layer: LayerInstance }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{ layer: LayerInstance }>();
+const emit = defineEmits<{ close: [] }>();
 const app = useGISApp(),
   ui = useGISUI(),
-  snapshot = useAppState((state) => state.layers)
+  snapshot = useAppState((state) => state.layers);
 const saving = ref(false),
   error = ref(''),
-  editorKey = ref(0)
-let stopped = false
+  editorKey = ref(0);
+let stopped = false;
 onBeforeUnmount(() => {
-  stopped = true
-})
+  stopped = true;
+});
 function read() {
-  const resolved = props.layer.legend
+  const resolved = props.layer.legend;
   const legend: LayerLegend | undefined = resolved
     ? (({ layerId: _layerId, ...rest }) => JSON.parse(JSON.stringify(rest)))(resolved)
-    : undefined
-  const value = props.layer.style
+    : undefined;
+  const value = props.layer.style;
   const style =
     value &&
     typeof value.fillColor === 'string' &&
@@ -38,18 +38,18 @@ function read() {
           strokeWidth: value.strokeWidth,
           pointRadius: value.pointRadius,
         }
-      : undefined
-  return { legend, style, version: props.layer.version }
+      : undefined;
+  return { legend, style, version: props.layer.version };
 }
-const base = shallowRef(read())
+const base = shallowRef(read());
 const alive = computed(() => {
-  void snapshot.value
-  return app.layers.get(props.layer.id) === props.layer && props.layer.status !== 'disposed'
-})
+  void snapshot.value;
+  return app.layers.get(props.layer.id) === props.layer && props.layer.status !== 'disposed';
+});
 const conflict = computed(() => {
-  void snapshot.value
-  return alive.value && JSON.stringify(read()) !== JSON.stringify(base.value)
-})
+  void snapshot.value;
+  return alive.value && JSON.stringify(read()) !== JSON.stringify(base.value);
+});
 const keys = [
   'type',
   'generate',
@@ -97,31 +97,39 @@ const keys = [
   'square',
   'dismissStyle',
   'applyStyle',
-]
+];
 const labels = computed(() => ({
   ...Object.fromEntries(keys.map((key) => [key, ui.locale.t(`editor.${key}`)])),
   cancel: ui.locale.t('editor.close'),
-}))
+}));
 function reload() {
-  base.value = read()
-  editorKey.value++
-  error.value = ''
+  base.value = read();
+  editorKey.value++;
+  error.value = '';
 }
 async function submit(value: LegendEditValue) {
-  if (saving.value || !alive.value || conflict.value) return
-  saving.value = true
-  error.value = ''
+  if (saving.value || !alive.value || conflict.value) {
+    return;
+  }
+  saving.value = true;
+  error.value = '';
   try {
     await app.layers.update(props.layer.id, {
       expectedVersion: base.value.version,
       legend: value.legend,
       ...(value.style ? { style: { ...value.style } } : {}),
-    })
-    if (!stopped) emit('close')
+    });
+    if (!stopped) {
+      emit('close');
+    }
   } catch (cause) {
-    if (!stopped) error.value = cause instanceof Error ? cause.message : String(cause)
+    if (!stopped) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+    }
   } finally {
-    if (!stopped) saving.value = false
+    if (!stopped) {
+      saving.value = false;
+    }
   }
 }
 </script>

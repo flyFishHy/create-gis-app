@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import SvgIcon from './SvgIcon.vue'
-import Tooltip from './Tooltip.vue'
-defineOptions({ inheritAttrs: false })
+import SvgIcon from './SvgIcon.vue';
+import Tooltip from './Tooltip.vue';
+defineOptions({ inheritAttrs: false });
 withDefaults(
   defineProps<{
-    icon: string
-    label: string
-    type?: 'button' | 'submit'
-    disabled?: boolean
-    primary?: boolean
+    icon: string;
+    label: string;
+    type?: 'button' | 'submit';
+    disabled?: boolean;
+    primary?: boolean;
   }>(),
   { type: 'button' }
-)
-defineEmits<{ click: [event: MouseEvent] }>()
+);
+defineEmits<{ click: [event: MouseEvent] }>();
 </script>
 <template>
   <Tooltip :content="label" placement="bottom"

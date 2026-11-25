@@ -1,47 +1,49 @@
 <script lang="ts">
-import type { GISApp } from '@joinmap/gis-core'
+import type { GISApp } from '@joinmap/gis-core';
 
 // Keep the last displayed position across status-panel remounts without retaining the app.
-const lastPointerByApp = new WeakMap<GISApp, readonly [number, number]>()
+const lastPointerByApp = new WeakMap<GISApp, readonly [number, number]>();
 </script>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { useAppState } from '../use-app-state.js'
-import { useGISUI } from '../use-gis-ui.js'
-import { useGISApp } from '../use-gis-app.js'
-import SvgIcon from '../components/SvgIcon.vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { useAppState } from '../use-app-state.js';
+import { useGISUI } from '../use-gis-ui.js';
+import { useGISApp } from '../use-gis-app.js';
+import SvgIcon from '../components/SvgIcon.vue';
 
-const props = defineProps<{ coordinate?: readonly [number, number]; scale?: string }>()
-const snapshot = useAppState()
-const ui = useGISUI()
-const app = useGISApp()
-const pointer = ref<readonly [number, number] | undefined>(lastPointerByApp.get(app))
-let stopPointer: (() => void) | undefined
+const props = defineProps<{ coordinate?: readonly [number, number]; scale?: string }>();
+const snapshot = useAppState();
+const ui = useGISUI();
+const app = useGISApp();
+const pointer = ref<readonly [number, number] | undefined>(lastPointerByApp.get(app));
+let stopPointer: (() => void) | undefined;
 onMounted(() => {
   stopPointer = app.map.onPointerMove((value) => {
     if (value && value.every(Number.isFinite)) {
-      pointer.value = [value[0], value[1]]
-      lastPointerByApp.set(app, pointer.value)
+      pointer.value = [value[0], value[1]];
+      lastPointerByApp.set(app, pointer.value);
     }
-  })
-})
-onBeforeUnmount(() => stopPointer?.())
-const coordinate = computed(() => props.coordinate ?? pointer.value)
+  });
+});
+onBeforeUnmount(() => stopPointer?.());
+const coordinate = computed(() => props.coordinate ?? pointer.value);
 const coordinateText = computed(() =>
   coordinate.value ? `${coordinate.value[0].toFixed(5)},${coordinate.value[1].toFixed(5)}` : '--'
-)
+);
 const scale = computed(() => {
-  if (props.scale !== undefined) return props.scale
-  const meters = snapshot.value.map.metersPerPixel
+  if (props.scale !== undefined) {
+    return props.scale;
+  }
+  const meters = snapshot.value.map.metersPerPixel;
   return meters !== null && meters > 0
     ? `1:${Math.round(meters / 0.00028).toLocaleString(ui.locale.get() === 'zh' ? 'zh-CN' : 'en-US')}`
-    : undefined
-})
+    : undefined;
+});
 const level = computed(() => {
-  const zoom = snapshot.value.map.zoom
-  return zoom === null ? '—' : Number(zoom.toFixed(2)).toString()
-})
+  const zoom = snapshot.value.map.zoom;
+  return zoom === null ? '—' : Number(zoom.toFixed(2)).toString();
+});
 </script>
 
 <template>

@@ -1,50 +1,50 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { LegendDefinition, LayerStyle } from '@joinmap/gis-core'
-import LegendSwatch from './LegendSwatch.vue'
+import { computed } from 'vue';
+import type { LegendDefinition, LayerStyle } from '@joinmap/gis-core';
+import LegendSwatch from './LegendSwatch.vue';
 const props = withDefaults(
   defineProps<{
-    definitions?: readonly LegendDefinition[]
-    titles?: Readonly<Record<string, string>>
-    emptyText?: string
-    styles?: Readonly<Record<string, LayerStyle>>
-    symbols?: Readonly<Record<string, string>>
-    defaultText?: string
-    typeLabels?: Readonly<Record<string, string>>
-    fieldLabel?: string
-    uniformText?: string
-    layerColorText?: string
-    filterable?: boolean
-    activeRule?: string
+    definitions?: readonly LegendDefinition[];
+    titles?: Readonly<Record<string, string>>;
+    emptyText?: string;
+    styles?: Readonly<Record<string, LayerStyle>>;
+    symbols?: Readonly<Record<string, string>>;
+    defaultText?: string;
+    typeLabels?: Readonly<Record<string, string>>;
+    fieldLabel?: string;
+    uniformText?: string;
+    layerColorText?: string;
+    filterable?: boolean;
+    activeRule?: string;
   }>(),
   { emptyText: 'No legend definitions' }
-)
-const emit = defineEmits<{ filter: [id: string] }>()
+);
+const emit = defineEmits<{ filter: [id: string] }>();
 const groups = computed(() => {
-  const result = new Map<string, { id: string; title: string; definitions: LegendDefinition[] }>()
+  const result = new Map<string, { id: string; title: string; definitions: LegendDefinition[] }>();
   for (const definition of props.definitions ?? []) {
-    const key = definition.layerId ?? definition.id
+    const key = definition.layerId ?? definition.id;
     const group = result.get(key) ?? {
       id: key,
       title: props.titles?.[key] || definition.title || key,
       definitions: [],
-    }
-    group.definitions.push(definition)
-    result.set(key, group)
+    };
+    group.definitions.push(definition);
+    result.set(key, group);
   }
-  return [...result.values()]
-})
+  return [...result.values()];
+});
 
 function continuousStops(legend: LegendDefinition) {
   return [...(legend.stops ?? [])]
     .filter((stop) => Number.isFinite(stop.value))
-    .sort((a, b) => a.value - b.value)
+    .sort((leftStop, rightStop) => leftStop.value - rightStop.value);
 }
 function gradient(legend: LegendDefinition) {
-  const stops = continuousStops(legend)
+  const stops = continuousStops(legend);
   const min = stops[0]?.value ?? 0,
-    max = stops.at(-1)?.value ?? min
-  return `linear-gradient(to right, ${stops.map((stop) => `${stop.color} ${max === min ? 0 : ((stop.value - min) / (max - min)) * 100}%`).join(', ')})`
+    max = stops.at(-1)?.value ?? min;
+  return `linear-gradient(to right, ${stops.map((stop) => `${stop.color} ${max === min ? 0 : ((stop.value - min) / (max - min)) * 100}%`).join(', ')})`;
 }
 </script>
 

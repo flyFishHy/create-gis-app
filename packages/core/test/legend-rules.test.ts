@@ -1,10 +1,10 @@
-import { expect, it } from 'vitest'
-import { parseGISAppConfig } from '../src/index.js'
+import { expect, it } from 'vitest';
+import { parseGISAppConfig } from '../src/index.js';
 
 it('validates top-level styles and typed enum matches, interval boundaries and uniqueness', () => {
   const config = (legend: unknown) => ({
     layers: [{ id: 'data', type: 'geojson', style: { fillColor: '#808080' }, legend }],
-  })
+  });
   expect(
     parseGISAppConfig(
       config({
@@ -16,7 +16,7 @@ it('validates top-level styles and typed enum matches, interval boundaries and u
         ],
       })
     ).layers?.[0]?.style
-  ).toEqual({ fillColor: '#808080' })
+  ).toEqual({ fillColor: '#808080' });
   expect(() =>
     parseGISAppConfig(
       config({
@@ -28,14 +28,14 @@ it('validates top-level styles and typed enum matches, interval boundaries and u
         ],
       })
     )
-  ).toThrow('Duplicate category')
+  ).toThrow('Duplicate category');
   const ranges = [
     { id: 'a', min: 0, max: 100, color: '#ff0000' },
     { id: 'b', min: 100, max: 200, color: '#00ff00' },
-  ]
+  ];
   expect(() =>
     parseGISAppConfig(config({ type: 'interval', field: 'count', ranges }))
-  ).not.toThrow()
+  ).not.toThrow();
   expect(() =>
     parseGISAppConfig(
       config({
@@ -44,16 +44,16 @@ it('validates top-level styles and typed enum matches, interval boundaries and u
         ranges: [{ ...ranges[0], includeMax: true }, ranges[1]],
       })
     )
-  ).toThrow('overlap')
+  ).toThrow('overlap');
   expect(() =>
     parseGISAppConfig(
       config({ type: 'interval', field: 'count', ranges: [{ ...ranges[0], max: 0 }] })
     )
-  ).toThrow('Invalid interval')
+  ).toThrow('Invalid interval');
   expect(() =>
     parseGISAppConfig({ layers: [{ id: 'old', type: 'geojson', options: { style: {} } }] })
-  ).toThrow('Move options.style')
-})
+  ).toThrow('Move options.style');
+});
 
 it('normalizes legacy values and validates multi-value groups without mutating input', () => {
   const input = {
@@ -71,22 +71,22 @@ it('normalizes legacy values and validates multi-value groups without mutating i
         },
       },
     ],
-  }
-  const parsed = parseGISAppConfig(input)
+  };
+  const parsed = parseGISAppConfig(input);
   expect(parsed.layers?.[0]?.legend?.items).toEqual([
     { id: 'urban', label: 'Urban', values: ['urban', 'suburban'] },
     { id: 'legacy', label: 'Legacy', values: [false] },
-  ])
-  expect(input.layers[0]!.legend.items[1]!.value).toBe(false)
-  expect(Object.isFrozen(parsed.layers?.[0]?.legend?.items?.[0]?.values)).toBe(true)
+  ]);
+  expect(input.layers[0]!.legend.items[1]!.value).toBe(false);
+  expect(Object.isFrozen(parsed.layers?.[0]?.legend?.items?.[0]?.values)).toBe(true);
   const config = (items: unknown[]) => ({
     layers: [{ id: 'data', type: 'geojson', legend: { type: 'category', field: 'kind', items } }],
-  })
+  });
   for (const values of [[], [null], [{}], [1, 1]])
-    expect(() => parseGISAppConfig(config([{ id: 'a', label: 'A', values }]))).toThrow()
+    expect(() => parseGISAppConfig(config([{ id: 'a', label: 'A', values }]))).toThrow();
   expect(() => parseGISAppConfig(config([{ id: 'a', label: 'A', values: [1], value: 1 }]))).toThrow(
     'not both'
-  )
+  );
   expect(() =>
     parseGISAppConfig(
       config([
@@ -94,8 +94,8 @@ it('normalizes legacy values and validates multi-value groups without mutating i
         { id: 'b', label: 'B', values: ['y'] },
       ])
     )
-  ).toThrow('Duplicate category')
+  ).toThrow('Duplicate category');
   expect(() =>
     parseGISAppConfig(config([{ id: 'a', label: 'A', values: [1, '1', false, 'false'] }]))
-  ).not.toThrow()
-})
+  ).not.toThrow();
+});

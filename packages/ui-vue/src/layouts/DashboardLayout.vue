@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { BuiltinLayoutName } from '../types.js'
+import { ref, watch } from 'vue';
+import type { BuiltinLayoutName } from '../types.js';
 
 withDefaults(
   defineProps<{ layout: BuiltinLayoutName; rightVisible?: boolean; drawerVisible?: boolean }>(),
@@ -8,28 +8,34 @@ withDefaults(
     rightVisible: true,
     drawerVisible: false,
   }
-)
+);
 
-const actions = ref<HTMLElement>()
-const left = ref<HTMLElement>()
-const top = ref<HTMLElement>()
-const actionHeight = ref('48px')
+const actions = ref<HTMLElement>();
+const left = ref<HTMLElement>();
+const top = ref<HTMLElement>();
+const actionHeight = ref('48px');
 watch(
   actions,
-  (element, _, onCleanup) => {
-    if (!element) return
-    const update = () => {
-      const height = element.getBoundingClientRect().height
-      if (height) actionHeight.value = `${height}px`
+  (element, _previous, onCleanup) => {
+    if (!element) {
+      return;
     }
-    update()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(update)
-    observer.observe(element)
-    onCleanup(() => observer.disconnect())
+    const update = () => {
+      const height = element.getBoundingClientRect().height;
+      if (height) {
+        actionHeight.value = `${height}px`;
+      }
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    onCleanup(() => observer.disconnect());
   },
   { flush: 'post' }
-)
+);
 </script>
 
 <template>

@@ -1,5 +1,5 @@
-import type { GISApp } from '@joinmap/gis-core'
-import type { ToolbarService } from './types.js'
+import type { GISApp } from '@joinmap/gis-core';
+import type { ToolbarService } from './types.js';
 
 /** Presentation of known basics, rather than a second tool registry. */
 export function registerBuiltinToolbar(
@@ -7,10 +7,10 @@ export function registerBuiltinToolbar(
   toolbar: ToolbarService,
   visibleIds?: readonly string[]
 ): void {
-  const visible = (id: string) => visibleIds === undefined || visibleIds.includes(id)
+  const visible = (id: string) => visibleIds === undefined || visibleIds.includes(id);
   for (const delta of [1, -1]) {
-    const id = delta > 0 ? 'zoom-in' : 'zoom-out'
-    if (visible(id))
+    const id = delta > 0 ? 'zoom-in' : 'zoom-out';
+    if (visible(id)) {
       toolbar.register({
         id,
         title: `tool.${id}`,
@@ -19,10 +19,11 @@ export function registerBuiltinToolbar(
         order: delta > 0 ? 1 : 2,
         disabled: () => !app.map.isReady,
         onClick: () => {
-          const view = app.map.getView()
-          view.setZoom((view.getZoom() ?? 0) + delta)
+          const view = app.map.getView();
+          view.setZoom((view.getZoom() ?? 0) + delta);
         },
-      })
+      });
+    }
   }
   const tools = [
     ['measure-area', 'area'],
@@ -34,9 +35,9 @@ export function registerBuiltinToolbar(
     ['modify-result', 'edit'],
     ['delete-result', 'clear'],
     ['clear-results', 'layers'],
-  ] as const
+  ] as const;
   tools.forEach(([id, icon], index) => {
-    if (visible(id))
+    if (visible(id)) {
       toolbar.register({
         id,
         icon,
@@ -45,6 +46,7 @@ export function registerBuiltinToolbar(
         group: index < 6 ? 'draw' : 'edit',
         order: 10 + index,
         disabled: () => !app.interactions.canActivateTool(id),
-      })
-  })
+      });
+    }
+  });
 }

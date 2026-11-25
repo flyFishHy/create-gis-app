@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import SvgIcon from './SvgIcon.vue'
-defineProps<{ icon: string; title: string; description?: string }>()
+import SvgIcon from './SvgIcon.vue';
+defineProps<{ icon: string; title: string; description?: string }>();
 </script>
 <template>
   <div class="gis-ui-panel-empty" role="status">

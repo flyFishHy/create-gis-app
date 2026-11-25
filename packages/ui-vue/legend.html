@@ -539,7 +539,7 @@
         remove: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
         plus: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
         setting: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
-      }
+      };
 
       /**
        * @description 初始化底图与模拟业务矢量数据
@@ -548,12 +548,12 @@
         source: new ol.source.XYZ({
           url: 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
         }),
-      })
+      });
 
       // 1. 多边形图层：区域热力指标
-      const polygonSource = new ol.source.Vector()
-      const baseLon = 108.94
-      const baseLat = 34.26
+      const polygonSource = new ol.source.Vector();
+      const baseLon = 108.94;
+      const baseLat = 34.26;
       const gridDeltas = [
         { dx: -0.05, dy: 0.03, density: 8, gdp: 24 },
         { dx: 0.0, dy: 0.03, density: 18, gdp: 56 },
@@ -561,13 +561,13 @@
         { dx: -0.05, dy: -0.02, density: 14, gdp: 42 },
         { dx: 0.0, dy: -0.02, density: 28, gdp: 74 },
         { dx: 0.05, dy: -0.02, density: 45, gdp: 95 },
-      ]
+      ];
 
       gridDeltas.forEach((item, index) => {
-        const minX = baseLon + item.dx - 0.022
-        const maxX = baseLon + item.dx + 0.022
-        const minY = baseLat + item.dy - 0.022
-        const maxY = baseLat + item.dy + 0.022
+        const minX = baseLon + item.dx - 0.022;
+        const maxX = baseLon + item.dx + 0.022;
+        const minY = baseLat + item.dy - 0.022;
+        const maxY = baseLat + item.dy + 0.022;
         const coords = [
           [
             [minX, minY],
@@ -576,18 +576,18 @@
             [minX, maxY],
             [minX, minY],
           ],
-        ]
+        ];
         const feature = new ol.Feature({
           geometry: new ol.geom.Polygon(coords).transform('EPSG:4326', 'EPSG:3857'),
           density: item.density,
           gdp: item.gdp,
           name: `区块-${index + 1}`,
-        })
-        polygonSource.addFeature(feature)
-      })
+        });
+        polygonSource.addFeature(feature);
+      });
 
       // 2. 折线图层：路网运行状态（支持区间与枚举双指标切换）
-      const lineSource = new ol.source.Vector()
+      const lineSource = new ol.source.Vector();
       const roadLines = [
         {
           coords: [
@@ -615,34 +615,34 @@
           speed: 42,
           level: '次干道',
         },
-      ]
+      ];
 
       roadLines.forEach((road) => {
         const feature = new ol.Feature({
           geometry: new ol.geom.LineString(road.coords).transform('EPSG:4326', 'EPSG:3857'),
           speed: road.speed,
           level: road.level,
-        })
-        lineSource.addFeature(feature)
-      })
+        });
+        lineSource.addFeature(feature);
+      });
 
       // 3. 点图层：监测设备类型（枚举型）
-      const pointSource = new ol.source.Vector()
+      const pointSource = new ol.source.Vector();
       const stations = [
         { coord: [108.9, 34.27], category: '在线', signal: 92 },
         { coord: [108.95, 34.25], category: '告警', signal: 45 },
         { coord: [108.99, 34.27], category: '离线', signal: 0 },
         { coord: [108.92, 34.23], category: '在线', signal: 88 },
-      ]
+      ];
 
       stations.forEach((st) => {
         const feature = new ol.Feature({
           geometry: new ol.geom.Point(st.coord).transform('EPSG:4326', 'EPSG:3857'),
           category: st.category,
           signal: st.signal,
-        })
-        pointSource.addFeature(feature)
-      })
+        });
+        pointSource.addFeature(feature);
+      });
 
       /**
        * @description 图层图例核心配置状态树
@@ -750,17 +750,17 @@
             strokeWidth: 2,
           },
         },
-      ]
+      ];
 
       /**
        * @description 颜色十六进制转 RGBA
        */
       function hexToRgba(hex, alpha) {
-        const cleanHex = hex.replace('#', '')
-        const r = parseInt(cleanHex.substring(0, 2), 16)
-        const g = parseInt(cleanHex.substring(2, 4), 16)
-        const b = parseInt(cleanHex.substring(4, 6), 16)
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`
+        const cleanHex = hex.replace('#', '');
+        const r = parseInt(cleanHex.substring(0, 2), 16);
+        const g = parseInt(cleanHex.substring(2, 4), 16);
+        const b = parseInt(cleanHex.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
       }
 
       /**
@@ -770,28 +770,28 @@
         return function (feature) {
           const currentMetric = layerConfig.metrics.find(
             (m) => m.field === layerConfig.activeMetric
-          )
-          const rawVal = feature.get(currentMetric.field)
-          let matchedColor = '#94a3b8'
+          );
+          const rawVal = feature.get(currentMetric.field);
+          let matchedColor = '#94a3b8';
 
           for (const rule of currentMetric.rules) {
             if (currentMetric.mode === 'interval') {
-              const numVal = Number(rawVal)
+              const numVal = Number(rawVal);
               if (numVal >= Number(rule.min) && numVal < Number(rule.max)) {
-                matchedColor = rule.color
-                break
+                matchedColor = rule.color;
+                break;
               }
             } else {
               if (String(rawVal) === String(rule.value)) {
-                matchedColor = rule.color
-                break
+                matchedColor = rule.color;
+                break;
               }
             }
           }
 
-          const extra = layerConfig.extraStyle
+          const extra = layerConfig.extraStyle;
           const dashArray =
-            extra.lineDash === 'dashed' ? [8, 6] : extra.lineDash === 'dotted' ? [2, 5] : undefined
+            extra.lineDash === 'dashed' ? [8, 6] : extra.lineDash === 'dotted' ? [2, 5] : undefined;
 
           if (layerConfig.geometryType === 'polygon') {
             return new ol.style.Style({
@@ -803,7 +803,7 @@
                 width: Number(extra.strokeWidth),
                 lineDash: dashArray,
               }),
-            })
+            });
           }
 
           if (layerConfig.geometryType === 'line') {
@@ -814,7 +814,7 @@
                 lineDash: dashArray,
                 lineCap: extra.lineCap || 'round',
               }),
-            })
+            });
           }
 
           return new ol.style.Style({
@@ -826,8 +826,8 @@
                 width: Number(extra.strokeWidth),
               }),
             }),
-          })
-        }
+          });
+        };
       }
 
       const olLayersMap = {
@@ -843,7 +843,7 @@
           source: pointSource,
           style: createLayerStyleFunction(legendConfigs[2]),
         }),
-      }
+      };
 
       const map = new ol.Map({
         target: 'map',
@@ -857,19 +857,19 @@
           center: ol.proj.fromLonLat([108.95, 34.26]),
           zoom: 12.5,
         }),
-      })
+      });
 
       /**
        * @description 根据图层几何类型渲染对应的图例颜色符号
        */
       function renderLegendSymbol(layerConfig, color) {
-        const extra = layerConfig.extraStyle
+        const extra = layerConfig.extraStyle;
         if (layerConfig.geometryType === 'polygon') {
           const borderStyle =
             extra.strokeWidth > 0
               ? `${Math.min(extra.strokeWidth, 2)}px solid ${extra.strokeColor}`
-              : 'none'
-          return `<span class="symbol-box"><span class="symbol-polygon" style="background:${hexToRgba(color, extra.fillOpacity)}; border:${borderStyle};"></span></span>`
+              : 'none';
+          return `<span class="symbol-box"><span class="symbol-polygon" style="background:${hexToRgba(color, extra.fillOpacity)}; border:${borderStyle};"></span></span>`;
         }
 
         if (layerConfig.geometryType === 'line') {
@@ -878,29 +878,29 @@
               ? 'stroke-dasharray="4 3"'
               : extra.lineDash === 'dotted'
                 ? 'stroke-dasharray="1.5 3"'
-                : ''
-          const strokeH = Math.min(Math.max(Number(extra.strokeWidth), 2), 5)
-          return `<span class="symbol-box"><svg width="22" height="14" viewBox="0 0 22 14"><line x1="1" y1="7" x2="21" y2="7" stroke="${color}" stroke-width="${strokeH}" stroke-linecap="round" ${dashAttr}/></svg></span>`
+                : '';
+          const strokeH = Math.min(Math.max(Number(extra.strokeWidth), 2), 5);
+          return `<span class="symbol-box"><svg width="22" height="14" viewBox="0 0 22 14"><line x1="1" y1="7" x2="21" y2="7" stroke="${color}" stroke-width="${strokeH}" stroke-linecap="round" ${dashAttr}/></svg></span>`;
         }
 
-        const borderStyle = extra.strokeWidth > 0 ? `1.5px solid ${extra.strokeColor}` : 'none'
-        return `<span class="symbol-box"><span class="symbol-point" style="background:${color}; border:${borderStyle};"></span></span>`
+        const borderStyle = extra.strokeWidth > 0 ? `1.5px solid ${extra.strokeColor}` : 'none';
+        return `<span class="symbol-box"><span class="symbol-point" style="background:${color}; border:${borderStyle};"></span></span>`;
       }
 
       /**
        * @description 渲染图例面板 DOM
        */
-      const legendContainer = document.getElementById('legendContainer')
-      let editDraftCache = {}
+      const legendContainer = document.getElementById('legendContainer');
+      let editDraftCache = {};
 
       function renderLegendPanel() {
         legendContainer.innerHTML = legendConfigs
           .map((layer) => {
-            const activeData = layer.isEditing ? editDraftCache[layer.id] : layer
+            const activeData = layer.isEditing ? editDraftCache[layer.id] : layer;
             const currentMetric = activeData.metrics.find(
               (m) => m.field === activeData.activeMetric
-            )
-            const typeLabelMap = { polygon: '面', line: '线', point: '点' }
+            );
+            const typeLabelMap = { polygon: '面', line: '线', point: '点' };
 
             if (!layer.isEditing) {
               // 预览态
@@ -909,15 +909,15 @@
                   const labelText =
                     currentMetric.mode === 'interval'
                       ? `[${rule.min}, ${rule.max})`
-                      : `${rule.value}`
+                      : `${rule.value}`;
                   return `
               <div class="preview-row">
                 ${renderLegendSymbol(layer, rule.color)}
                 <span class="range-text">${labelText}</span>
               </div>
-            `
+            `;
                 })
-                .join('')
+                .join('');
 
               return `
             <section class="layer-card" data-layer-id="${layer.id}">
@@ -936,7 +936,7 @@
               </div>
               <div class="legend-items">${rowsHtml}</div>
             </section>
-          `
+          `;
             }
 
             // 编辑态
@@ -946,7 +946,7 @@
           <option value="${m.field}" ${m.field === activeData.activeMetric ? 'selected' : ''}>${m.label} (${m.mode === 'interval' ? '区间' : '枚举'})</option>
         `
               )
-              .join('')
+              .join('');
 
             const editRowsHtml = currentMetric.rules
               .map((rule, idx) => {
@@ -963,7 +963,7 @@
               <div class="range-inputs">
                 <input type="text" class="text-input" data-role="value" data-idx="${idx}" value="${rule.value}" placeholder="枚举值" />
               </div>
-            `
+            `;
 
                 return `
             <div class="edit-row">
@@ -973,9 +973,9 @@
                 ${ICONS.remove}
               </button>
             </div>
-          `
+          `;
               })
-              .join('')
+              .join('');
 
             return `
           <section class="layer-card is-editing" data-layer-id="${layer.id}">
@@ -1003,101 +1003,101 @@
               </button>
             </div>
           </section>
-        `
+        `;
           })
-          .join('')
+          .join('');
       }
 
       /**
        * @description 事件委托处理图例面板交互
        */
       legendContainer.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action]')
-        if (!btn) return
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
 
-        const action = btn.dataset.action
-        const layerId = btn.dataset.id
-        const layer = legendConfigs.find((item) => item.id === layerId)
-        if (!layer) return
+        const action = btn.dataset.action;
+        const layerId = btn.dataset.id;
+        const layer = legendConfigs.find((item) => item.id === layerId);
+        if (!layer) return;
 
         if (action === 'edit') {
-          editDraftCache[layerId] = JSON.parse(JSON.stringify(layer))
-          layer.isEditing = true
-          renderLegendPanel()
+          editDraftCache[layerId] = JSON.parse(JSON.stringify(layer));
+          layer.isEditing = true;
+          renderLegendPanel();
         } else if (action === 'save') {
-          const draft = editDraftCache[layerId]
-          layer.activeMetric = draft.activeMetric
-          layer.metrics = draft.metrics
-          layer.extraStyle = draft.extraStyle
-          layer.isEditing = false
-          delete editDraftCache[layerId]
+          const draft = editDraftCache[layerId];
+          layer.activeMetric = draft.activeMetric;
+          layer.metrics = draft.metrics;
+          layer.extraStyle = draft.extraStyle;
+          layer.isEditing = false;
+          delete editDraftCache[layerId];
 
-          olLayersMap[layerId].setStyle(createLayerStyleFunction(layer))
-          olLayersMap[layerId].changed()
-          renderLegendPanel()
+          olLayersMap[layerId].setStyle(createLayerStyleFunction(layer));
+          olLayersMap[layerId].changed();
+          renderLegendPanel();
         } else if (action === 'add-rule') {
-          const draft = editDraftCache[layerId]
-          const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
+          const draft = editDraftCache[layerId];
+          const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
           if (metric.mode === 'interval') {
-            const lastRule = metric.rules[metric.rules.length - 1]
-            const nextMin = lastRule ? Number(lastRule.max) : 0
-            metric.rules.push({ color: '#06b6d4', min: nextMin, max: nextMin + 20 })
+            const lastRule = metric.rules[metric.rules.length - 1];
+            const nextMin = lastRule ? Number(lastRule.max) : 0;
+            metric.rules.push({ color: '#06b6d4', min: nextMin, max: nextMin + 20 });
           } else {
-            metric.rules.push({ color: '#06b6d4', value: `类别${metric.rules.length + 1}` })
+            metric.rules.push({ color: '#06b6d4', value: `类别${metric.rules.length + 1}` });
           }
-          renderLegendPanel()
+          renderLegendPanel();
         } else if (action === 'remove-rule') {
-          const idx = Number(btn.dataset.idx)
-          const draft = editDraftCache[layerId]
-          const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
+          const idx = Number(btn.dataset.idx);
+          const draft = editDraftCache[layerId];
+          const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
           if (metric.rules.length > 1) {
-            metric.rules.splice(idx, 1)
-            renderLegendPanel()
+            metric.rules.splice(idx, 1);
+            renderLegendPanel();
           }
         } else if (action === 'open-setting') {
-          openLayerSettingModal(layerId)
+          openLayerSettingModal(layerId);
         }
-      })
+      });
 
       legendContainer.addEventListener('change', (e) => {
-        const target = e.target
-        const card = target.closest('.layer-card')
-        if (!card) return
+        const target = e.target;
+        const card = target.closest('.layer-card');
+        if (!card) return;
 
-        const layerId = card.dataset.layerId
-        const draft = editDraftCache[layerId]
-        if (!draft) return
+        const layerId = card.dataset.layerId;
+        const draft = editDraftCache[layerId];
+        if (!draft) return;
 
         if (target.dataset.action === 'change-metric') {
-          draft.activeMetric = target.value
-          renderLegendPanel()
-          return
+          draft.activeMetric = target.value;
+          renderLegendPanel();
+          return;
         }
 
-        const role = target.dataset.role
-        const idx = Number(target.dataset.idx)
-        const metric = draft.metrics.find((m) => m.field === draft.activeMetric)
-        if (!metric || !metric.rules[idx]) return
+        const role = target.dataset.role;
+        const idx = Number(target.dataset.idx);
+        const metric = draft.metrics.find((m) => m.field === draft.activeMetric);
+        if (!metric || !metric.rules[idx]) return;
 
-        if (role === 'color') metric.rules[idx].color = target.value
-        if (role === 'min') metric.rules[idx].min = Number(target.value)
-        if (role === 'max') metric.rules[idx].max = Number(target.value)
-        if (role === 'value') metric.rules[idx].value = target.value
-      })
+        if (role === 'color') metric.rules[idx].color = target.value;
+        if (role === 'min') metric.rules[idx].min = Number(target.value);
+        if (role === 'max') metric.rules[idx].max = Number(target.value);
+        if (role === 'value') metric.rules[idx].value = target.value;
+      });
 
       /**
        * @description 图层高级设置 Modal 逻辑（针对不同几何类型动态生成表单）
        */
-      const settingModal = document.getElementById('settingModal')
-      const modalTitle = document.getElementById('modalTitle')
-      const modalBody = document.getElementById('modalBody')
-      let currentSettingLayerId = null
+      const settingModal = document.getElementById('settingModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      let currentSettingLayerId = null;
 
       function openLayerSettingModal(layerId) {
-        currentSettingLayerId = layerId
-        const draft = editDraftCache[layerId]
-        const extra = draft.extraStyle
-        modalTitle.textContent = `${draft.title} - 高级样式配置`
+        currentSettingLayerId = layerId;
+        const draft = editDraftCache[layerId];
+        const extra = draft.extraStyle;
+        modalTitle.textContent = `${draft.title} - 高级样式配置`;
 
         if (draft.geometryType === 'polygon') {
           modalBody.innerHTML = `
@@ -1124,11 +1124,11 @@
               <option value="dotted" ${extra.lineDash === 'dotted' ? 'selected' : ''}>点线 (Dotted)</option>
             </select>
           </div>
-        `
+        `;
           document.getElementById('cfgFillOpacity').addEventListener('input', (ev) => {
             document.getElementById('opacityVal').textContent =
-              `${Math.round(ev.target.value * 100)}%`
-          })
+              `${Math.round(ev.target.value * 100)}%`;
+          });
         } else if (draft.geometryType === 'line') {
           modalBody.innerHTML = `
           <div class="form-item">
@@ -1150,7 +1150,7 @@
               <option value="butt" ${extra.lineCap === 'butt' ? 'selected' : ''}>平直端点 (Butt)</option>
             </select>
           </div>
-        `
+        `;
         } else {
           modalBody.innerHTML = `
           <div class="form-item">
@@ -1165,66 +1165,66 @@
             <label><span>外描边宽度 (px)</span></label>
             <input type="number" class="num-input" id="cfgStrokeWidth" min="0" max="6" step="0.5" value="${extra.strokeWidth}" />
           </div>
-        `
+        `;
         }
 
-        settingModal.classList.add('is-open')
+        settingModal.classList.add('is-open');
       }
 
       function closeSettingModal() {
-        settingModal.classList.remove('is-open')
-        currentSettingLayerId = null
+        settingModal.classList.remove('is-open');
+        currentSettingLayerId = null;
       }
 
-      document.getElementById('closeModalBtn').addEventListener('click', closeSettingModal)
-      document.getElementById('cancelModalBtn').addEventListener('click', closeSettingModal)
+      document.getElementById('closeModalBtn').addEventListener('click', closeSettingModal);
+      document.getElementById('cancelModalBtn').addEventListener('click', closeSettingModal);
 
       document.getElementById('applyModalBtn').addEventListener('click', () => {
-        if (!currentSettingLayerId) return
-        const draft = editDraftCache[currentSettingLayerId]
-        const extra = draft.extraStyle
+        if (!currentSettingLayerId) return;
+        const draft = editDraftCache[currentSettingLayerId];
+        const extra = draft.extraStyle;
 
         if (draft.geometryType === 'polygon') {
-          extra.fillOpacity = Number(document.getElementById('cfgFillOpacity').value)
-          extra.strokeColor = document.getElementById('cfgStrokeColor').value
-          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
-          extra.lineDash = document.getElementById('cfgLineDash').value
+          extra.fillOpacity = Number(document.getElementById('cfgFillOpacity').value);
+          extra.strokeColor = document.getElementById('cfgStrokeColor').value;
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
+          extra.lineDash = document.getElementById('cfgLineDash').value;
         } else if (draft.geometryType === 'line') {
-          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
-          extra.lineDash = document.getElementById('cfgLineDash').value
-          extra.lineCap = document.getElementById('cfgLineCap').value
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
+          extra.lineDash = document.getElementById('cfgLineDash').value;
+          extra.lineCap = document.getElementById('cfgLineCap').value;
         } else {
-          extra.radius = Number(document.getElementById('cfgRadius').value)
-          extra.strokeColor = document.getElementById('cfgStrokeColor').value
-          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value)
+          extra.radius = Number(document.getElementById('cfgRadius').value);
+          extra.strokeColor = document.getElementById('cfgStrokeColor').value;
+          extra.strokeWidth = Number(document.getElementById('cfgStrokeWidth').value);
         }
 
-        closeSettingModal()
-        renderLegendPanel()
-      })
+        closeSettingModal();
+        renderLegendPanel();
+      });
 
       /**
        * @description Dark / Light 主题切换（同步切换底图瓦片风格）
        */
-      const themeToggleBtn = document.getElementById('themeToggleBtn')
-      const themeLabel = document.getElementById('themeLabel')
+      const themeToggleBtn = document.getElementById('themeToggleBtn');
+      const themeLabel = document.getElementById('themeLabel');
 
       themeToggleBtn.addEventListener('click', () => {
-        const root = document.documentElement
-        const isDark = root.getAttribute('data-theme') === 'dark'
-        const nextTheme = isDark ? 'light' : 'dark'
-        root.setAttribute('data-theme', nextTheme)
-        themeLabel.textContent = nextTheme === 'dark' ? 'Dark 模式' : 'Light 模式'
+        const root = document.documentElement;
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        const nextTheme = isDark ? 'light' : 'dark';
+        root.setAttribute('data-theme', nextTheme);
+        themeLabel.textContent = nextTheme === 'dark' ? 'Dark 模式' : 'Light 模式';
 
         const tileUrl =
           nextTheme === 'dark'
             ? 'https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            : 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-        baseTileLayer.getSource().setUrl(tileUrl)
-      })
+            : 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        baseTileLayer.getSource().setUrl(tileUrl);
+      });
 
       // 初始渲染
-      renderLegendPanel()
+      renderLegendPanel();
     </script>
   </body>
 </html>

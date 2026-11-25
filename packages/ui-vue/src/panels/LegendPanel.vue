@@ -1,43 +1,46 @@
 <script setup lang="ts">
-import PanelEmpty from '../components/PanelEmpty.vue'
-import { computed, ref, shallowRef } from 'vue'
-import type { LayerInstance, LayerLegend, LayerStyle } from '@joinmap/gis-core'
-import { useAppState } from '../use-app-state.js'
-import { useGISUI } from '../use-gis-ui.js'
-import Legend from '../components/Legend.vue'
-import LegendAction from '../components/LegendAction.vue'
-import LayerEditor from './LayerEditor.vue'
-import { useGISApp } from '../use-gis-app.js'
-import { usePanelHeader } from '../use-panel-header.js'
-const snapshot = useAppState((state) => state.layers)
-const ui = useGISUI()
-const app = useGISApp()
-const editing = shallowRef<LayerInstance>()
-const revision = ref(0)
-const error = ref('')
-const originals = new WeakMap<LayerInstance, { legend: LayerLegend | null; style?: LayerStyle }>()
+import PanelEmpty from '../components/PanelEmpty.vue';
+import { computed, ref, shallowRef } from 'vue';
+import type { LayerInstance, LayerLegend, LayerStyle } from '@joinmap/gis-core';
+import { useAppState } from '../use-app-state.js';
+import { useGISUI } from '../use-gis-ui.js';
+import Legend from '../components/Legend.vue';
+import LegendAction from '../components/LegendAction.vue';
+import LayerEditor from './LayerEditor.vue';
+import { useGISApp } from '../use-gis-app.js';
+import { usePanelHeader } from '../use-panel-header.js';
+const snapshot = useAppState((state) => state.layers);
+const ui = useGISUI();
+const app = useGISApp();
+const editing = shallowRef<LayerInstance>();
+const revision = ref(0);
+const error = ref('');
+const originals = new WeakMap<LayerInstance, { legend: LayerLegend | null; style?: LayerStyle }>();
 const layers = computed(() => {
-  void revision.value
+  void revision.value;
   return snapshot.value
     .filter((layer) => layer.visible)
     .flatMap((state) => {
-      const instance = app.layers.get(state.id)
-      if (!instance || (!state.legend && !instance.getFields().length)) return []
-      if (!originals.has(instance))
+      const instance = app.layers.get(state.id);
+      if (!instance || (!state.legend && !instance.getFields().length)) {
+        return [];
+      }
+      if (!originals.has(instance)) {
         originals.set(
           instance,
           JSON.parse(JSON.stringify({ legend: instance.legend ?? null, style: instance.style }))
-        )
-      return [{ state, instance }]
-    })
-})
+        );
+      }
+      return [{ state, instance }];
+    });
+});
 usePanelHeader(
   computed(() => String(layers.value.filter(({ state }) => state.legend).length)),
   () => {
-    error.value = ''
-    revision.value++
+    error.value = '';
+    revision.value++;
   }
-)
+);
 const types = computed(() =>
   Object.fromEntries(
     ['category', 'interval', 'continuous', 'image'].map((type) => [
@@ -45,27 +48,29 @@ const types = computed(() =>
       ui.locale.t('editor.' + type),
     ])
   )
-)
+);
 function symbol(layer: LayerInstance) {
-  const type = String(layer.getMetadata().geometryType)
-  return /LineString$/.test(type) ? 'line' : /Point$/.test(type) ? 'circle' : 'fill'
+  const type = String(layer.getMetadata().geometryType);
+  return /LineString$/.test(type) ? 'line' : /Point$/.test(type) ? 'circle' : 'fill';
 }
 async function reset(layer: LayerInstance) {
-  const initial = originals.get(layer)
-  if (!initial) return
+  const initial = originals.get(layer);
+  if (!initial) {
+    return;
+  }
   try {
-    error.value = ''
-    await app.layers.update(layer.id, { expectedVersion: layer.version, ...initial })
+    error.value = '';
+    await app.layers.update(layer.id, { expectedVersion: layer.version, ...initial });
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
 function filter(layer: LayerInstance, id: string) {
   try {
-    error.value = ''
-    layer.setLegendFilter(layer.getLegendFilter() === id ? undefined : id)
+    error.value = '';
+    layer.setLegendFilter(layer.getLegendFilter() === id ? undefined : id);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
 </script>

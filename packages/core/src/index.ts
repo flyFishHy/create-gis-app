@@ -1,8 +1,8 @@
-export { createGISApp } from './runtime/gis-app.js'
-export { normalizeUIConfig } from './config.js'
-export { normalizeConfig as parseGISAppConfig } from './config.js'
-export { ResourceScopeImpl } from './resource-scope.js'
-export { GISRuntimeError } from './errors.js'
+export { createGISApp } from './runtime/gis-app.js';
+export { normalizeUIConfig } from './config.js';
+export { normalizeConfig as parseGISAppConfig } from './config.js';
+export { ResourceScopeImpl } from './resource-scope.js';
+export { GISRuntimeError } from './errors.js';
 export type {
   UIConfig,
   UITimePickerConfig,
@@ -73,4 +73,4 @@ export type {
   ToolDefinition,
   UIAdapter,
   Unsubscribe,
-} from './types.js'
+} from './types.js';

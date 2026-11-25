@@ -1,5 +1,5 @@
-import { shallowRef, type ShallowRef } from 'vue'
-import type { Locale, LocaleService } from '../types.js'
+import { shallowRef, type ShallowRef } from 'vue';
+import type { Locale, LocaleService } from '../types.js';
 
 const MESSAGES: Record<Locale, Record<string, string>> = {
   zh: {
@@ -405,36 +405,40 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     'status.projection': 'Projection',
     'status.movePointer': 'Move pointer over map',
   },
-}
+};
 
 export class LocaleServiceImpl implements LocaleService {
-  private readonly current: ShallowRef<Locale>
-  private readonly listeners = new Set<(locale: Locale) => void>()
+  private readonly current: ShallowRef<Locale>;
+  private readonly listeners = new Set<(locale: Locale) => void>();
 
   constructor(initial: Locale = 'zh') {
-    this.current = shallowRef(initial)
+    this.current = shallowRef(initial);
   }
 
   get(): Locale {
-    return this.current.value
+    return this.current.value;
   }
 
   set(locale: Locale): void {
-    if (locale === this.current.value) return
-    this.current.value = locale
-    for (const listener of [...this.listeners]) listener(locale)
+    if (locale === this.current.value) {
+      return;
+    }
+    this.current.value = locale;
+    for (const listener of [...this.listeners]) {
+      listener(locale);
+    }
   }
 
   subscribe(listener: (locale: Locale) => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
-  t(key: string): string {
-    return MESSAGES[this.current.value][key] ?? key
+  ['t'](key: string): string {
+    return MESSAGES[this.current.value][key] ?? key;
   }
 
   clear(): void {
-    this.listeners.clear()
+    this.listeners.clear();
   }
 }

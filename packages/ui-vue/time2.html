@@ -291,15 +291,15 @@
        * @returns {string}
        */
       function formatDateTime(timestampMs) {
-        const date = new Date(timestampMs)
-        const pad = (num) => String(num).padStart(2, '0')
-        const year = date.getFullYear()
-        const month = pad(date.getMonth() + 1)
-        const day = pad(date.getDate())
-        const hours = pad(date.getHours())
-        const minutes = pad(date.getMinutes())
-        const seconds = pad(date.getSeconds())
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+        const date = new Date(timestampMs);
+        const pad = (num) => String(num).padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        const seconds = pad(date.getSeconds());
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       }
 
       /**
@@ -308,24 +308,24 @@
        * @returns {string}
        */
       function formatScaleRatio(pxPerMs) {
-        const msPer50Px = 50 / pxPerMs
-        const sec = msPer50Px / 1000
-        if (sec < 60) return `时间缩放：${Math.round(sec)} 秒 / 50px`
-        const min = sec / 60
-        if (min < 60) return `时间缩放：${Number(min.toFixed(1))} 分钟 / 50px`
-        const hour = min / 60
-        if (hour < 24) return `时间缩放：${Number(hour.toFixed(1))} 小时 / 50px`
-        const day = hour / 24
-        if (day < 30) return `时间缩放：${Number(day.toFixed(1))} 天 / 50px`
-        return `时间缩放：${Number((day / 30).toFixed(1))} 月 / 50px`
+        const msPer50Px = 50 / pxPerMs;
+        const sec = msPer50Px / 1000;
+        if (sec < 60) return `时间缩放：${Math.round(sec)} 秒 / 50px`;
+        const min = sec / 60;
+        if (min < 60) return `时间缩放：${Number(min.toFixed(1))} 分钟 / 50px`;
+        const hour = min / 60;
+        if (hour < 24) return `时间缩放：${Number(hour.toFixed(1))} 小时 / 50px`;
+        const day = hour / 24;
+        if (day < 30) return `时间缩放：${Number(day.toFixed(1))} 天 / 50px`;
+        return `时间缩放：${Number((day / 30).toFixed(1))} 月 / 50px`;
       }
 
       // 初始核心状态
-      const INITIAL_TIME = new Date('2026-11-21T10:24:36').getTime()
-      const ONE_HOUR_MS = 3600 * 1000
-      const LEFT_SIDEBAR_WIDTH = 148 // 左侧业务轨道名称固定区宽度
-      const RULER_HEIGHT = 36
-      const TRACK_HEIGHT = 37
+      const INITIAL_TIME = new Date('2026-11-21T10:24:36').getTime();
+      const ONE_HOUR_MS = 3600 * 1000;
+      const LEFT_SIDEBAR_WIDTH = 148; // 左侧业务轨道名称固定区宽度
+      const RULER_HEIGHT = 36;
+      const TRACK_HEIGHT = 37;
 
       const state = {
         currentTime: INITIAL_TIME,
@@ -346,7 +346,7 @@
         dragStartX: 0,
         dragStartViewTime: 0,
         hoverItem: null,
-      }
+      };
 
       // 模拟 4 条业务图层时间轨道数据
       const tracks = [
@@ -451,7 +451,7 @@
             },
           ],
         },
-      ]
+      ];
 
       // 多级自适应刻度步长阶梯（从秒到月）
       const TICK_STEPS = [
@@ -469,219 +469,219 @@
         { stepMs: 24 * ONE_HOUR_MS, subMs: 6 * ONE_HOUR_MS, unit: 'day' },
         { stepMs: 7 * 24 * ONE_HOUR_MS, subMs: 24 * ONE_HOUR_MS, unit: 'day' },
         { stepMs: 30 * 24 * ONE_HOUR_MS, subMs: 7 * 24 * ONE_HOUR_MS, unit: 'month' },
-      ]
+      ];
 
       // DOM 引用
-      const canvas = document.getElementById('timelineCanvas')
-      const ctx = canvas.getContext('2d')
-      const wrapper = document.getElementById('canvasWrapper')
-      const currentTimeLabel = document.getElementById('currentTimeLabel')
-      const scaleLabel = document.getElementById('scaleLabel')
-      const btnPlayPause = document.getElementById('btnPlayPause')
-      const btnSpeed = document.getElementById('btnSpeed')
-      const tooltip = document.getElementById('tooltip')
-      const ttTitle = document.getElementById('ttTitle')
-      const ttTime = document.getElementById('ttTime')
+      const canvas = document.getElementById('timelineCanvas');
+      const ctx = canvas.getContext('2d');
+      const wrapper = document.getElementById('canvasWrapper');
+      const currentTimeLabel = document.getElementById('currentTimeLabel');
+      const scaleLabel = document.getElementById('scaleLabel');
+      const btnPlayPause = document.getElementById('btnPlayPause');
+      const btnSpeed = document.getElementById('btnSpeed');
+      const tooltip = document.getElementById('tooltip');
+      const ttTitle = document.getElementById('ttTitle');
+      const ttTime = document.getElementById('ttTime');
 
-      let canvasWidth = 0
-      let canvasHeight = 0
-      let hitTargets = [] // 存储当前帧可交互命中区域
+      let canvasWidth = 0;
+      let canvasHeight = 0;
+      let hitTargets = []; // 存储当前帧可交互命中区域
 
       /**
        * @description 坐标转换：时间戳 -> Canvas X 坐标
        */
       function timeToX(timeMs) {
-        return LEFT_SIDEBAR_WIDTH + (timeMs - state.viewStartTime) * state.pxPerMs
+        return LEFT_SIDEBAR_WIDTH + (timeMs - state.viewStartTime) * state.pxPerMs;
       }
 
       /**
        * @description 坐标转换：Canvas X 坐标 -> 时间戳
        */
       function xToTime(x) {
-        return state.viewStartTime + (x - LEFT_SIDEBAR_WIDTH) / state.pxPerMs
+        return state.viewStartTime + (x - LEFT_SIDEBAR_WIDTH) / state.pxPerMs;
       }
 
       /**
        * @description 适配高分屏 DPR 并调整画布尺寸
        */
       function resizeCanvas() {
-        const rect = wrapper.getBoundingClientRect()
-        const dpr = window.devicePixelRatio || 1
-        canvasWidth = rect.width
-        canvasHeight = rect.height
-        canvas.width = Math.round(canvasWidth * dpr)
-        canvas.height = Math.round(canvasHeight * dpr)
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-        render()
+        const rect = wrapper.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvasWidth = rect.width;
+        canvasHeight = rect.height;
+        canvas.width = Math.round(canvasWidth * dpr);
+        canvas.height = Math.round(canvasHeight * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        render();
       }
 
       /**
        * @description 选择当前缩放比例下最合适的主刻度配置（保证主刻度间距 >= 75px）
        */
       function selectTickConfig() {
-        const minSpacingPx = 75
+        const minSpacingPx = 75;
         for (const cfg of TICK_STEPS) {
           if (cfg.stepMs * state.pxPerMs >= minSpacingPx) {
-            return cfg
+            return cfg;
           }
         }
-        return TICK_STEPS[TICK_STEPS.length - 1]
+        return TICK_STEPS[TICK_STEPS.length - 1];
       }
 
       /**
        * @description 格式化主刻度文案
        */
       function formatTickLabel(timeMs, unit) {
-        const d = new Date(timeMs)
-        const pad = (n) => String(n).padStart(2, '0')
-        const hh = pad(d.getHours())
-        const mm = pad(d.getMinutes())
-        const ss = pad(d.getSeconds())
-        const monthDay = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+        const d = new Date(timeMs);
+        const pad = (n) => String(n).padStart(2, '0');
+        const hh = pad(d.getHours());
+        const mm = pad(d.getMinutes());
+        const ss = pad(d.getSeconds());
+        const monthDay = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
         if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
-          return `${d.getFullYear()}-${monthDay}`
+          return `${d.getFullYear()}-${monthDay}`;
         }
-        if (unit === 'second') return `${hh}:${mm}:${ss}`
-        if (unit === 'minute' || unit === 'hour') return `${hh}:${mm}`
-        return `${monthDay} ${hh}:00`
+        if (unit === 'second') return `${hh}:${mm}:${ss}`;
+        if (unit === 'minute' || unit === 'hour') return `${hh}:${mm}`;
+        return `${monthDay} ${hh}:00`;
       }
 
       /**
        * @description 核心渲染循环
        */
       function render() {
-        hitTargets = []
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+        hitTargets = [];
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        const timelineAreaWidth = canvasWidth - LEFT_SIDEBAR_WIDTH
-        const viewEndTime = xToTime(canvasWidth)
+        const timelineAreaWidth = canvasWidth - LEFT_SIDEBAR_WIDTH;
+        const viewEndTime = xToTime(canvasWidth);
 
         // 1. 绘制播放有效区间背景高亮（Play Range）
-        const rangeStartX = Math.max(LEFT_SIDEBAR_WIDTH, timeToX(state.playRange.start))
-        const rangeEndX = Math.min(canvasWidth, timeToX(state.playRange.end))
+        const rangeStartX = Math.max(LEFT_SIDEBAR_WIDTH, timeToX(state.playRange.start));
+        const rangeEndX = Math.min(canvasWidth, timeToX(state.playRange.end));
         if (rangeEndX > rangeStartX) {
-          ctx.fillStyle = 'rgba(56, 189, 248, 0.05)'
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.05)';
           ctx.fillRect(
             rangeStartX,
             RULER_HEIGHT,
             rangeEndX - rangeStartX,
             canvasHeight - RULER_HEIGHT
-          )
+          );
 
           // 区间左右边界虚线
-          ctx.save()
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)'
-          ctx.setLineDash([4, 4])
-          ctx.beginPath()
+          ctx.save();
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
           if (timeToX(state.playRange.start) >= LEFT_SIDEBAR_WIDTH) {
-            ctx.moveTo(rangeStartX, RULER_HEIGHT)
-            ctx.lineTo(rangeStartX, canvasHeight)
+            ctx.moveTo(rangeStartX, RULER_HEIGHT);
+            ctx.lineTo(rangeStartX, canvasHeight);
           }
           if (timeToX(state.playRange.end) <= canvasWidth) {
-            ctx.moveTo(rangeEndX, RULER_HEIGHT)
-            ctx.lineTo(rangeEndX, canvasHeight)
+            ctx.moveTo(rangeEndX, RULER_HEIGHT);
+            ctx.lineTo(rangeEndX, canvasHeight);
           }
-          ctx.stroke()
-          ctx.restore()
+          ctx.stroke();
+          ctx.restore();
         }
 
         // 2. 绘制时间刻度尺与垂直网格线
-        const tickCfg = selectTickConfig()
-        const firstSubTick = Math.floor(state.viewStartTime / tickCfg.subMs) * tickCfg.subMs
+        const tickCfg = selectTickConfig();
+        const firstSubTick = Math.floor(state.viewStartTime / tickCfg.subMs) * tickCfg.subMs;
 
         // 刻度尺背景
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)'
-        ctx.fillRect(LEFT_SIDEBAR_WIDTH, 0, timelineAreaWidth, RULER_HEIGHT)
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+        ctx.fillRect(LEFT_SIDEBAR_WIDTH, 0, timelineAreaWidth, RULER_HEIGHT);
 
-        ctx.font = '11px "Fira Code", monospace'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
+        ctx.font = '11px "Fira Code", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
         for (let t = firstSubTick; t <= viewEndTime + tickCfg.stepMs; t += tickCfg.subMs) {
-          const x = timeToX(t)
-          if (x < LEFT_SIDEBAR_WIDTH || x > canvasWidth) continue
+          const x = timeToX(t);
+          if (x < LEFT_SIDEBAR_WIDTH || x > canvasWidth) continue;
 
-          const isMajor = Math.abs(t % tickCfg.stepMs) < 1
+          const isMajor = Math.abs(t % tickCfg.stepMs) < 1;
           if (isMajor) {
             // 贯穿轨道区的弱网格线
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)'
-            ctx.beginPath()
-            ctx.moveTo(x, RULER_HEIGHT)
-            ctx.lineTo(x, canvasHeight)
-            ctx.stroke()
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+            ctx.beginPath();
+            ctx.moveTo(x, RULER_HEIGHT);
+            ctx.lineTo(x, canvasHeight);
+            ctx.stroke();
 
             // 主刻度线与时间文字
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)'
-            ctx.beginPath()
-            ctx.moveTo(x, RULER_HEIGHT - 10)
-            ctx.lineTo(x, RULER_HEIGHT)
-            ctx.stroke()
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+            ctx.beginPath();
+            ctx.moveTo(x, RULER_HEIGHT - 10);
+            ctx.lineTo(x, RULER_HEIGHT);
+            ctx.stroke();
 
-            const isMidnight = new Date(t).getHours() === 0 && new Date(t).getMinutes() === 0
-            ctx.fillStyle = isMidnight ? '#38bdf8' : '#cbd5e1'
-            ctx.fillText(formatTickLabel(t, tickCfg.unit), x, 14)
+            const isMidnight = new Date(t).getHours() === 0 && new Date(t).getMinutes() === 0;
+            ctx.fillStyle = isMidnight ? '#38bdf8' : '#cbd5e1';
+            ctx.fillText(formatTickLabel(t, tickCfg.unit), x, 14);
           } else {
             // 次刻度短线
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)'
-            ctx.beginPath()
-            ctx.moveTo(x, RULER_HEIGHT - 5)
-            ctx.lineTo(x, RULER_HEIGHT)
-            ctx.stroke()
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.beginPath();
+            ctx.moveTo(x, RULER_HEIGHT - 5);
+            ctx.lineTo(x, RULER_HEIGHT);
+            ctx.stroke();
           }
         }
 
         // 刻度尺底部分隔线
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'
-        ctx.beginPath()
-        ctx.moveTo(0, RULER_HEIGHT)
-        ctx.lineTo(canvasWidth, RULER_HEIGHT)
-        ctx.stroke()
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.beginPath();
+        ctx.moveTo(0, RULER_HEIGHT);
+        ctx.lineTo(canvasWidth, RULER_HEIGHT);
+        ctx.stroke();
 
         // 3. 绘制 4 条业务图层时间轨道
         tracks.forEach((track, index) => {
-          const trackTop = RULER_HEIGHT + index * TRACK_HEIGHT
-          const trackCenterY = trackTop + TRACK_HEIGHT / 2
+          const trackTop = RULER_HEIGHT + index * TRACK_HEIGHT;
+          const trackCenterY = trackTop + TRACK_HEIGHT / 2;
 
           // 斑马纹底色与轨道分隔线
           if (index % 2 === 1) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.015)'
-            ctx.fillRect(LEFT_SIDEBAR_WIDTH, trackTop, timelineAreaWidth, TRACK_HEIGHT)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+            ctx.fillRect(LEFT_SIDEBAR_WIDTH, trackTop, timelineAreaWidth, TRACK_HEIGHT);
           }
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)'
-          ctx.beginPath()
-          ctx.moveTo(0, trackTop + TRACK_HEIGHT)
-          ctx.lineTo(canvasWidth, trackTop + TRACK_HEIGHT)
-          ctx.stroke()
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+          ctx.beginPath();
+          ctx.moveTo(0, trackTop + TRACK_HEIGHT);
+          ctx.lineTo(canvasWidth, trackTop + TRACK_HEIGHT);
+          ctx.stroke();
 
           // 3.1 绘制轨迹有效时间范围胶囊条
           track.segments.forEach((seg) => {
-            const sx = Math.max(LEFT_SIDEBAR_WIDTH, timeToX(seg.start))
-            const ex = Math.min(canvasWidth, timeToX(seg.end))
-            if (ex <= sx) return
+            const sx = Math.max(LEFT_SIDEBAR_WIDTH, timeToX(seg.start));
+            const ex = Math.min(canvasWidth, timeToX(seg.end));
+            if (ex <= sx) return;
 
-            const barHeight = 14
-            const barY = trackCenterY - barHeight / 2
-            const barW = Math.max(4, ex - sx)
+            const barHeight = 14;
+            const barY = trackCenterY - barHeight / 2;
+            const barW = Math.max(4, ex - sx);
 
-            ctx.save()
-            ctx.fillStyle = track.color + '33' // 20% 透明填充
-            ctx.strokeStyle = track.color + 'aa'
-            ctx.lineWidth = 1
-            ctx.beginPath()
-            ctx.roundRect(sx, barY, barW, barHeight, 4)
-            ctx.fill()
-            ctx.stroke()
+            ctx.save();
+            ctx.fillStyle = track.color + '33'; // 20% 透明填充
+            ctx.strokeStyle = track.color + 'aa';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(sx, barY, barW, barHeight, 4);
+            ctx.fill();
+            ctx.stroke();
 
             // 如果胶囊足够宽，内部绘制业务标签
             if (barW > 90) {
-              ctx.fillStyle = '#e2e8f0'
-              ctx.font = '11px sans-serif'
-              ctx.textAlign = 'left'
-              ctx.textBaseline = 'middle'
-              ctx.fillText(seg.label, sx + 8, trackCenterY)
+              ctx.fillStyle = '#e2e8f0';
+              ctx.font = '11px sans-serif';
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(seg.label, sx + 8, trackCenterY);
             }
-            ctx.restore()
+            ctx.restore();
 
             hitTargets.push({
               type: 'segment',
@@ -691,47 +691,47 @@
               h: barHeight,
               title: `${track.name} · ${seg.label}`,
               timeText: `${formatDateTime(seg.start).slice(11)} ~ ${formatDateTime(seg.end).slice(11)}`,
-            })
-          })
+            });
+          });
 
           // 3.2 绘制告警、停留、事件时间点
           track.events.forEach((evt) => {
-            const ex = timeToX(evt.time)
-            if (ex < LEFT_SIDEBAR_WIDTH - 10 || ex > canvasWidth + 10) return
+            const ex = timeToX(evt.time);
+            if (ex < LEFT_SIDEBAR_WIDTH - 10 || ex > canvasWidth + 10) return;
 
-            ctx.save()
+            ctx.save();
             if (evt.type === 'alarm') {
               // 红色菱形告警标记 + 外晕
-              ctx.fillStyle = 'rgba(244, 63, 94, 0.25)'
-              ctx.beginPath()
-              ctx.arc(ex, trackCenterY, 9, 0, Math.PI * 2)
-              ctx.fill()
+              ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
+              ctx.beginPath();
+              ctx.arc(ex, trackCenterY, 9, 0, Math.PI * 2);
+              ctx.fill();
 
-              ctx.fillStyle = '#f43f5e'
-              ctx.beginPath()
-              ctx.moveTo(ex, trackCenterY - 5)
-              ctx.lineTo(ex + 5, trackCenterY)
-              ctx.lineTo(ex, trackCenterY + 5)
-              ctx.lineTo(ex - 5, trackCenterY)
-              ctx.closePath()
-              ctx.fill()
+              ctx.fillStyle = '#f43f5e';
+              ctx.beginPath();
+              ctx.moveTo(ex, trackCenterY - 5);
+              ctx.lineTo(ex + 5, trackCenterY);
+              ctx.lineTo(ex, trackCenterY + 5);
+              ctx.lineTo(ex - 5, trackCenterY);
+              ctx.closePath();
+              ctx.fill();
             } else if (evt.type === 'stay') {
               // 琥珀色圆角方块停留点
-              ctx.fillStyle = '#fbbf24'
-              ctx.beginPath()
-              ctx.roundRect(ex - 4, trackCenterY - 4, 8, 8, 2)
-              ctx.fill()
+              ctx.fillStyle = '#fbbf24';
+              ctx.beginPath();
+              ctx.roundRect(ex - 4, trackCenterY - 4, 8, 8, 2);
+              ctx.fill();
             } else {
               // 青色圆点事件标记
-              ctx.fillStyle = '#38bdf8'
-              ctx.strokeStyle = '#0f172a'
-              ctx.lineWidth = 1.5
-              ctx.beginPath()
-              ctx.arc(ex, trackCenterY, 4.5, 0, Math.PI * 2)
-              ctx.fill()
-              ctx.stroke()
+              ctx.fillStyle = '#38bdf8';
+              ctx.strokeStyle = '#0f172a';
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.arc(ex, trackCenterY, 4.5, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
             }
-            ctx.restore()
+            ctx.restore();
 
             hitTargets.push({
               type: 'event',
@@ -741,69 +741,69 @@
               h: 16,
               title: `${track.name} · ${evt.label}`,
               timeText: formatDateTime(evt.time),
-            })
-          })
-        })
+            });
+          });
+        });
 
         // 4. 绘制左侧固定业务图层名称栏（遮盖滚动出界的元素）
-        ctx.fillStyle = 'rgba(20, 25, 34, 0.96)'
-        ctx.fillRect(0, 0, LEFT_SIDEBAR_WIDTH, canvasHeight)
+        ctx.fillStyle = 'rgba(20, 25, 34, 0.96)';
+        ctx.fillRect(0, 0, LEFT_SIDEBAR_WIDTH, canvasHeight);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
-        ctx.beginPath()
-        ctx.moveTo(LEFT_SIDEBAR_WIDTH, 0)
-        ctx.lineTo(LEFT_SIDEBAR_WIDTH, canvasHeight)
-        ctx.stroke()
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.beginPath();
+        ctx.moveTo(LEFT_SIDEBAR_WIDTH, 0);
+        ctx.lineTo(LEFT_SIDEBAR_WIDTH, canvasHeight);
+        ctx.stroke();
 
-        ctx.fillStyle = '#94a3b8'
-        ctx.font = '600 11px sans-serif'
-        ctx.textAlign = 'left'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('业务图层轨道', 14, RULER_HEIGHT / 2)
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('业务图层轨道', 14, RULER_HEIGHT / 2);
 
         tracks.forEach((track, index) => {
-          const trackTop = RULER_HEIGHT + index * TRACK_HEIGHT
-          const centerY = trackTop + TRACK_HEIGHT / 2
+          const trackTop = RULER_HEIGHT + index * TRACK_HEIGHT;
+          const centerY = trackTop + TRACK_HEIGHT / 2;
 
           // 左侧色标条
-          ctx.fillStyle = track.color
-          ctx.beginPath()
-          ctx.roundRect(10, centerY - 6, 3, 12, 1.5)
-          ctx.fill()
+          ctx.fillStyle = track.color;
+          ctx.beginPath();
+          ctx.roundRect(10, centerY - 6, 3, 12, 1.5);
+          ctx.fill();
 
           // 轨道名称
-          ctx.fillStyle = '#e2e8f0'
-          ctx.font = '12px sans-serif'
-          ctx.fillText(track.name, 20, centerY)
-        })
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '12px sans-serif';
+          ctx.fillText(track.name, 20, centerY);
+        });
 
         // 5. 绘制当前时间播放指针（Playhead）
-        const playheadX = timeToX(state.currentTime)
+        const playheadX = timeToX(state.currentTime);
         if (playheadX >= LEFT_SIDEBAR_WIDTH && playheadX <= canvasWidth) {
-          ctx.save()
+          ctx.save();
           // 指针光晕
-          ctx.shadowColor = 'rgba(244, 63, 94, 0.6)'
-          ctx.shadowBlur = 8
+          ctx.shadowColor = 'rgba(244, 63, 94, 0.6)';
+          ctx.shadowBlur = 8;
 
           // 垂直红线
-          ctx.strokeStyle = '#f43f5e'
-          ctx.lineWidth = 1.5
-          ctx.beginPath()
-          ctx.moveTo(playheadX, 14)
-          ctx.lineTo(playheadX, canvasHeight)
-          ctx.stroke()
+          ctx.strokeStyle = '#f43f5e';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(playheadX, 14);
+          ctx.lineTo(playheadX, canvasHeight);
+          ctx.stroke();
 
           // 顶部倒三角手柄
-          ctx.fillStyle = '#f43f5e'
-          ctx.beginPath()
-          ctx.moveTo(playheadX - 6, 4)
-          ctx.lineTo(playheadX + 6, 4)
-          ctx.lineTo(playheadX + 6, 11)
-          ctx.lineTo(playheadX, 17)
-          ctx.lineTo(playheadX - 6, 11)
-          ctx.closePath()
-          ctx.fill()
-          ctx.restore()
+          ctx.fillStyle = '#f43f5e';
+          ctx.beginPath();
+          ctx.moveTo(playheadX - 6, 4);
+          ctx.lineTo(playheadX + 6, 4);
+          ctx.lineTo(playheadX + 6, 11);
+          ctx.lineTo(playheadX, 17);
+          ctx.lineTo(playheadX - 6, 11);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
       }
 
@@ -811,8 +811,8 @@
        * @description 更新顶部 DOM 读数
        */
       function syncHeaderUI() {
-        currentTimeLabel.textContent = formatDateTime(state.currentTime)
-        scaleLabel.textContent = formatScaleRatio(state.pxPerMs)
+        currentTimeLabel.textContent = formatDateTime(state.currentTime);
+        scaleLabel.textContent = formatScaleRatio(state.pxPerMs);
       }
 
       /**
@@ -820,22 +820,23 @@
        */
       function tickAnimation(now) {
         if (state.isPlaying) {
-          const deltaRealMs = now - state.lastFrameTime
-          const speed = state.speedOptions[state.speedIndex]
-          state.currentTime += deltaRealMs * speed
+          const deltaRealMs = now - state.lastFrameTime;
+          const speed = state.speedOptions[state.speedIndex];
+          state.currentTime += deltaRealMs * speed;
 
           // 自动跟随视口：当指针即将超出右侧 85% 区域时平滑推进视口
-          const playheadX = timeToX(state.currentTime)
-          const autoFollowThreshold = LEFT_SIDEBAR_WIDTH + (canvasWidth - LEFT_SIDEBAR_WIDTH) * 0.85
+          const playheadX = timeToX(state.currentTime);
+          const autoFollowThreshold =
+            LEFT_SIDEBAR_WIDTH + (canvasWidth - LEFT_SIDEBAR_WIDTH) * 0.85;
           if (playheadX > autoFollowThreshold) {
-            state.viewStartTime += deltaRealMs * speed
+            state.viewStartTime += deltaRealMs * speed;
           }
 
-          syncHeaderUI()
-          render()
+          syncHeaderUI();
+          render();
         }
-        state.lastFrameTime = now
-        requestAnimationFrame(tickAnimation)
+        state.lastFrameTime = now;
+        requestAnimationFrame(tickAnimation);
       }
 
       // ==================== 交互事件绑定 ====================
@@ -844,69 +845,72 @@
       canvas.addEventListener(
         'wheel',
         (event) => {
-          event.preventDefault()
-          const rect = canvas.getBoundingClientRect()
-          const mouseX = Math.max(LEFT_SIDEBAR_WIDTH, event.clientX - rect.left)
-          const anchorTime = xToTime(mouseX)
+          event.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const mouseX = Math.max(LEFT_SIDEBAR_WIDTH, event.clientX - rect.left);
+          const anchorTime = xToTime(mouseX);
 
-          const zoomFactor = event.deltaY < 0 ? 1.22 : 1 / 1.22
+          const zoomFactor = event.deltaY < 0 ? 1.22 : 1 / 1.22;
           // 限制缩放边界：最细 1秒/50px，最粗 15天/50px
-          const minPxPerMs = 50 / (15 * 24 * ONE_HOUR_MS)
-          const maxPxPerMs = 50 / 1000
-          const nextPxPerMs = Math.min(maxPxPerMs, Math.max(minPxPerMs, state.pxPerMs * zoomFactor))
+          const minPxPerMs = 50 / (15 * 24 * ONE_HOUR_MS);
+          const maxPxPerMs = 50 / 1000;
+          const nextPxPerMs = Math.min(
+            maxPxPerMs,
+            Math.max(minPxPerMs, state.pxPerMs * zoomFactor)
+          );
 
-          state.pxPerMs = nextPxPerMs
-          state.viewStartTime = anchorTime - (mouseX - LEFT_SIDEBAR_WIDTH) / state.pxPerMs
+          state.pxPerMs = nextPxPerMs;
+          state.viewStartTime = anchorTime - (mouseX - LEFT_SIDEBAR_WIDTH) / state.pxPerMs;
 
-          syncHeaderUI()
-          render()
+          syncHeaderUI();
+          render();
         },
         { passive: false }
-      )
+      );
 
       // 2. 鼠标按下：判定是拖动指针还是平移时间轴
       canvas.addEventListener('mousedown', (event) => {
-        const rect = canvas.getBoundingClientRect()
-        const mouseX = event.clientX - rect.left
-        const mouseY = event.clientY - rect.top
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
 
-        if (mouseX < LEFT_SIDEBAR_WIDTH) return
+        if (mouseX < LEFT_SIDEBAR_WIDTH) return;
 
-        const playheadX = timeToX(state.currentTime)
+        const playheadX = timeToX(state.currentTime);
         // 靠近播放指针（±8px）或点击顶部刻度尺直接进入指针拖动模式
         if (Math.abs(mouseX - playheadX) <= 8 || mouseY <= RULER_HEIGHT) {
-          state.dragMode = 'scrub'
-          state.currentTime = xToTime(mouseX)
-          wrapper.classList.add('ew-resize')
-          syncHeaderUI()
-          render()
+          state.dragMode = 'scrub';
+          state.currentTime = xToTime(mouseX);
+          wrapper.classList.add('ew-resize');
+          syncHeaderUI();
+          render();
         } else {
-          state.dragMode = 'pan'
-          state.dragStartX = mouseX
-          state.dragStartViewTime = state.viewStartTime
-          wrapper.classList.add('grabbing')
+          state.dragMode = 'pan';
+          state.dragStartX = mouseX;
+          state.dragStartViewTime = state.viewStartTime;
+          wrapper.classList.add('grabbing');
         }
-      })
+      });
 
       // 3. 全局鼠标移动：处理拖拽与悬停 Tooltip
       window.addEventListener('mousemove', (event) => {
-        const rect = canvas.getBoundingClientRect()
-        const mouseX = event.clientX - rect.left
-        const mouseY = event.clientY - rect.top
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
 
         if (state.dragMode === 'scrub') {
-          const clampedX = Math.max(LEFT_SIDEBAR_WIDTH, Math.min(canvasWidth, mouseX))
-          state.currentTime = xToTime(clampedX)
-          syncHeaderUI()
-          render()
-          return
+          const clampedX = Math.max(LEFT_SIDEBAR_WIDTH, Math.min(canvasWidth, mouseX));
+          state.currentTime = xToTime(clampedX);
+          syncHeaderUI();
+          render();
+          return;
         }
 
         if (state.dragMode === 'pan') {
-          const deltaX = mouseX - state.dragStartX
-          state.viewStartTime = state.dragStartViewTime - deltaX / state.pxPerMs
-          render()
-          return
+          const deltaX = mouseX - state.dragStartX;
+          state.viewStartTime = state.dragStartViewTime - deltaX / state.pxPerMs;
+          render();
+          return;
         }
 
         // 非拖拽态：检测指针光标与事件 Tooltip
@@ -916,11 +920,11 @@
           mouseY >= 0 &&
           mouseY <= canvasHeight
         ) {
-          const playheadX = timeToX(state.currentTime)
+          const playheadX = timeToX(state.currentTime);
           if (Math.abs(mouseX - playheadX) <= 7) {
-            wrapper.classList.add('ew-resize')
+            wrapper.classList.add('ew-resize');
           } else {
-            wrapper.classList.remove('ew-resize')
+            wrapper.classList.remove('ew-resize');
           }
 
           const hit = hitTargets.find(
@@ -929,61 +933,61 @@
               mouseX <= item.x + item.w &&
               mouseY >= item.y &&
               mouseY <= item.y + item.h
-          )
+          );
           if (hit) {
-            ttTitle.textContent = hit.title
-            ttTime.textContent = hit.timeText
-            tooltip.style.left = `${mouseX}px`
-            tooltip.style.top = `${hit.y - 6}px`
-            tooltip.style.opacity = '1'
+            ttTitle.textContent = hit.title;
+            ttTime.textContent = hit.timeText;
+            tooltip.style.left = `${mouseX}px`;
+            tooltip.style.top = `${hit.y - 6}px`;
+            tooltip.style.opacity = '1';
           } else {
-            tooltip.style.opacity = '0'
+            tooltip.style.opacity = '0';
           }
         } else {
-          tooltip.style.opacity = '0'
+          tooltip.style.opacity = '0';
         }
-      })
+      });
 
       window.addEventListener('mouseup', () => {
-        state.dragMode = null
-        wrapper.classList.remove('grabbing', 'ew-resize')
-      })
+        state.dragMode = null;
+        wrapper.classList.remove('grabbing', 'ew-resize');
+      });
 
       // 4. 顶部 DOM 控制按钮逻辑
       btnPlayPause.addEventListener('click', () => {
-        state.isPlaying = !state.isPlaying
-        btnPlayPause.textContent = state.isPlaying ? '⏸ 暂停' : '▶ 播放'
-      })
+        state.isPlaying = !state.isPlaying;
+        btnPlayPause.textContent = state.isPlaying ? '⏸ 暂停' : '▶ 播放';
+      });
 
       btnSpeed.addEventListener('click', () => {
-        state.speedIndex = (state.speedIndex + 1) % state.speedOptions.length
-        btnSpeed.textContent = `${state.speedOptions[state.speedIndex]}×`
-      })
+        state.speedIndex = (state.speedIndex + 1) % state.speedOptions.length;
+        btnSpeed.textContent = `${state.speedOptions[state.speedIndex]}×`;
+      });
 
       document.getElementById('btnStepBack').addEventListener('click', () => {
-        state.currentTime -= 5 * 60 * 1000
-        syncHeaderUI()
-        render()
-      })
+        state.currentTime -= 5 * 60 * 1000;
+        syncHeaderUI();
+        render();
+      });
 
       document.getElementById('btnStepForward').addEventListener('click', () => {
-        state.currentTime += 5 * 60 * 1000
-        syncHeaderUI()
-        render()
-      })
+        state.currentTime += 5 * 60 * 1000;
+        syncHeaderUI();
+        render();
+      });
 
       document.getElementById('btnFit').addEventListener('click', () => {
-        const timelineWidth = canvasWidth - LEFT_SIDEBAR_WIDTH
-        state.viewStartTime = state.currentTime - (timelineWidth * 0.45) / state.pxPerMs
-        render()
-      })
+        const timelineWidth = canvasWidth - LEFT_SIDEBAR_WIDTH;
+        state.viewStartTime = state.currentTime - (timelineWidth * 0.45) / state.pxPerMs;
+        render();
+      });
 
       // 初始化启动
-      window.addEventListener('resize', resizeCanvas)
-      resizeCanvas()
-      syncHeaderUI()
-      state.lastFrameTime = performance.now()
-      requestAnimationFrame(tickAnimation)
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+      syncHeaderUI();
+      state.lastFrameTime = performance.now();
+      requestAnimationFrame(tickAnimation);
     </script>
   </body>
 </html>
