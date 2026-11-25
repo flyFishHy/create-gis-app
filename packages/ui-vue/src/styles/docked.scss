@@ -168,7 +168,7 @@
     border: 0;
     background: transparent;
   }
-  .gis-ui-map-actions .gis-ui-toolbar {
+  .gis-ui-map-actions :is(.gis-ui-toolbar, .gis-ui-toolbar-measure) {
     min-height: 34px;
     flex-wrap: nowrap;
     gap: 6px;
@@ -183,8 +183,7 @@
     padding: 0;
     border: 0;
   }
-  .gis-ui-toolbar button,
-  .gis-ui-toolbar-measure button {
+  :is(.gis-ui-toolbar, .gis-ui-toolbar-measure) button {
     width: auto;
     height: 32px;
     padding: 0 8px;
@@ -194,22 +193,8 @@
     font-size: var(--gis-ui-font-sm);
     white-space: nowrap;
   }
-  .gis-ui-toolbar-measure button {
-    border: 1px solid transparent;
-  }
   .gis-ui-toolbar-measure {
-    position: absolute;
     width: max-content;
-    visibility: hidden;
-    pointer-events: none;
-    display: flex;
-  }
-  .gis-ui-toolbar-measure button {
-    display: inline-flex;
-    align-items: center;
-  }
-  .gis-ui-toolbar-root {
-    position: relative;
   }
   .gis-ui-map-status {
     position: relative;
@@ -243,15 +228,17 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: min(420px, 70vh);
+  max-height: min(420px, 70vh, calc(100vh - 16px));
   overflow: auto;
-  min-width: 160px;
+  min-width: min(160px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   padding: 5px;
   border: 1px solid var(--gis-ui-border);
   border-radius: 8px;
   @include glass.menu-surface;
 }
-.gis-ui-toolbar-menu button {
+.gis-ui-toolbar-menu button,
+.gis-ui-toolbar-menu-display {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -263,9 +250,14 @@
   font: inherit;
   font-size: var(--gis-ui-font-sm);
   text-align: left;
+}
+.gis-ui-toolbar-menu button {
   cursor: pointer;
 }
-.gis-ui-toolbar-menu button:not(.is-active):is(:hover, :focus-visible) {
+.gis-ui-toolbar-menu-display {
+  justify-content: space-between;
+}
+.gis-ui-toolbar-menu button:hover:not(.is-active, :disabled) {
   background: var(--gis-ui-hover);
   color: var(--gis-ui-primary);
 }

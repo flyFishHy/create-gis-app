@@ -17,6 +17,7 @@ export function createSnapshotReader(
       type: layer.type,
       title: layer.title ?? null,
       visible: layer.visible,
+      ownVisible: layer.ownVisible,
       status: layer.status,
       style: layer.style ?? null,
       legend: layer.legend ?? null,

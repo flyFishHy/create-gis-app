@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ResourceScopeImpl } from '../src/resource-scope.js';
+import { ResourceScopeImpl } from '../src/index.js';
 
 describe('ResourceScopeImpl', () => {
   it('disposes resources in reverse order and supports unregistering', async () => {

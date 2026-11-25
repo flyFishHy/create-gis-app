@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
     @pointerleave="leave"
     @focusin="show"
     @focusout="blur"
-    @keydown.esc.stop="hide"
+    @keydown.esc="hide"
     @click="hide"
   >
     <slot :described-by="open ? id : undefined" />

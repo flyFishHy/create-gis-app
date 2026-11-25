@@ -1,7 +1,7 @@
-import { GISRuntimeError } from './errors.js';
-import type { InteractionDependencies } from './context/service-dependencies.js';
-import { assertRuntimeStatus, writableStatuses } from './runtime/lifecycle.js';
-import { assertResourceScopeActive } from './resource-scope.js';
+import { GISRuntimeError } from '../errors.js';
+import type { InteractionDependencies } from '../context/service-dependencies.js';
+import { assertRuntimeStatus, writableStatuses } from '../runtime/lifecycle.js';
+import { assertResourceScopeActive } from '../runtime/resource-scope.js';
 import type {
   AppContext,
   EventService,
@@ -14,7 +14,7 @@ import type {
   SelectOptions,
   ToolDefinition,
   Unsubscribe,
-} from './types.js';
+} from '../types.js';
 
 const identifyTimeout = 2000;
 

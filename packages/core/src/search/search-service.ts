@@ -1,4 +1,4 @@
-import { GISRuntimeError } from './errors.js';
+import { GISRuntimeError } from '../errors.js';
 import type {
   AppStatus,
   EventService,
@@ -7,8 +7,8 @@ import type {
   SearchQuery,
   SearchResult,
   SearchService,
-} from './types.js';
-import { assertResourceScopeActive } from './resource-scope.js';
+} from '../types.js';
+import { assertResourceScopeActive } from '../runtime/resource-scope.js';
 
 /** Runtime-owned provider registrations; query results belong to each caller. */
 export class SearchServiceImpl implements SearchService {

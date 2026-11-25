@@ -168,7 +168,7 @@ async function flushOpacity(layer: LayerInstance) {
 function toggleVisibility(layer: LayerInstance) {
   try {
     error.value = undefined;
-    app.layers.setVisibility(layer.id, !layer.visible);
+    app.layers.setVisibility(layer.id, !layer.ownVisible);
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
   }
@@ -362,10 +362,10 @@ function pointerUp(event: PointerEvent) {
             :aria-label="
               ui.locale.t('action.toggleLayer') + ' ' + (row.layer.title ?? row.layer.id)
             "
-            :aria-pressed="row.layer.visible"
+            :aria-pressed="row.layer.ownVisible"
             @click="toggleVisibility(row.layer)"
           >
-            <SvgIcon :name="row.layer.visible ? 'eye' : 'eye-off'" :size="16" />
+            <SvgIcon :name="row.layer.ownVisible ? 'eye' : 'eye-off'" :size="16" />
           </button>
           <span class="gis-ui-layer-name" :title="row.layer.title ?? row.layer.id">{{
             row.layer.title ?? row.layer.id

@@ -1,8 +1,78 @@
-import type { JsonValue, LayerConfig, MapLayerHandle } from '@joinmap/gis-core';
+import type { JsonValue, LayerConfig, LayerUpdate, MapLayerHandle } from '@joinmap/gis-core';
 import type BaseLayer from 'ol/layer/Base.js';
 import VectorLayer from 'ol/layer/Vector.js';
 import { createLayerStyling } from './style-controller.js';
 import { findVectorFeature } from '../../interactions/feature-reference.js';
+import { runCleanups } from '../../lifecycle/run-cleanups.js';
+
+function commitLayerUpdate(
+  layer: BaseLayer,
+  patch: LayerUpdate,
+  style:
+    | {
+        apply(): void;
+        rollback(): void;
+      }
+    | undefined
+): void {
+  const rollbacks: (() => void)[] = [];
+  const apply = <Value>(
+    next: Value | undefined,
+    read: () => Value,
+    write: (value: Value) => void
+  ) => {
+    if (next !== undefined) {
+      const previous = read();
+      rollbacks.push(() => write(previous));
+      write(next);
+    }
+  };
+  try {
+    if (style) {
+      rollbacks.push(style.rollback);
+      style.apply();
+    }
+    const opacity = patch.options?.opacity;
+    apply(
+      typeof opacity === 'number' ? opacity : undefined,
+      () => layer.getOpacity(),
+      (value) => layer.setOpacity(value)
+    );
+    apply(
+      patch.visible,
+      () => layer.getVisible(),
+      (value) => layer.setVisible(value)
+    );
+    apply(
+      patch.zIndex,
+      () => layer.getZIndex(),
+      (value) => {
+        if (value === undefined) {
+          layer.unset('zIndex');
+        } else {
+          layer.setZIndex(value);
+        }
+      }
+    );
+    apply(
+      patch.title,
+      () => layer.get('title') as string | undefined,
+      (value) => {
+        if (value === undefined) {
+          layer.unset('title');
+        } else {
+          layer.set('title', value);
+        }
+      }
+    );
+  } catch (cause) {
+    const errors = runCleanups(rollbacks.reverse());
+    if (errors.length) {
+      throw new AggregateError(errors, 'Could not restore the previous OL layer state.', { cause });
+    }
+    throw cause;
+  }
+}
 
 export function createLayerHandle(
   layer: BaseLayer,
@@ -34,30 +104,18 @@ export function createLayerHandle(
   }
   styling.apply();
   layer.set('gisLayerId', config.id);
+  const commitUpdate = (patch: LayerUpdate): undefined => {
+    if (patch.options) {
+      validateOptions(patch.options);
+    }
+    commitLayerUpdate(layer, patch, styling.prepareUpdate(patch));
+  };
   const handle: MapLayerHandle = {
     ...styling.methods,
     setVisible: (visible) => layer.setVisible(visible),
     setZIndex: (zIndex) => layer.setZIndex(zIndex),
-    update: (patch) => {
-      const applyStyle = styling.prepareUpdate(patch);
-      if (patch.options) {
-        validateOptions(patch.options);
-      }
-      // Prepare every value before committing any engine mutations.
-      applyStyle();
-      if (typeof patch.options?.opacity === 'number') {
-        layer.setOpacity(patch.options.opacity);
-      }
-      if (patch.visible !== undefined) {
-        layer.setVisible(patch.visible);
-      }
-      if (patch.zIndex !== undefined) {
-        layer.setZIndex(patch.zIndex);
-      }
-      if (patch.title !== undefined) {
-        layer.set('title', patch.title);
-      }
-    },
+    commitUpdate,
+    update: commitUpdate,
     dispose,
     getMetadata: () => ({
       olLayerType: layer.constructor.name,

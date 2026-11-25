@@ -1,14 +1,14 @@
-import { GISRuntimeError } from './errors.js';
+import { GISRuntimeError } from '../errors.js';
 import type {
   MapAdapter,
   MapService,
   MapViewService,
   MapLocation,
   MapOverlayAnchor,
-} from './types.js';
-import type { AppStatus, MapConfig, MapStateSnapshot, Unsubscribe } from './types.js';
-import type { AppStateImpl } from './state/app-state.js';
-import { assertRuntimeStatus, writableStatuses } from './runtime/lifecycle.js';
+} from '../types.js';
+import type { AppStatus, MapConfig, MapStateSnapshot, Unsubscribe } from '../types.js';
+import type { AppStateImpl } from '../state/app-state.js';
+import { assertRuntimeStatus, writableStatuses } from '../runtime/lifecycle.js';
 
 export class MapServiceImpl implements MapService {
   private adapter?: MapAdapter;

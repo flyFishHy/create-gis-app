@@ -2,7 +2,7 @@ import { DataSetImpl } from './data-set.js';
 import { GISRuntimeError } from '../errors.js';
 import type { ServiceDependencies } from '../context/service-dependencies.js';
 import { assertRuntimeStatus } from '../runtime/lifecycle.js';
-import { assertResourceScopeActive } from '../resource-scope.js';
+import { assertResourceScopeActive } from '../runtime/resource-scope.js';
 import type { DataStateSnapshot } from '../types.js';
 import type {
   AppContext,

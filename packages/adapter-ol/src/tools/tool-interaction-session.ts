@@ -7,6 +7,7 @@ import Snap from 'ol/interaction/Snap.js';
 import type Geometry from 'ol/geom/Geometry.js';
 import type { EventsKey } from 'ol/events.js';
 import { unByKey } from 'ol/Observable.js';
+import type { StyleFunction } from 'ol/style/Style.js';
 import { runCleanups } from '../lifecycle/run-cleanups.js';
 
 export function createToolInteractionSession() {
@@ -23,6 +24,9 @@ export function createToolInteractionSession() {
   return {
     get draw(): Draw | undefined {
       return active?.interaction instanceof Draw ? active.interaction : undefined;
+    },
+    redraw() {
+      active?.interaction.getOverlay().changed();
     },
     start(
       map: OlMap,
@@ -57,10 +61,11 @@ export function createToolInteractionSession() {
 
 export function createModifyInteraction(
   feature: Feature,
+  style: StyleFunction,
   commit: (geometry: Geometry) => void,
   onError: (cause: unknown) => void
 ) {
-  const interaction = new Modify({ features: new Collection([feature]) });
+  const interaction = new Modify({ features: new Collection([feature]), style });
   let previous: Geometry | undefined;
   const start = interaction.on('modifystart', () => {
     previous = feature.getGeometry()?.clone();

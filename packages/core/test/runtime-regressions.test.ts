@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { expect, it, vi } from 'vitest';
+import { createGISApp } from '../src/index.js';
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js';
 
 it('keeps services available after UI mount and unmount', async () => {
@@ -69,4 +69,45 @@ it('updates group metadata after child removal and cleans parent idempotently', 
   await app.layers.remove('g');
   expect(app.layers.list()).toEqual([]);
   await app.dispose();
+});
+
+it('can reapply the committed order after an engine setter interrupts reordering', async () => {
+  const adapter = new FakeMapAdapter();
+  const writes = new Map<string, number>();
+  const failure = new Error('injected zIndex setter failure');
+  const app = createGISApp().use(
+    createFakeMapPlugin(adapter, {
+      test: createFakeLayerDefinition(({ id }) => ({
+        setVisible() {},
+        setZIndex(value) {
+          writes.set(id, value);
+        },
+        dispose() {},
+      })),
+    })
+  );
+  const previous = ['first', 'second', 'third'];
+  await app.init({ layers: previous.map((id) => ({ id, type: 'test' })) });
+  try {
+    app.layers.setOrder(previous);
+    const handles = [...adapter.handles];
+    const second = handles[1]!;
+    const setZIndex = second.setZIndex.bind(second);
+    vi.spyOn(second, 'setZIndex').mockImplementationOnce((value) => {
+      setZIndex(value);
+      throw failure;
+    });
+    const events = vi.fn();
+    app.layers.subscribe(events);
+    expect(() => app.layers.setOrder([...previous].reverse())).toThrow(failure);
+    expect(app.layers.list().map(({ id }) => id)).toEqual(previous);
+    expect(events).not.toHaveBeenCalled();
+    expect(adapter.handles).toEqual([...handles].reverse());
+    app.layers.setOrder(previous);
+    expect(adapter.handles).toEqual(handles);
+    expect(previous.map((id) => writes.get(id))).toEqual([0, 1, 2]);
+    expect(events).toHaveBeenCalledExactlyOnceWith({ type: 'order' });
+  } finally {
+    await app.dispose();
+  }
 });

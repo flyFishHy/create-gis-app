@@ -1,5 +1,5 @@
-import { GISRuntimeError } from './errors.js';
-import type { EventService, GISAppEvents, GISAppOptions, Unsubscribe } from './types.js';
+import { GISRuntimeError } from '../errors.js';
+import type { EventService, GISAppEvents, GISAppOptions, Unsubscribe } from '../types.js';
 
 export class EventServiceImpl implements EventService {
   private readonly listeners = new Map<keyof GISAppEvents, Set<(payload: never) => void>>();

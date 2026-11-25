@@ -4,7 +4,8 @@ import type { JsonValue } from '../types/common.js';
 export function validateJsonValue(
   value: unknown,
   path: string,
-  seen: WeakSet<object>
+  seen: WeakSet<object>,
+  omitUndefinedFields = false
 ): asserts value is JsonValue {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
     return;
@@ -27,13 +28,17 @@ export function validateJsonValue(
   seen.add(value);
 
   if (Array.isArray(value)) {
-    value.forEach((entry, index) => validateJsonValue(entry, `${path}[${index}]`, seen));
+    value.forEach((entry, index) =>
+      validateJsonValue(entry, `${path}[${index}]`, seen, omitUndefinedFields)
+    );
   } else {
     if (!isPlainObject(value)) {
       throw configError('Configuration objects must be plain objects.', path);
     }
     for (const [key, entry] of Object.entries(value)) {
-      validateJsonValue(entry, `${path}.${key}`, seen);
+      if (entry !== undefined || !omitUndefinedFields) {
+        validateJsonValue(entry, `${path}.${key}`, seen, omitUndefinedFields);
+      }
     }
   }
 

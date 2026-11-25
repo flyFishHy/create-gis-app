@@ -151,17 +151,36 @@ OL applies useLayerStyle only for an explicitly opted-in, single category item.
 Groups track child identity, not just reused IDs. Order updates synchronize list
 and adapter order. `setOrder(ids)` accepts all registered IDs in back-to-front order
 and normalizes leaf zIndex to 0..N-1, overriding earlier per-layer zIndex values.
+If a reorder fails partway through engine writes, Core retains its last committed
+list order. Once the engine can accept writes again, reapply the full committed
+order through `setOrder` to reconcile the engine collection and leaf zIndex values.
 Temporary sketch and highlight layers are outside this order. The default UI displays front-to-back,
 moves sibling layers or entire group blocks, and never reparents a child.
 Domain observer failures report app:error without undoing commits.
+The instance and service entry points for visibility and updates publish the same
+events after the committed state is available. An update containing `visible`
+publishes a visibility event. Group visibility events follow the completed cascade.
+Layer additions publish only after the entire tree is ready. If creation fails,
+Core rolls back staged layers in reverse order. Adapters must safely handle
+`removeLayer(handle)` after a failed attach attempt, including partial attachment.
+Core attempts handle disposal even if removal throws. If rollback also fails, the
+rejection retains the original failure in `cause` and lists rollback errors in
+`cleanupErrors`.
+Initial and dynamic additions share validation for common layer fields.
+`add()` and `addChild()` capture a frozen JSON configuration tree before an
+asynchronous factory runs, including nested children and inline source values.
+Adapter-specific source fields are interpreted by the layer factory.
 For GROUP, an explicit initial/update zIndex places its current leaf descendants
 in a contiguous interval [zIndex, zIndex+1), preserving their relative order.
-Group visibility is derived from its current descendants. Changing group visibility
-updates all descendants. Changing one child can make its ancestors visible
-without changing siblings. A group with no visible descendants is hidden.
+Each layer exposes its own switch as `ownVisible` and its effective visibility
+as `visible`. Both are available in the layer snapshot. Effective visibility
+requires the layer and every ancestor group to be enabled. A group switch
+preserves descendant settings. Editing a child under a closed group changes its
+setting while rendering stays hidden. Enabled groups stay enabled when empty or
+when every child is disabled. Visibility event payloads report effective visibility.
 `layers.addChild(groupId, config)` creates a layer under an existing group and
-publishes it with its final parent. New children inherit an explicitly hidden
-group's visibility and are disposed with their parent.
+publishes it with its final parent. New children keep their configured setting,
+inherit their parent's effective gate, and are disposed with their parent.
 
 Without an explicit group zIndex, child zIndex values are retained. Group metadata
 reports the highest current leaf zIndex. Root drag ordering normalizes all leaves
@@ -175,6 +194,10 @@ Core merges live GROUP members only when their declared projections agree. Custo
 handles in a mixed-projection group must normalize first; Core does not transform.
 Hidden layers remain locatable. No bounds are cached in AppState; OL only exposes
 the derived hasDataLocation boolean so empty/nonempty changes refresh controls.
+If an OL vector synchronization observer fails after a DataSet update, the
+DataSet retains the accepted value and reports `app:error` at `data-observer`.
+A later successful DataSet update rebuilds the vector source, including when
+the caller resubmits the same accepted value.
 
 ```ts
 const location = app.layers.getDataLocation('states')
@@ -188,7 +211,12 @@ LayerInstance.version and snapshot.layers[].version increment on committed updat
 and layer operations such as visibility/time filtering. Optional LayerUpdate.expectedVersion is checked inside
 the serialized queue before engine changes; stale edits reject APP_INVALID_STATE.
 Omission preserves normal unconditional updates. The precondition is not forwarded
-to the adapter. A style/legend editor submits both in one update and retains its
+to the adapter. Handles can implement synchronous `commitUpdate(patch)` to apply
+the entire patch, including visibility and zIndex, and restore the previous
+engine state if it throws. Core commits its metadata and version after that hook
+succeeds. Handles using the legacy async `update` hook still receive the patch
+and Core applies the common visibility and zIndex setters afterward.
+A style/legend editor submits both in one update and retains its
 draft on failure. Applications explicitly persist/export edits; init config is not
 mutated or written to disk.
 
@@ -435,9 +463,11 @@ distance at each following vertex, show the live total at the pointer, and keep
 the final total at the last vertex.
 Angle measurements label the outside of the arc at the second vertex. Completed
 result labels have a remove button and follow their layer's visibility.
-Set `--gis-map-measurement-color` on the map target to color measurement
-outlines, vertices, and angle arcs. It accepts CSS colors and defaults to
-`#3b82f6`. Changing the target or its theme updates existing measurements.
+Set `--gis-map-measurement-color` on the map target to color drawing and
+measurement lines, polygon outlines, vertices, and angle arcs. Polygon fills
+use the same color at 16% opacity. The token accepts CSS colors and defaults to
+`#3b82f6`. Changing the target or its theme updates previews, edit handles,
+and saved tool results. Tool results follow their target layer's filters.
 Drawing and measurement tools deactivate
 after committing a valid result. `deactivateTool(expectedId?)` can limit
 deactivation to the matching active tool.

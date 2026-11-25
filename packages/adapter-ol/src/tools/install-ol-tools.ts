@@ -1,6 +1,5 @@
 import Draw from 'ol/interaction/Draw.js';
 import GeoJSON from 'ol/format/GeoJSON.js';
-import { createEditingStyle, type StyleFunction, type default as Style } from 'ol/style/Style.js';
 import Feature from 'ol/Feature.js';
 import type Geometry from 'ol/geom/Geometry.js';
 import type Projection from 'ol/proj/Projection.js';
@@ -15,10 +14,10 @@ import type { WritableVectorTarget } from '../layers/common/layer-binding.js';
 import { describeFeature } from '../interactions/feature-reference.js';
 import { toolTargets, type ToolId } from './tool-targets.js';
 import {
-  createMeasurementStyles,
+  createToolStyles,
   removeMeasurementLabels,
   updateMeasurementLabels,
-  watchMeasurementColor,
+  watchToolColor,
   type MeasurementLabels,
 } from './measurement-display.js';
 import type { EventsKey } from 'ol/events.js';
@@ -74,7 +73,7 @@ export function installOLTools(
   let sequence = 0;
   let disposed = false;
   const labels = new Map<string | undefined, MeasurementLabels>();
-  const measurementStyles = createMeasurementStyles();
+  const toolStyles = createToolStyles();
   let unwatchColor: (() => void) | undefined;
   let sketchListener: EventsKey | undefined;
   const removeLabel = (id: string | undefined) => {
@@ -136,25 +135,18 @@ export function installOLTools(
       throw new Error('OL tools have been disposed.');
     }
   };
-  const editingStyles = createEditingStyle() as Record<string, Style[]>;
   const format = new GeoJSON();
   const results = createToolResultIndex(format, {
     updated({ target, feature, result }, changedFeature) {
       if (changedFeature) {
-        const style: StyleFunction = (item, resolution) => {
+        feature.setStyle((item, resolution) => {
+          // Keep the target layer's time and classification filters for tool features.
           const base = target.layer.getStyleFunction()?.(item, resolution);
-          if (!base) {
-            return [];
+          if (!base || (Array.isArray(base) && !base.length)) {
+            return undefined;
           }
-          if (result.toolId === 'measure-angle') {
-            return measurementStyles.get(item, resolution, result.toolId);
-          }
-          return [
-            ...(Array.isArray(base) ? base : [base]),
-            ...measurementStyles.get(item, resolution, undefined),
-          ];
-        };
-        feature.setStyle(style);
+          return toolStyles.get(item, resolution, result.toolId);
+        });
       }
       const geometry = feature.getGeometry();
       if (geometry && target.layer.getVisible()) {
@@ -169,12 +161,12 @@ export function installOLTools(
 
   const useMap = () => {
     map = dependencies.getMap();
-    unwatchColor ??= watchMeasurementColor(map, (color) => {
-      measurementStyles.setColor(color);
+    unwatchColor ??= watchToolColor(map, (color) => {
+      toolStyles.setColor(color);
       for (const { target } of attached.values()) {
         target.layer.changed();
       }
-      session.draw?.getOverlay().changed();
+      session.redraw();
     });
     return map;
   };
@@ -511,13 +503,7 @@ export function installOLTools(
           const interaction = new Draw({
             type: tool.type,
             stopClick: true,
-            style: (feature, resolution) => {
-              const styles = measurementStyles.get(feature, resolution, tool.id);
-              if (measured) {
-                return styles;
-              }
-              return [...(editingStyles[feature.getGeometry()?.getType() ?? ''] ?? []), ...styles];
-            },
+            style: (feature, resolution) => toolStyles.get(feature, resolution, tool.id),
             ...(tool.id === 'measure-angle' ? { minPoints: 3, maxPoints: 3 } : {}),
           });
           const drawListeners: EventsKey[] = [
@@ -642,6 +628,7 @@ export function installOLTools(
           restore,
         } = createModifyInteraction(
           feature,
+          toolStyles.get,
           (geometry) => {
             controller.updateGeometry(
               result.id,

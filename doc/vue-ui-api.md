@@ -180,7 +180,7 @@ are resolved independently. Explicit panel positions still override these defaul
 At 1100px and below status has its own row. At 900px and below Properties stays
 on the right and temporarily hides the rail because both columns cannot fit;
 closing it restores the same rail, without changing panel visibility state.
-Bodies/toolbar scroll internally; reduced-motion preferences disable transitions.
+Panel bodies scroll internally. Reduced-motion preferences disable transitions.
 Only real controls receive pointer input; empty overlay space reaches the map.
 
 PanelService owns register/show/hide/toggle/collapse/expand/setOrder/getState.
@@ -278,18 +278,26 @@ Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It us
 InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
 Missing capabilities hide buttons; unavailable actions are disabled. UIConfig.tools
 optionally lists visible built-in IDs (including zoom-in/zoom-out); [] hides all
-built-ins. Activating a known drawing or measurement tool shows a non-interactive
+built-ins. The built-in toolbar fits its available width in the docked layout
+and its available height in the overlay layout. Trailing tools move into the
+keyboard-accessible More menu and return as space increases. Set
+`createVueUI({ toolbarMaxVisibleTools: 6 })` to cap the number of items shown directly
+in the vertical toolbar. The optional cap accepts a non-negative integer, with zero
+placing every tool in the menu. The More button uses its own space in the toolbar.
+Activating a known drawing or measurement tool shows a non-interactive
 hint centered above the status bar with the click/double-click workflow and Esc shortcut.
 The hint follows public AppState, uses the workbench panel material and primary-color
 pulse, and disappears when the tool deactivates. Custom toolbarItems are separate. Escape cancels and Backspace undoes
 inside the workspace; text inputs/contenteditable and modified keys are ignored.
+Canceling an active tool with Escape releases focus from a focused toolbar button.
 Status uses the dedicated id=status panel slot and respects visible=false.
 No createOLToolsUI/createPropertiesUI/OLMapStatus is needed for basic applications.
 The optional [OL integration](ol-vue-api.md) adds only an advanced result-list panel.
 Map measurement labels inherit the workbench's frosted, liquid and solid
-materials. Measurement outlines, vertex outlines, and angle arcs use the active
-primary color through the map target's `--gis-map-measurement-color` property.
-Switching the workspace's primary color also updates existing measurements.
+materials. Drawing and measurement lines, polygon outlines, vertices, and angle
+arcs use the active primary color through the map target's
+`--gis-map-measurement-color` property. Polygon fills use the same color at 16%
+opacity. Previews, edit handles, and saved results update when the primary color changes.
 Vertex circles have a white fill. Distance labels stay near their nodes, choosing a side that
 avoids adjoining lines and other labels in the same result when space allows.
 Cumulative distances switch from m to km at 1,000 m, and area switches from m² to
@@ -314,9 +322,10 @@ root layers and a refresh action. Case-insensitive name filtering includes child
 layers and retains their ancestors; a matching parent retains its subtree. Search
 expands matching roots without changing saved expansion state or Runtime order.
 Refresh clears the filter and re-reads current Runtime data, preserving visibility,
-styles and order. Toggling a group applies visibility to all descendants. Child
-toggles remain available when a group is hidden. A group is visible whenever any
-descendant is visible. Settings contain an opacity
+styles and order. Closing a group hides its descendants while preserving their
+switches. Child toggles remain available under a closed group. Their pressed
+state shows the child's setting, and row dimming follows effective visibility.
+Reopening the group uses the current child settings. Settings contain an opacity
 slider only; style/legend editing belongs to LegendPanel. 0–100% maps to LayerService.update
 options.opacity 0–1 (100% is opaque).
 Rapid input coalesces pending slider values; committed values are read from layer

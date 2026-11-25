@@ -71,6 +71,13 @@ class VueUIAdapter implements UIAdapter {
     private readonly runtime: GISApp,
     private readonly options: VueUIOptions
   ) {
+    const maxVisibleTools = options.toolbarMaxVisibleTools;
+    if (
+      maxVisibleTools !== undefined &&
+      (!Number.isInteger(maxVisibleTools) || maxVisibleTools < 0)
+    ) {
+      throw new Error('toolbarMaxVisibleTools must be a non-negative integer.');
+    }
     const config = resolveUIConfig(options.config, runtime.config?.ui);
     this.theme = new ThemeServiceImpl(config.theme as ThemeOptions);
     this.locale = new LocaleServiceImpl(config.locale);
@@ -374,6 +381,9 @@ class VueUIAdapter implements UIAdapter {
       position: 'top',
       unframed: true,
       props: {
+        ...(this.options.toolbarComponent
+          ? {}
+          : { maxVisibleTools: this.options.toolbarMaxVisibleTools }),
         get tooltipPlacement() {
           return !customLayout && layout.value === 'overlay-dashboard' ? 'left' : 'bottom';
         },

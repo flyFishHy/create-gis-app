@@ -21,6 +21,7 @@ export interface LayerStateSnapshot {
   readonly type: string;
   readonly title: string | null;
   readonly visible: boolean;
+  readonly ownVisible: boolean;
   readonly status: LayerInstance['status'];
   readonly metadata: Readonly<Record<string, JsonValue>>;
   readonly legend: LegendDefinition | null;

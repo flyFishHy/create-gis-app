@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { createGISApp } from '../src/index.js';
 import type { DataProcessor, GISPlugin, ToolDefinition } from '../src/types.js';
 
 describe('DataService', () => {

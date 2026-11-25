@@ -10,6 +10,94 @@ function deferred() {
   return { promise, resolve };
 }
 
+it.each(['service', 'instance'] as const)(
+  'publishes committed state and equivalent events through the %s entry point',
+  async (entry) => {
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() })
+    );
+    await app.init({ layers: [{ id: 'one', type: 'test' }] });
+    try {
+      const layer = app.layers.get('one')!;
+      const timeline: unknown[] = [];
+      const snapshotVersion = () => app.context.state.snapshot().layers[0]?.version;
+      app.context.state.subscribe((snapshot) =>
+        timeline.push(['state', snapshot.layers[0]?.version])
+      );
+      app.events.on('layer:visibility-changed', (event) =>
+        timeline.push(['app visibility', event, snapshotVersion()])
+      );
+      app.events.on('layer:updated', (event) =>
+        timeline.push(['app update', event, snapshotVersion()])
+      );
+      app.layers.subscribe((event) => timeline.push(['service', event, snapshotVersion()]));
+      const target =
+        entry === 'instance'
+          ? layer
+          : {
+              setVisibility: (visible: boolean) => app.layers.setVisibility('one', visible),
+              update: (patch: Parameters<typeof layer.update>[0]) =>
+                app.layers.update('one', patch),
+            };
+      target.setVisibility(false);
+      await target.update({ title: 'Updated' });
+      await target.update({ title: 'Visible', visible: true });
+      expect(timeline).toEqual([
+        ['state', 1],
+        ['app visibility', { layerId: 'one', visible: false }, 1],
+        ['service', { type: 'visibility', id: 'one', visible: false }, 1],
+        ['state', 2],
+        ['app update', { layerId: 'one' }, 2],
+        ['service', { type: 'update', id: 'one' }, 2],
+        ['state', 3],
+        ['app visibility', { layerId: 'one', visible: true }, 3],
+        ['service', { type: 'visibility', id: 'one', visible: true }, 3],
+      ]);
+    } finally {
+      await app.dispose();
+    }
+  }
+);
+
+it('publishes group visibility events only after the whole cascade is reflected in state', async () => {
+  const app = createGISApp().use(
+    createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() })
+  );
+  await app.init({
+    layers: [
+      {
+        id: 'group',
+        type: 'GROUP',
+        children: [
+          { id: 'first', type: 'test' },
+          { id: 'second', type: 'test' },
+        ],
+      },
+    ],
+  });
+  try {
+    const events: [string | undefined, boolean[]][] = [];
+    const state = vi.fn();
+    app.context.state.subscribe(state);
+    const stop = app.layers.subscribe((event) => {
+      events.push([event.id, app.context.state.snapshot().layers.map((layer) => layer.visible)]);
+    });
+    app.layers.get('group')!.setVisibility(false);
+    expect(state).toHaveBeenCalledOnce();
+    expect(events).toEqual([
+      ['first', [false, false, false]],
+      ['second', [false, false, false]],
+      ['group', [false, false, false]],
+    ]);
+    events.length = 0;
+    await app.layers.addChild('group', { id: 'third', type: 'test' });
+    expect(events.map(([id]) => id)).toEqual(['third']);
+    stop();
+  } finally {
+    await app.dispose();
+  }
+});
+
 it('checks edit versions inside the serialized queue and rejects stale edits before engine mutation', async () => {
   const gate = deferred(),
     started = deferred(),
@@ -90,6 +178,41 @@ it.each(['remove', 'dispose'] as const)(
     await app.dispose();
   }
 );
+
+it('applies visibility after a pending legacy update without publishing stale state', async () => {
+  const gate = deferred();
+  const started = deferred();
+  const setVisible = vi.fn();
+  const app = createGISApp().use(
+    createFakeMapPlugin(undefined, {
+      test: createFakeLayerDefinition(() => ({
+        setVisible,
+        setZIndex() {},
+        dispose() {},
+        async update() {
+          started.resolve();
+          await gate.promise;
+        },
+      })),
+    })
+  );
+  await app.init({ layers: [{ id: 'one', type: 'test' }] });
+  try {
+    const layer = app.layers.get('one')!;
+    const pending = layer.update({ visible: false });
+    await started.promise;
+    layer.setVisibility(true);
+    expect(layer.visible).toBe(true);
+    gate.resolve();
+    await pending;
+    expect(setVisible.mock.calls).toEqual([[true], [false]]);
+    expect(layer.visible).toBe(false);
+    expect(layer.version).toBe(2);
+  } finally {
+    gate.resolve();
+    await app.dispose();
+  }
+});
 
 it('serializes updates, recovers after failure and rejects unsupported options before committing metadata', async () => {
   const gate = deferred(),

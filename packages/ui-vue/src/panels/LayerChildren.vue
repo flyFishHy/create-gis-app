@@ -22,10 +22,10 @@ const ui = useGISUI();
           type="button"
           class="gis-ui-layer-visibility"
           :aria-label="`${ui.locale.t('action.toggleLayer')} ${node.layer.title || node.layer.id}`"
-          :aria-pressed="node.layer.visible"
+          :aria-pressed="node.layer.ownVisible"
           @click="emit('toggle', node.layer)"
         >
-          <SvgIcon :name="node.layer.visible ? 'eye' : 'eye-off'" :size="16" />
+          <SvgIcon :name="node.layer.ownVisible ? 'eye' : 'eye-off'" :size="16" />
         </button>
         <span class="gis-ui-layer-name" :title="node.layer.title || node.layer.id">{{
           node.layer.title || node.layer.id

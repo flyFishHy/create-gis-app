@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { createGISApp } from '../src/index.js';
 import { GISRuntimeError } from '../src/types.js';
 import type { GISPlugin, UIAdapter } from '../src/types.js';
 

@@ -1,7 +1,7 @@
 export { createGISApp } from './runtime/gis-app.js';
-export { normalizeUIConfig } from './config.js';
-export { normalizeConfig as parseGISAppConfig } from './config.js';
-export { ResourceScopeImpl } from './resource-scope.js';
+export { normalizeUIConfig } from './config/app-config.js';
+export { normalizeConfig as parseGISAppConfig } from './config/app-config.js';
+export { ResourceScopeImpl } from './runtime/resource-scope.js';
 export { GISRuntimeError } from './errors.js';
 export type {
   UIConfig,

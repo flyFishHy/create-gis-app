@@ -33,6 +33,7 @@ export interface MapAdapter {
   updateSize(): void;
   setTarget(target: HTMLElement | string | undefined): void;
   addLayer(layer: MapLayerHandle, index?: number): void;
+  /** Must be safe after a failed addLayer attempt, including a partial attachment. */
   removeLayer(layer: MapLayerHandle): void;
   setLayerOrder(layers: readonly MapLayerHandle[]): void;
   getViewState?(): Omit<MapStateSnapshot, 'ready'>;

@@ -1,7 +1,16 @@
-import { configError, deepFreeze, isPlainObject, validateJsonValue } from './config/json.js';
-import { validateUIShape } from './config/ui-config.js';
-export { normalizeUIConfig } from './config/ui-config.js';
-import type { GISAppConfig, LayerLegend, LayerStyle, LegendDefinition } from './types.js';
+import { configError, deepFreeze, isPlainObject, validateJsonValue } from './json.js';
+import { validateUIShape } from './ui-config.js';
+export { normalizeUIConfig } from './ui-config.js';
+import type {
+  GISAppConfig,
+  LayerConfig,
+  LayerLegend,
+  LayerStyle,
+  LegendDefinition,
+  LegendItem,
+} from '../types.js';
+
+const normalizedLayerInputs = new WeakSet<LayerConfig>();
 
 export function normalizeConfig(config: unknown): Readonly<GISAppConfig> {
   if (!isPlainObject(config)) {
@@ -12,7 +21,77 @@ export function normalizeConfig(config: unknown): Readonly<GISAppConfig> {
   validateJsonValue(config, '$', seen);
   const clone = JSON.parse(JSON.stringify(config)) as GISAppConfig;
   validateGISShape(clone);
-  return deepFreeze(clone);
+  const normalized = deepFreeze(clone);
+  for (const layer of normalized.layers ?? []) {
+    normalizedLayerInputs.add(layer);
+  }
+  return normalized;
+}
+
+export function normalizeLayerInput(input: LayerConfig): LayerConfig {
+  if (normalizedLayerInputs.has(input)) {
+    return input;
+  }
+  validateJsonValue(input, 'layer', new WeakSet(), true);
+  const layer = JSON.parse(JSON.stringify(input)) as LayerConfig;
+  validateLayerConfig(layer, 'layer');
+  return deepFreeze(layer);
+}
+
+function validateLayerConfig(item: unknown, path: string, ids?: Set<string>): void {
+  if (!isPlainObject(item)) {
+    throw configError('Layer must be an object.', path);
+  }
+  if (typeof item.id !== 'string' || !item.id.trim()) {
+    throw configError('Layer id must be a non-empty string.', `${path}.id`);
+  }
+  if (ids?.has(item.id)) {
+    throw configError(`Layer id "${item.id}" is duplicated.`, `${path}.id`);
+  }
+  ids?.add(item.id);
+  if (typeof item.type !== 'string' || !item.type.trim()) {
+    throw configError('Layer type must be a non-empty string.', `${path}.type`);
+  }
+  if (item.title !== undefined && typeof item.title !== 'string') {
+    throw configError('Layer title must be a string.', `${path}.title`);
+  }
+  if (item.visible !== undefined && typeof item.visible !== 'boolean') {
+    throw configError('Layer visible must be a boolean.', `${path}.visible`);
+  }
+  if (item.zIndex !== undefined && typeof item.zIndex !== 'number') {
+    throw configError('Layer zIndex must be a number.', `${path}.zIndex`);
+  }
+  if (item.legend !== undefined) {
+    const original = item.legend as LayerLegend;
+    const {
+      id,
+      layerId: _layerId,
+      ...legend
+    } = normalizeLayerLegend(original, item.id, `${path}.legend`);
+    item.legend = { ...legend, ...(original.id === undefined ? {} : { id }) };
+  }
+  if (item.style !== undefined) {
+    item.style = normalizeLayerStyle(item.style as LayerStyle, `${path}.style`);
+  }
+  if (item.options !== undefined) {
+    if (!isPlainObject(item.options)) {
+      throw configError('Layer options must be an object.', `${path}.options`);
+    }
+    if (item.options.style !== undefined) {
+      throw configError('Move options.style to layer.style.', `${path}.options.style`);
+    }
+  }
+  if (item.children !== undefined && (item.type !== 'GROUP' || !Array.isArray(item.children))) {
+    throw configError('children is supported only as a GROUP layer array.', `${path}.children`);
+  }
+  if (item.type === 'GROUP' && (!Array.isArray(item.children) || item.children.length === 0)) {
+    throw configError('GROUP layer must contain at least one child.', `${path}.children`);
+  }
+  if (Array.isArray(item.children)) {
+    item.children.forEach((child, index) =>
+      validateLayerConfig(child, `${path}.children[${index}]`, ids)
+    );
+  }
 }
 
 function validateGISShape(config: Record<string, unknown>): void {
@@ -98,54 +177,9 @@ function validateGISShape(config: Record<string, unknown>): void {
     }
   }
 
-  const ids = new Set<string>();
-  const validateLayers = (layers: unknown[], prefix: string) => {
-    layers.forEach((item, index) => {
-      const path = `${prefix}[${index}]`;
-      if (!isPlainObject(item)) {
-        throw configError('Layer must be an object.', path);
-      }
-      if (typeof item.id !== 'string' || !item.id.trim()) {
-        throw configError('Layer id must be a non-empty string.', `${path}.id`);
-      }
-      if (ids.has(item.id)) {
-        throw configError(`Layer id "${item.id}" is duplicated.`, `${path}.id`);
-      }
-      ids.add(item.id);
-      if (typeof item.type !== 'string' || !item.type.trim()) {
-        throw configError('Layer type must be a non-empty string.', `${path}.type`);
-      }
-      if (item.legend !== undefined) {
-        const original = item.legend as LayerLegend;
-        const {
-          id,
-          layerId: _layerId,
-          ...legend
-        } = normalizeLayerLegend(original, item.id, `${path}.legend`);
-        item.legend = { ...legend, ...(original.id === undefined ? {} : { id }) };
-      }
-      if (item.style !== undefined) {
-        normalizeLayerStyle(item.style as LayerStyle, `${path}.style`);
-      }
-      if (isPlainObject(item.options) && item.options.style !== undefined) {
-        throw configError('Move options.style to layer.style.', `${path}.options.style`);
-      }
-      if (item.children !== undefined) {
-        if (item.type !== 'GROUP' || !Array.isArray(item.children)) {
-          throw configError(
-            'children is supported only as a GROUP layer array.',
-            `${path}.children`
-          );
-        }
-        validateLayers(item.children, `${path}.children`);
-      }
-      if (item.type === 'GROUP' && (!Array.isArray(item.children) || item.children.length === 0)) {
-        throw configError('GROUP layer must contain at least one child.', `${path}.children`);
-      }
-    });
-  };
   if (Array.isArray(config.layers)) {
-    validateLayers(config.layers, 'layers');
+    const ids = new Set<string>();
+    config.layers.forEach((item, index) => validateLayerConfig(item, `layers[${index}]`, ids));
   }
 
   if (config.data !== undefined) {
@@ -330,7 +364,7 @@ export function normalizeLayerLegend(
   ) {
     throw configError('Invalid legend stops.', `${path}.stops`);
   }
-  const normalizeItem = ({ value: legacy, ...item }: import('./types.js').LegendItem) =>
+  const normalizeItem = ({ value: legacy, ...item }: LegendItem) =>
     legacy === undefined ? item : { ...item, values: [legacy] };
   return deepFreeze(
     JSON.parse(

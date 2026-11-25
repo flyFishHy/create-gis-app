@@ -737,6 +737,24 @@ Promise 表示"实例已创建并加入运行时"，数据是否全部加载完�
 
 ### 10.3 LayerConfig 与 LayerInstance
 
+图层树准备完成后统一发布。创建失败时按逆序回滚已暂存的图层，Adapter 的
+`removeLayer` 必须可清理失败的附着，包括已经部分附着的图层。移除失败后仍尝试
+释放 Handle，回滚错误通过 `cleanupErrors` 返回，原始错误保留在 `cause`。
+
+Handle 可实现同步 `commitUpdate`，一次写入 patch 中的引擎属性，失败时恢复旧值。
+Core 在其成功返回后才提交元数据和版本。旧的异步 `update` 钩子仍可用，
+该路径由 Core 在钩子完成后调用显隐和 zIndex setter。
+
+实例和 LayerService 的显隐、更新入口共享提交后的通知。含 `visible` 的 patch
+发布显隐事件，分组级联完成后才发布其中各节点的事件。
+
+初始图层和动态新增复用公共字段校验。动态新增在调用异步工厂前冻结 JSON 配置
+快照，包含子层、样式及内联数据。图层工厂负责解释各自的数据源字段。
+
+排序中途失败时 Core 保留最近一次已提交的列表顺序。引擎恢复后可重新提交完整顺序，
+同步引擎集合和叶子 zIndex。DataSet 是权威数据，OL 矢量同步失败会发出
+`app:error`，后续成功的数据更新可从完整数据重建矢量源。
+
 ``` ts
 export interface LayerConfig {
   id: string
@@ -1487,8 +1505,9 @@ DataSet 查询/更新/清理；`InteractionService` 提供 FeatureReference 选�
 与工具注册均绑定插件 ResourceScope，应用 dispose 时释放；工具切换互斥，选择对象
 只通过 FeatureReference 传递。
 
-OpenLayers 量测样式从地图挂载元素读取 `--gis-map-measurement-color`。地图应用或 UI
-可以在挂载元素上提供颜色，适配器在挂载元素或颜色变化时刷新量测样式。
+OpenLayers 绘制和量测样式从地图挂载元素读取 `--gis-map-measurement-color`。
+线、面轮廓、顶点和角度圆弧使用该颜色，面填充使用该颜色的 16% 不透明度。
+挂载元素或颜色变化时，适配器刷新草图、编辑节点和已有结果。结果要素仍遵循目标图层的过滤条件。
 
 GeoJSON 字段列表和最近一次查询的字段值随 VectorSource 变更失效。适配器按需读取要素，
 图例、显隐和时间过滤切换沿用当前字段缓存。
@@ -1667,7 +1686,7 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 ### Runtime / OL 工具联动修订
 
 - Runtime 数据加载、图层添加和工具激活在 initializing、ready、mounted、unmounted 状态可用。
-- 图层创建期间预留 ID，setOrder 同步 list 顺序；组的 childIds 仅返回仍存在的子图层。组显隐覆盖子图层显隐并发出事件。
+- 图层创建期间预留 ID，setOrder 同步 list 顺序；组的 childIds 仅返回仍存在的子图层。图层实例和快照的 `ownVisible` 表示自身开关，`visible` 和显隐事件表示祖先组共同约束后的有效显隐。组显隐保留子层偏好，空组也可保持开启。向隐藏组新增子层时保留配置开关，按父组有效显隐初始化。
 - 领域事件的观察者异常转为 app:error，不回滚已提交状态；app:error 观察者自身异常隔离。
 - DataSet.subscribe 通知 update；OL GeoJSON 重新解析并刷新 Source，删除时移除订阅。失败的图层私有数据集回滚，可同 ID 重试。
 - OL Adapter 将点击拾取转成 FeatureReference；激活工具时暂停拾取，隐藏/移除已选图层会清空选择。排序保留工具临时图层。
@@ -1685,7 +1704,7 @@ Teleport 内容随 Vue 组件卸载清理，不新增 Core 服务或地图引擎
 - 图层卸载分别尝试 adapter.removeLayer 与 handle.dispose，汇总错误；实例 dispose 的并发调用共享同一个清理 Promise。
 - OLToolsController 新增 get/remove/select/selected/updateGeometry/exportResults/importResults。结果 ID 与 Feature ID 一致；选中结果高亮，删除只作用于指定 ID。几何修改先校验并重新计算，导入批次先校验全部记录再提交，拒绝重复 ID 和不同于地图的投影。公开结果为拷贝。
 - Draw 不再自行提交 Source：插件校验后统一写入 Source 和结果集合，再通知 UI。测量值按 m、m²、° 保存；拒绝空几何、非有限坐标、零长度线、零面积面及重复角点。
-- OL 工具为折线和面渲染白色填充的圆形顶点，有效结果提交后退出当前绘制或测量工具。测距在节点标注起点和沿线累计距离，鼠标处显示实时总长，末点只保留最终总计。测角在第二个顶点绘制圆弧，将读数放在圆弧外侧。结果经普通 GeoJSON 数据集写入 LayerService 管理的图层，参与要素拾取、选择和属性查询。Overlay 随图层显隐及要素删除更新。
+- OL 工具为折线和面渲染使用测量主题色填充的圆形顶点，有效结果提交后退出当前绘制或测量工具。测距在节点标注起点和沿线累计距离，鼠标处显示实时总长，末点只保留最终总计。测角在第二个顶点绘制圆弧，将读数放在圆弧外侧。结果经普通 GeoJSON 数据集写入 LayerService 管理的图层，参与要素拾取、选择和属性查询。Overlay 随图层显隐及要素删除更新。
 - `tools.draw.targets` 和 `tools.measure.targets` 按工具指定可写的 inline GeoJSON 图层 ID。每种缺省目标在首次提交有效结果时创建，并将首条要素放入初始数据。角度、距离和面积加入同一个测量结果组。默认层叠顺序是测量、绘制、业务图层。已存在的分组新增子层时沿用当前层叠位置。已配置的无效目标在激活时报错。导入结果等待目标创建，清空只删除工具生成的要素。
 - LayerService 在父组和所有后代就绪后一起发布图层树，再逐个发出新增通知。`addChild(groupId, config)` 向已有分组追加子层，继承分组的显式隐藏状态。创建失败时释放已经创建的子层。
 - Basic Vue 仅安装 createOLAdapter 和 createVueUI。基础工具栏、属性联动和状态栏内置；高级结果列表可显式安装 createOLResultsUI，编程结果操作保留 useOLTools。
@@ -1753,6 +1772,7 @@ createOLAdapter 内部安装绘制、测量及结果操作，不再公开 create
 UI 内置缩放和已知工具 ID 的按钮映射，以 hasTool/canActivateTool 查询可用性，UIConfig.tools 可选择显示的内置按钮。一次性删除/清空使用现有 ToolDefinition 的 mode=action，不占用激活工具状态；undoActiveTool 复用活动工具的 undo 回调，不新建 CommandBus/ToolService。
 PropertiesPanel 及选择联动归 ui-vue 内置。默认选中时打开，关闭保留选择，重新选择可再次打开；显式 properties.visible=false 关闭自动打开。Status 为内置专用槽位面板，status.visible=false 隐藏面板并清理订阅。
 MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时传 undefined；高频数据不进入 AppState。视图快照增加 metersPerPixel，适配器完成投影相关计算；默认状态栏按 0.28mm 名义像素格式化比例尺。键盘处理归工作区，仅在工作区内且非输入控件时处理 Escape/Backspace。
+Escape 成功取消工具后，Vue 工作区释放工具栏按钮上的焦点。
 状态栏忽略离开事件对坐标显示的清空，保留最后一次有限坐标；该展示策略和面板重挂载缓存只属于 UI，不改变 Core 指针事件语义或 AppState。
 搜索下拉的主题化选择器、选项/结果浮层互斥以及状态栏的顺序、标题图标文字和列宽均属于 Vue UI 呈现策略，不新增 Runtime 状态或 API。
 独立的 ol-vue 集成包只保留高级结果列表，不再是普通应用启动的必经步骤。
@@ -1775,6 +1795,7 @@ LayerInstance.getFieldValues(field) 通过可选 handle 能力按需读取当前
 上述契约取代历史 options.style 与“分类渲染未实现”的描述。
 
 Docked workbench, sidebar collapse and toolbar overflow remain presentation responsibilities in ui-vue; no Runtime or adapter API changes.
+The overlay toolbar fits the available height and shares the overflow menu with the docked toolbar. Vue UI owns the optional vertical item limit.
 
 Action-row spacing, icon assets and measured More-button sizing are local ui-vue presentation changes; Runtime contracts remain unchanged.
 

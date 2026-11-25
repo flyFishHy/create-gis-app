@@ -22,8 +22,8 @@ export function createLayerStyling(layer: BaseLayer, config: LayerConfig) {
   let legendFilter: string | undefined;
   let featureFilter: ((feature: Feature) => boolean) | undefined;
   let vectorStyle: Style;
-  const colors = new Map<string, Style>();
-  const enumRules = new Map<LegendValue, { id: string; color?: string }>();
+  let colors = new Map<string, Style>();
+  let enumRules = new Map<LegendValue, { id: string; color?: string }>();
   const makeStyle = (options: typeof styleOptions) => {
     const { fillOpacity = 1, lineDash, lineCap } = options;
     const color = options.fillColor;
@@ -126,8 +126,8 @@ export function createLayerStyling(layer: BaseLayer, config: LayerConfig) {
       return;
     }
     vectorStyle = makeStyle(styleOptions);
-    colors.clear();
-    enumRules.clear();
+    colors = new Map();
+    enumRules = new Map();
     if (legend?.type === 'category') {
       for (const item of legend.items ?? []) {
         for (const value of item.values ?? []) {
@@ -181,6 +181,9 @@ export function createLayerStyling(layer: BaseLayer, config: LayerConfig) {
     matchesFeature,
     apply: applyVectorStyle,
     prepareUpdate(patch: LayerUpdate) {
+      if (patch.style === undefined && patch.legend === undefined) {
+        return undefined;
+      }
       if (patch.style && !(layer instanceof VectorLayer)) {
         throw new Error('style requires a vector layer.');
       }
@@ -188,10 +191,29 @@ export function createLayerStyling(layer: BaseLayer, config: LayerConfig) {
       const nextLegend = patch.legend === undefined ? legend : (patch.legend ?? undefined);
       validateStyle(nextStyle);
       validateLegend(nextLegend);
-      return () => {
-        styleOptions = nextStyle;
-        legend = nextLegend;
-        applyVectorStyle();
+      const previousStyle = styleOptions;
+      const previousLegend = legend;
+      const previousFilter = legendFilter;
+      const previousVectorStyle = vectorStyle;
+      const previousColors = colors;
+      const previousRules = enumRules;
+      const vector = layer instanceof VectorLayer ? layer : undefined;
+      const previousLayerStyle = vector?.getStyle();
+      return {
+        apply() {
+          styleOptions = nextStyle;
+          legend = nextLegend;
+          applyVectorStyle();
+        },
+        rollback() {
+          styleOptions = previousStyle;
+          legend = previousLegend;
+          legendFilter = previousFilter;
+          vectorStyle = previousVectorStyle;
+          colors = previousColors;
+          enumRules = previousRules;
+          vector?.setStyle(previousLayerStyle);
+        },
       };
     },
     setTimePredicate(filter: ((feature: Feature) => boolean) | undefined) {

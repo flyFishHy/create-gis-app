@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { createGISApp } from '../src/index.js';
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js';
 
 it('does not adopt an independent replacement with a former child ID', async () => {
@@ -61,6 +61,103 @@ it('attempts handle disposal even when adapter removal fails', async () => {
   await expect(app.layers.remove('test')).rejects.toMatchObject({ code: 'APP_DISPOSE_FAILED' });
   expect(dispose).toHaveBeenCalledOnce();
   await app.dispose();
+});
+
+it('rolls back a partially attached group child and lets the same IDs be retried', async () => {
+  const adapter = new FakeMapAdapter();
+  const failure = new Error('attach failed after inserting the child');
+  const disposed = vi.fn();
+  const app = createGISApp().use(
+    createFakeMapPlugin(adapter, {
+      test: createFakeLayerDefinition(({ id }) => ({
+        setVisible() {},
+        setZIndex() {},
+        dispose: () => disposed(id),
+      })),
+    })
+  );
+  const config = {
+    id: 'group',
+    type: 'GROUP',
+    children: [
+      { id: 'first', type: 'test' },
+      { id: 'second', type: 'test' },
+    ],
+  };
+  await app.init({});
+  try {
+    const add = adapter.addLayer.bind(adapter);
+    vi.spyOn(adapter, 'addLayer').mockImplementation((handle) => {
+      add(handle);
+      if (adapter.handles.length === 2) throw failure;
+    });
+    await expect(app.layers.add(config)).rejects.toBe(failure);
+    expect(adapter.handles).toEqual([]);
+    expect(app.layers.list()).toEqual([]);
+    expect(disposed.mock.calls).toEqual([['second'], ['first']]);
+    vi.mocked(adapter.addLayer).mockRestore();
+    await app.layers.add(config);
+    expect(adapter.handles).toHaveLength(2);
+    expect(app.layers.get('group')?.getMetadata().childIds).toEqual(['first', 'second']);
+  } finally {
+    await app.dispose();
+  }
+});
+
+it('preserves the attach failure and collects cleanup errors from the handle and staged tree', async () => {
+  const adapter = new FakeMapAdapter();
+  const failure = new Error('attach failed');
+  const detachFailure = new Error('detach failed');
+  const childCleanup = new Error('child dispose failed');
+  const stagedCleanup = new Error('staged dispose failed');
+  const disposed = vi.fn((id: string) => {
+    throw id === 'second' ? childCleanup : stagedCleanup;
+  });
+  const app = createGISApp().use(
+    createFakeMapPlugin(adapter, {
+      test: createFakeLayerDefinition(({ id }) => ({
+        setVisible() {},
+        setZIndex() {},
+        dispose: () => disposed(id),
+      })),
+    })
+  );
+  await app.init({});
+  try {
+    const add = adapter.addLayer.bind(adapter);
+    vi.spyOn(adapter, 'addLayer').mockImplementation((handle) => {
+      add(handle);
+      if (adapter.handles.length === 2) throw failure;
+    });
+    const remove = adapter.removeLayer.bind(adapter);
+    vi.spyOn(adapter, 'removeLayer').mockImplementationOnce((handle) => {
+      remove(handle);
+      throw detachFailure;
+    });
+    await expect(
+      app.layers.add({
+        id: 'group',
+        type: 'GROUP',
+        children: [
+          { id: 'nested', type: 'GROUP', children: [{ id: 'first', type: 'test' }] },
+          { id: 'second', type: 'test' },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'LAYER_CREATE_FAILED',
+      cause: failure,
+      cleanupErrors: [
+        detachFailure,
+        childCleanup,
+        { cleanupErrors: [{ cleanupErrors: [stagedCleanup] }] },
+      ],
+    });
+    expect(disposed.mock.calls).toEqual([['second'], ['first']]);
+    expect(adapter.handles).toEqual([]);
+    expect(app.layers.list()).toEqual([]);
+  } finally {
+    await app.dispose();
+  }
 });
 
 it('waits for pending creation cleanup and releases plugins before the map', async () => {

@@ -1,11 +1,11 @@
-import { normalizeConfig } from '../config.js';
-import { ResourceScopeImpl, assertResourceScopeActive } from '../resource-scope.js';
-import { LayerServiceImpl } from '../layer-service.js';
-import { MapServiceImpl } from '../map-service.js';
+import { normalizeConfig } from '../config/app-config.js';
+import { ResourceScopeImpl, assertResourceScopeActive } from './resource-scope.js';
+import { LayerServiceImpl } from '../layers/layer-service.js';
+import { MapServiceImpl } from '../map/map-service.js';
 import { DataServiceImpl } from '../data/data-service.js';
-import { EventServiceImpl } from '../event-service.js';
-import { InteractionServiceImpl } from '../interaction-service.js';
-import { SearchServiceImpl } from '../search-service.js';
+import { EventServiceImpl } from './event-service.js';
+import { InteractionServiceImpl } from '../interactions/interaction-service.js';
+import { SearchServiceImpl } from '../search/search-service.js';
 import { GISRuntimeError } from '../errors.js';
 import { AppContextImpl } from '../context/app-context.js';
 import { AppStateImpl } from '../state/app-state.js';

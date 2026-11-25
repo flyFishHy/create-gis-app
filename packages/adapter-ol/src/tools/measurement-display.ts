@@ -53,14 +53,11 @@ function angleArc(line: LineString, resolution: number) {
   };
 }
 
-export function createMeasurementStyles() {
+export function createToolStyles() {
   const line = new Stroke({ color: defaultColor, width: 2 });
   const vertexStroke = new Stroke({ color: defaultColor, width: 2 });
-  const marker = new CircleStyle({
-    radius: 4,
-    fill: new Fill({ color: '#fff' }),
-    stroke: vertexStroke,
-  });
+  const vertexFill = new Fill({ color: defaultColor });
+  const marker = new CircleStyle({ radius: 4, fill: vertexFill, stroke: vertexStroke });
   const fill = new Fill({ color: areaColor(asArray(defaultColor)) });
   const vertex = new Style({
     geometry: (feature) => {
@@ -78,29 +75,27 @@ export function createMeasurementStyles() {
     image: marker,
     zIndex: 3,
   });
-  const shape = new Style({ stroke: line, fill });
+  const lineStyle = new Style({ stroke: line });
+  const polygonStyle = new Style({ stroke: line, fill });
 
   return {
     setColor(color: string) {
       const colors = asArray(color);
       line.setColor(colors);
+      vertexFill.setColor(colors);
       vertexStroke.setColor(colors);
       marker.setStroke(vertexStroke);
       fill.setColor(areaColor(colors));
     },
-    get(feature: FeatureLike, resolution: number, toolId: string | undefined) {
+    get(feature: FeatureLike, resolution: number, toolId?: string) {
       const geometry = feature.getGeometry();
-      const measured = toolId?.startsWith('measure-');
       if (geometry instanceof Point) {
-        return measured ? [vertex] : [];
+        return [vertex];
       }
       if (!(geometry instanceof LineString || geometry instanceof Polygon)) {
         return [];
       }
-      if (!measured) {
-        return [vertex];
-      }
-      const styles = [shape, vertex];
+      const styles = [geometry instanceof Polygon ? polygonStyle : lineStyle, vertex];
       if (toolId === 'measure-angle' && geometry instanceof LineString) {
         const arc = angleArc(geometry, resolution);
         if (arc) {
@@ -112,7 +107,7 @@ export function createMeasurementStyles() {
   };
 }
 
-export function watchMeasurementColor(map: OlMap, applyColor: (color: string) => void) {
+export function watchToolColor(map: OlMap, applyColor: (color: string) => void) {
   let observer: MutationObserver | undefined;
   let lastColor: string | undefined;
   const refresh = () => {

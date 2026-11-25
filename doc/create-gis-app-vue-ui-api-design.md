@@ -110,7 +110,7 @@ LayerManager 删除自定义 OL 图层时通过 Core 解除地图挂载。共享
 内置 WMS 和 WMTS 图层沿用 LayerManager 的显隐、排序和透明度操作。
 服务 URL、请求参数和 WMTS 矩阵集由 OpenLayers 图层工厂解析。
 Vue 工作区在地图挂载元素上通过 `--gis-map-measurement-color` 传递当前主题主色。
-主题更新后，既有量测结果和当前量测草图都使用更新后的颜色。
+主题更新后，绘制和量测的草图、编辑节点和已有结果都使用更新后的颜色。
 图例编辑器通过 LayerService 读取字段及候选值。GeoJSON 图层数据更新后，
 下次读取返回更新后的候选值。
 取消地图工具时，OpenLayers 撤回尚未提交的几何修改。已结束绘制的有效结果可以在切换
@@ -343,7 +343,7 @@ Overlay 模式中，地图作为完整工作画布，搜索、图层、图例、
 
 - 标题栏约 60px；地图工作区填满剩余高度并作为浮层定位容器。
 - 图层管理位于左上，图例位于左下；搜索浮层从图层列右侧开始，时间控件跟随搜索右侧，空间不足换行。
-- 工具栏位于剩余地图区域右侧正中，使用纵向图标组，提示自动避让视口边缘。
+- 工具栏位于剩余地图区域右侧正中，使用纵向图标组。按布局分配的高度及分组间距计算常驻工具数量，为「更多」预留空间。空间增大时按原顺序恢复工具。窄屏工具栏位于左侧，菜单优先向工具栏的内侧展开，靠近视口边缘时自动调整。Vue UI 可通过 `toolbarMaxVisibleTools` 指定纵向常驻工具数量上限。
 - 属性面板为右侧按需抽屉，选中要素后打开；关闭只隐藏面板，不清除选择，下一次选择重新打开。
   左侧图层/图例保持原位，属性抽屉占用独立右侧轨道。选择联动由内置 Vue UI 负责，不进入 Core 或 OL Adapter。
 - 图层、图例和属性默认同宽 300px，通过 --gis-ui-overlay-panel-width 统一覆盖。
@@ -1470,6 +1470,15 @@ Services；面板不直接操作地图引擎实例。
 
 **当前实现基线：** 提供 LayerManager、Legend、Search、Toolbar、Properties 和地图要素选择器。
 LayerManager 通过 LayerService 增删显隐图层；Legend 只呈现 Core LegendDefinition；
+LayerManager 从 Runtime 快照读取已发布图层。创建失败时整棵暂存图层树由 Runtime 回滚，
+调用方可从操作错误读取原始原因和回滚错误。
+使用同步提交契约的 Adapter 在更新失败时恢复引擎原值，UI 可保留当前编辑草稿，
+Runtime 在引擎更新成功后才提交图层版本和元数据。
+显隐和更新完成后，实例入口与 LayerService 入口提供一致的状态和领域事件。
+LayerManager 子层开关读取 `ownVisible`，行的暗显状态读取 `visible`。父组关闭
+期间可以调整子层开关，父组再次打开时按当前子层设置渲染。空组可以保持开启。
+调用动态新增后可继续编辑 UI 中的配置草稿，Runtime 已捕获本次创建的只读快照。
+排序失败时可从 Runtime 读取最近提交的顺序，引擎恢复后重新提交完整顺序。
 Search Provider 通过 Vue UI 注册，结果定位通过 MapViewService；Toolbar 经
 InteractionService 切换工具。FeaturePicker 在地图点击位置展示多命中候选，Properties
 通过选中的 FeatureReference 展示详情。
@@ -1681,7 +1690,7 @@ ThemeService、LocaleService 仍负责自己的领域写入，并通过 extensio
 - 图层卸载分别尝试 adapter.removeLayer 与 handle.dispose，汇总错误；实例 dispose 的并发调用共享同一个清理 Promise。
 - OLToolsController 新增 get/remove/select/selected/updateGeometry/exportResults/importResults。结果 ID 与 Feature ID 一致；选中结果高亮，删除只作用于指定 ID。几何修改先校验并重新计算，导入批次先校验全部记录再提交，拒绝重复 ID 和不同于地图的投影。公开结果为拷贝。
 - Draw 不再自行提交 Source：插件校验后统一写入 Source 和结果集合，再通知 UI。测量值按 m、m²、° 保存；拒绝空几何、非有限坐标、零长度线、零面积面及重复角点。
-- 测量标签使用地图 Overlay 锚定坐标，并继承工作台磨砂、液态和实色的面板材质。顶点使用白色填充，圆弧和顶点描边使用主题主色。节点标签优先避开相邻线段、同组标签和视口边界。已完成的结果标签随图层显隐并提供删除按钮，其余标签区域允许地图鼠标事件穿透。绘制和测量图层由普通图层管理器管理，结果要素使用现有选择、高亮和属性面板。
+- 测量标签使用地图 Overlay 锚定坐标，并继承工作台磨砂、液态和实色的面板材质。线、面轮廓、节点和角度圆弧使用主题主色，面填充使用主题主色的 16% 不透明度。节点标签优先避开相邻线段、同组标签和视口边界。已完成的结果标签随图层显隐并提供删除按钮，其余标签区域允许地图鼠标事件穿透。绘制和测量图层由普通图层管理器管理，结果要素使用现有选择、高亮和属性面板。
 - Tooltip 将触发元素的工作台材质和字体变量传给传送到 body 的内容。ToolHint 与状态栏居中对齐，显示在状态栏正上方，使用相同的面板材质和主题主色的脉冲圆点。
 - 默认绘制和测量分组在首次保存有效结果或导入时出现，每种结果只在首次保存或导入时创建对应子层。角度纳入测量组。默认从上到下是测量、绘制、业务图层，后续新增子层遵循该组当前排序。图层管理器读取完整分组树，新组默认折叠，搜索时按既有规则展开。
 - Basic Vue 仅安装 createOLAdapter 和 createVueUI。基础工具栏、属性联动和状态栏内置；高级结果列表可显式安装 createOLResultsUI，编程结果操作保留 useOLTools。
@@ -1761,6 +1770,7 @@ createOLAdapter 内部安装绘制、测量及结果操作，不再公开 create
 UI 内置缩放和已知工具 ID 的按钮映射，以 hasTool/canActivateTool 查询可用性，UIConfig.tools 可选择显示的内置按钮。一次性删除/清空使用现有 ToolDefinition 的 mode=action，不占用激活工具状态；undoActiveTool 复用活动工具的 undo 回调，不新建 CommandBus/ToolService。
 PropertiesPanel 及选择联动归 ui-vue 内置。默认选中时打开，关闭保留选择，重新选择可再次打开；显式 properties.visible=false 关闭自动打开。Status 为内置专用槽位面板，status.visible=false 隐藏面板并清理订阅。
 MapAdapter/MapService.onPointerMove 仅传递 WGS84 指针经纬度，离开时传 undefined；高频数据不进入 AppState。视图快照增加 metersPerPixel，适配器完成投影相关计算；默认状态栏按 0.28mm 名义像素格式化比例尺。键盘处理归工作区，仅在工作区内且非输入控件时处理 Escape/Backspace。
+Escape 成功取消工具后，工作区释放工具栏按钮上的焦点。
 独立的 ol-vue 集成包只保留高级结果列表，不再是普通应用启动的必经步骤。
 
 ### 图例卡片查看态与原位编辑修订

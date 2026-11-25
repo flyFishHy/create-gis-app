@@ -381,17 +381,26 @@ describe('Dashboard status and query placement', () => {
         await app.init({});
         await app.mount(target);
         expect(target.querySelector('.gis-ui-tool-hint')).toBeNull();
-        target.querySelector<HTMLButtonElement>('button[aria-label="绘制线"]')!.click();
+        const toolButton = target.querySelector<HTMLButtonElement>('button[aria-label="绘制线"]')!;
+        toolButton.focus();
+        toolButton.click();
         await flushPromises();
         const hint = target.querySelector('.gis-ui-tool-hint')!;
         expect(hint.nextElementSibling).toBe(target.querySelector('.gis-ui-status-content'));
         expect(hint.textContent).toContain('点击地图依次添加折线顶点，双击结束绘制');
         expect(hint.textContent).toContain('Esc');
-        target
-          .querySelector('.gis-ui-root')!
-          .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(document.activeElement).toBe(toolButton);
+        toolButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         await flushPromises();
+        expect(app.interactions.getActiveTool()).toBeUndefined();
+        expect(toolButton.classList.contains('is-active')).toBe(false);
+        expect(toolButton.getAttribute('aria-pressed')).toBe('false');
+        expect(document.activeElement).not.toBe(toolButton);
         await vi.waitFor(() => expect(target.querySelector('.gis-ui-tool-hint')).toBeNull());
+        toolButton.focus();
+        toolButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await flushPromises();
+        expect(document.activeElement).toBe(toolButton);
       } finally {
         await app.dispose();
         target.remove();

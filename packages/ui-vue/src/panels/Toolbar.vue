@@ -8,9 +8,10 @@ import SvgIcon from '../components/SvgIcon.vue';
 import Tooltip from '../components/Tooltip.vue';
 import { DockedPanelMotionKey } from '../ui-context.js';
 
-withDefaults(defineProps<{ tooltipPlacement?: 'left' | 'right' | 'bottom' }>(), {
-  tooltipPlacement: 'bottom',
-});
+const props = withDefaults(
+  defineProps<{ tooltipPlacement?: 'left' | 'right' | 'bottom'; maxVisibleTools?: number }>(),
+  { tooltipPlacement: 'bottom' }
+);
 const app = useGISApp();
 const ui = useGISUI();
 const snapshot = useAppState();
@@ -29,13 +30,8 @@ const moreLabel = computed(() => (ui.locale.get() === 'zh' ? '更多' : 'More'))
 const limit = ref(Infinity),
   menuOpen = ref(false),
   menuStyle = ref<Record<string, string>>();
-let observer: ResizeObserver | undefined;
-let frame = 0,
-  measuredWidths: number[] | undefined,
-  measuredMore = 0;
-function invalidate() {
-  measuredWidths = undefined;
-}
+const verticalSlot = computed(() => root.value?.closest<HTMLElement>('.gis-ui-overlay--toolbar'));
+let frame = 0;
 function scheduleFit() {
   if (!frame) {
     frame = requestAnimationFrame(() => {
@@ -44,37 +40,25 @@ function scheduleFit() {
     });
   }
 }
-const items = computed(() => itemGroups().flatMap(([, entries]) => entries));
-const shownGroups = computed(() =>
-  itemGroups()
-    .map(
-      ([group, entries]) =>
-        [
-          group,
-          entries.filter((item) => !docked.value || items.value.indexOf(item) < limit.value),
-        ] as const
-    )
-    .filter(([, entries]) => entries.length)
-);
-const overflow = computed(() => (docked.value ? items.value.slice(limit.value) : []));
-function fit() {
-  if (!docked.value || !root.value || !measure.value) {
-    return;
-  }
-  if (!measuredWidths) {
-    measuredWidths = Array.from(measure.value.querySelectorAll('.gis-ui-toolbar-measure-item')).map(
-      (item) => (item as HTMLElement).getBoundingClientRect().width + 6
-    );
-    measuredMore = (moreMeasure.value?.getBoundingClientRect().width ?? 0) + 6;
-  }
-  const widths = measuredWidths;
-  const available = root.value.clientWidth;
+const groups = computed(itemGroups);
+const items = computed(() => groups.value.flatMap(([, entries]) => entries));
+const shownGroups = computed(() => {
+  const shown = new Set(items.value.slice(0, limit.value));
+  return groups.value
+    .map(([group, entries]) => [group, entries.filter((item) => shown.has(item))] as const)
+    .filter(([, entries]) => entries.length);
+});
+const overflow = computed(() => items.value.slice(limit.value));
+
+function fitWidth(available: number, bounds: DOMRect[], moreBounds: DOMRect) {
   if (!available) {
-    return;
+    return Infinity;
   }
+  const widths = bounds.map(({ width }) => width + 6);
   let used = 0,
     count = 0;
-  const reserve = widths.reduce((total, width) => total + width, 0) > available ? measuredMore : 0;
+  const reserve =
+    widths.reduce((total, width) => total + width, 0) > available ? moreBounds.width + 6 : 0;
   for (const width of widths) {
     if (used + width > available - reserve) {
       break;
@@ -82,19 +66,98 @@ function fit() {
     used += width;
     count++;
   }
+  return count;
+}
+function fitHeight(
+  available: number,
+  bounds: DOMRect[],
+  moreBounds: DOMRect,
+  probe: HTMLElement,
+  toolbar: HTMLElement
+) {
+  const cap = props.maxVisibleTools ?? Infinity;
+  if (!moreBounds.height || !bounds.length) {
+    return cap;
+  }
+  const { top, bottom } = probe.getBoundingClientRect();
+  const style = getComputedStyle(toolbar);
+  const border =
+    (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+  const paddingEnd = bottom - moreBounds.bottom;
+  const last = bounds.at(-1)!;
+  if (bounds.length <= cap && last.bottom - top + paddingEnd + border <= available) {
+    return bounds.length;
+  }
+  // The probe includes all groups, with the More button after the last group.
+  const reserve = moreBounds.bottom - last.bottom + paddingEnd + border;
+  const firstOverflow = bounds.findIndex(({ bottom }) => bottom - top + reserve > available);
+  return Math.min(cap, firstOverflow === -1 ? bounds.length : firstOverflow);
+}
+function fit() {
+  const toolbar = root.value;
+  const probe = measure.value;
+  const moreBounds = moreMeasure.value?.getBoundingClientRect();
+  if (!toolbar || !probe || !moreBounds) {
+    limit.value = verticalSlot.value ? (props.maxVisibleTools ?? Infinity) : Infinity;
+    return;
+  }
+  const bounds = Array.from(probe.querySelectorAll('.gis-ui-toolbar-measure-item'), (item) =>
+    item.getBoundingClientRect()
+  );
+  const slot = verticalSlot.value;
+  const count = slot
+    ? fitHeight(slot.clientHeight, bounds, moreBounds, probe, toolbar)
+    : fitWidth(toolbar.clientWidth, bounds, moreBounds);
   limit.value = count;
-  menuOpen.value = false;
+  if (menuOpen.value) {
+    void nextTick(positionMenu);
+  }
+}
+function positionMenu() {
+  if (!menuOpen.value || !more.value || !menu.value) {
+    menuOpen.value = false;
+    return;
+  }
+  const anchor = more.value.getBoundingClientRect();
+  const { width, height } = menu.value.getBoundingClientRect();
+  const edge = 8;
+  const gap = 4;
+  let left = anchor.right - width;
+  let top = anchor.bottom + gap;
+  const slot = verticalSlot.value;
+  if (slot) {
+    const openRight =
+      getComputedStyle(slot).getPropertyValue('--gis-ui-toolbar-menu-side').trim() === 'right';
+    const leftSide = anchor.left - gap - width;
+    const rightSide = anchor.right + gap;
+    left = openRight
+      ? rightSide + width <= window.innerWidth - edge
+        ? rightSide
+        : leftSide
+      : leftSide >= edge
+        ? leftSide
+        : rightSide;
+    top = anchor.top;
+  } else if (top + height > window.innerHeight - edge) {
+    top = anchor.top - gap - height;
+  }
+  menuStyle.value = {
+    left: `${Math.max(edge, Math.min(left, window.innerWidth - width - edge))}px`,
+    top: `${Math.max(edge, Math.min(top, window.innerHeight - height - edge))}px`,
+  };
 }
 async function toggleMenu() {
   menuOpen.value = !menuOpen.value;
-  if (menuOpen.value && more.value) {
-    const bounds = more.value.getBoundingClientRect();
-    menuStyle.value = {
-      top: Math.min(bounds.bottom + 4, window.innerHeight - 100) + 'px',
-      right: Math.max(8, window.innerWidth - bounds.right) + 'px',
-    };
-    await nextTick();
-    menu.value?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  if (!menuOpen.value) {
+    return;
+  }
+  menuStyle.value = { left: '0px', top: '0px', visibility: 'hidden' };
+  await nextTick();
+  positionMenu();
+  await nextTick();
+  if (menuOpen.value && menu.value) {
+    const firstEnabled = menu.value.querySelector<HTMLButtonElement>('button:not(:disabled)');
+    (firstEnabled ?? menu.value).focus();
   }
 }
 function closeMenu() {
@@ -136,38 +199,26 @@ function menuKeys(event: KeyboardEvent) {
     ]?.focus();
   }
 }
+watch(
+  [root, measure, docked, verticalSlot],
+  ([toolbar, probe, horizontal, slot], _previous, onCleanup) => {
+    fit();
+    const available = slot ?? (horizontal ? toolbar : undefined);
+    if (available && probe && typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(fit);
+      observer.observe(available);
+      observer.observe(probe);
+      onCleanup(() => observer.disconnect());
+    }
+  },
+  { flush: 'post' }
+);
 onMounted(() => {
-  if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver((entries) => {
-      if (entries.some((entry) => entry.target === measure.value)) {
-        invalidate();
-      }
-      fit();
-    });
-    if (root.value) {
-      observer.observe(root.value);
-    }
-    if (measure.value) {
-      observer.observe(measure.value);
-    }
-  }
   document.addEventListener('pointerdown', outside);
   window.addEventListener('resize', scheduleFit);
-  void nextTick(fit);
 });
-watch(
-  () => ui.locale.get(),
-  () => {
-    invalidate();
-    void nextTick(scheduleFit);
-  }
-);
-watch(items, () => {
-  invalidate();
-  void nextTick(scheduleFit);
-});
+watch([items, () => ui.locale.get(), () => props.maxVisibleTools], scheduleFit, { flush: 'post' });
 onBeforeUnmount(() => {
-  observer?.disconnect();
   document.removeEventListener('pointerdown', outside);
   window.removeEventListener('resize', scheduleFit);
   cancelAnimationFrame(frame);
@@ -207,19 +258,37 @@ async function activate(item: ToolbarItemDefinition) {
     error.value = cause instanceof Error ? cause.message : String(cause);
   }
 }
+
+function activateFromMenu(item: ToolbarItemDefinition) {
+  closeMenu();
+  return activate(item);
+}
 </script>
 
 <template>
-  <div v-if="itemGroups().length" ref="root" class="gis-ui-toolbar-root">
-    <div v-if="docked" ref="measure" class="gis-ui-toolbar-measure" aria-hidden="true" inert>
-      <button v-for="item in items" :key="item.id" class="gis-ui-toolbar-measure-item">
-        <SvgIcon :name="item.icon ?? 'edit'" :size="16" /><span>{{ ui.locale.t(item.title) }}</span>
-      </button>
-      <button ref="moreMeasure" class="gis-ui-toolbar-more">
-        <SvgIcon name="more-horizontal" :size="16" /><span class="gis-ui-toolbar-more-label">{{
-          moreLabel
-        }}</span>
-      </button>
+  <div v-if="items.length" ref="root" class="gis-ui-toolbar-root">
+    <div v-if="docked || verticalSlot" class="gis-ui-toolbar-measure-clip" aria-hidden="true" inert>
+      <div ref="measure" class="gis-ui-toolbar-measure">
+        <div v-for="[group, entries] in groups" :key="group" class="gis-ui-toolbar-group">
+          <template v-for="item in entries" :key="item.id">
+            <output v-if="item.display" class="gis-map-level gis-ui-toolbar-measure-item">{{
+              item.display()
+            }}</output>
+            <button v-else type="button" class="gis-ui-toolbar-measure-item">
+              <SvgIcon :name="item.icon ?? 'edit'" :size="16" /><span v-if="docked">{{
+                ui.locale.t(item.title)
+              }}</span>
+            </button>
+          </template>
+        </div>
+        <button ref="moreMeasure" type="button">
+          <SvgIcon name="more-horizontal" :size="16" /><span
+            v-if="docked"
+            class="gis-ui-toolbar-more-label"
+            >{{ moreLabel }}</span
+          >
+        </button>
+      </div>
     </div>
     <div class="gis-ui-toolbar">
       <div
@@ -265,38 +334,51 @@ async function activate(item: ToolbarItemDefinition) {
       <button
         v-if="overflow.length"
         ref="more"
+        type="button"
         class="gis-ui-toolbar-more"
         :aria-label="ui.locale.get() === 'zh' ? '更多工具' : 'More tools'"
         aria-haspopup="menu"
         :aria-expanded="menuOpen"
         @click="toggleMenu"
       >
-        <SvgIcon name="more-horizontal" :size="16" /><span class="gis-ui-toolbar-more-label">{{
-          moreLabel
-        }}</span>
+        <SvgIcon name="more-horizontal" :size="16" /><span
+          v-if="docked"
+          class="gis-ui-toolbar-more-label"
+          >{{ moreLabel }}</span
+        >
       </button>
     </div>
-    <Teleport :to="root?.closest('.gis-ui-root') ?? 'body'" :disabled="!docked">
+    <Teleport v-if="menuOpen" :to="root?.closest('.gis-ui-root') ?? 'body'">
       <div
-        v-if="menuOpen"
         ref="menu"
         class="gis-ui-toolbar-menu"
         role="menu"
+        tabindex="-1"
         :style="menuStyle"
         @keydown="menuKeys"
       >
-        <button
-          v-for="item in overflow"
-          :key="item.id"
-          role="menuitem"
-          :disabled="isDisabled(item)"
-          :class="{ 'is-active': item.toolId ? activeTool === item.toolId : item.active }"
-          @click="activate(item)"
-        >
-          <SvgIcon :name="item.icon ?? 'edit'" :size="16" /><span>{{
-            ui.locale.t(item.title)
-          }}</span>
-        </button>
+        <template v-for="item in overflow" :key="item.id">
+          <div
+            v-if="item.display"
+            class="gis-ui-toolbar-menu-display"
+            role="menuitem"
+            aria-disabled="true"
+          >
+            <span>{{ ui.locale.t(item.title) }}</span><output>{{ item.display() }}</output>
+          </div>
+          <button
+            v-else
+            type="button"
+            role="menuitem"
+            :disabled="isDisabled(item)"
+            :class="{ 'is-active': item.toolId ? activeTool === item.toolId : item.active }"
+            @click="activateFromMenu(item)"
+          >
+            <SvgIcon :name="item.icon ?? 'edit'" :size="16" /><span>{{
+              ui.locale.t(item.title)
+            }}</span>
+          </button>
+        </template>
       </div>
     </Teleport>
     <p v-if="error" class="gis-ui-error" role="alert">{{ error }}</p>

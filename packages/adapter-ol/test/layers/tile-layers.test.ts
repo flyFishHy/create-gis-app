@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createGISApp } from '@joinmap/gis-core';
 import TileLayer from 'ol/layer/Tile.js';
+import VectorLayer from 'ol/layer/Vector.js';
 import { get as getProjection } from 'ol/proj.js';
 import TileWMS from 'ol/source/TileWMS.js';
 import WMTS from 'ol/source/WMTS.js';
@@ -89,7 +90,11 @@ it('creates native WMS tile requests and manages the layer through LayerService'
       TRANSPARENT: 'true',
     });
     expect(layer.getOpacity()).toBe(0.6);
+    const setVisible = vi.spyOn(layer, 'setVisible');
+    const setZIndex = vi.spyOn(layer, 'setZIndex');
     await app.layers.update('roads', { visible: false, zIndex: 4, options: { opacity: 0.3 } });
+    expect(setVisible).toHaveBeenCalledExactlyOnceWith(false);
+    expect(setZIndex).toHaveBeenCalledExactlyOnceWith(4);
     expect(layer.getVisible()).toBe(false);
     expect(layer.getZIndex()).toBe(4);
     expect(layer.getOpacity()).toBe(0.3);
@@ -99,6 +104,53 @@ it('creates native WMS tile requests and manages the layer through LayerService'
     await expect(
       app.layers.add({ id: 'roads', type: 'wms', source: { url: 'https://example.test/wms' } })
     ).rejects.toThrow('source.params.LAYERS');
+  } finally {
+    await app.dispose();
+  }
+});
+
+it('restores an OL layer when a setter throws after mutating the engine', async () => {
+  const app = createGISApp().use(createOLAdapter({ tools: false }));
+  try {
+    await app.init({
+      layers: [
+        {
+          id: 'points',
+          type: 'geojson',
+          title: 'Before',
+          style: { fillColor: '#ff0000' },
+          source: { type: 'inline', data: { type: 'FeatureCollection', features: [] } },
+        },
+      ],
+    });
+    const layer = useOLMap(app).getLayers().item(0) as VectorLayer;
+    const instance = app.layers.get('points')!;
+    const before = app.context.state.snapshot().layers;
+    const previousStyle = layer.getStyle();
+    const failure = new Error('injected failure after setZIndex');
+    const setZIndex = layer.setZIndex.bind(layer);
+    vi.spyOn(layer, 'setZIndex').mockImplementationOnce((value) => {
+      setZIndex(value);
+      throw failure;
+    });
+    const patch = {
+      title: 'After',
+      visible: false,
+      zIndex: 4,
+      style: { fillColor: '#0000ff' },
+      options: { opacity: 0.3 },
+    };
+    await expect(app.layers.update('points', patch)).rejects.toBe(failure);
+    expect(layer.getStyle()).toBe(previousStyle);
+    expect(layer.getZIndex()).toBeUndefined();
+    expect(layer.getVisible()).toBe(true);
+    expect(layer.getOpacity()).toBe(1);
+    expect(instance.style?.fillColor).toBe('#ff0000');
+    expect(instance.title).toBe('Before');
+    expect(app.context.state.snapshot().layers).toBe(before);
+    await app.layers.update('points', patch);
+    expect(instance.title).toBe('After');
+    expect(instance.version).toBe(1);
   } finally {
     await app.dispose();
   }

@@ -1,9 +1,83 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { createGISApp } from '../src/index.js';
 import type { LayerConfig, MapLayerHandle } from '../src/types.js';
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js';
 
 describe('LayerService', () => {
+  it('passes a frozen configuration tree to asynchronous factories', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const seen = vi.fn();
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, {
+        test: {
+          async create(_context, config) {
+            await gate;
+            seen(config);
+            expect(Object.isFrozen(config)).toBe(true);
+            expect(Object.isFrozen(config.style)).toBe(true);
+            return { setVisible() {}, setZIndex() {}, dispose() {} };
+          },
+        },
+      })
+    );
+    await app.init({});
+    try {
+      const child = {
+        id: 'first',
+        type: 'test',
+        style: { fillColor: '#0099ff' },
+        source: { data: [1] },
+      };
+      const second = { ...child, id: 'second', style: { ...child.style } };
+      const children = [child, second];
+      const adding = app.layers.add({ id: 'group', type: 'GROUP', children });
+      child.id = 'changed';
+      child.style.fillColor = '#ffffff';
+      child.source.data.push(2);
+      second.id = 'also-changed';
+      children.length = 0;
+      release();
+      const group = await adding;
+      expect(group.getMetadata().childIds).toEqual(['first', 'second']);
+      expect(seen.mock.calls.map(([config]) => config.source)).toEqual([
+        { data: [1] },
+        { data: [1] },
+      ]);
+      expect(app.layers.get('first')?.style?.fillColor).toBe('#0099ff');
+    } finally {
+      release();
+      await app.dispose();
+    }
+  });
+
+  it('rejects malformed dynamic configs before allocating group children', async () => {
+    const create = vi.fn(createFakeLayerDefinition().create);
+    const app = createGISApp().use(createFakeMapPlugin(undefined, { test: { create } }));
+    await app.init({});
+    try {
+      await expect(
+        app.layers.add({
+          id: 'group',
+          type: 'GROUP',
+          children: [
+            { id: 'first', type: 'test' },
+            { id: 'second', type: 'test', visible: 'false' as unknown as boolean },
+          ],
+        })
+      ).rejects.toMatchObject({
+        code: 'CONFIG_INVALID',
+        detail: { path: 'layer.children[1].visible' },
+      });
+      expect(create).not.toHaveBeenCalled();
+      expect(app.layers.list()).toEqual([]);
+    } finally {
+      await app.dispose();
+    }
+  });
+
   it('rejects stale references at selection and revalidates the active feature after filtering', async () => {
     let activeKey = 'before';
     const app = createGISApp().use(
@@ -138,7 +212,7 @@ describe('LayerService', () => {
           title: 'Base maps',
           children: [
             { id: 'a', type: 'raster' },
-            { id: 'b', type: 'raster' },
+            { id: 'b', type: 'raster', visible: false },
           ],
         },
       ],
@@ -155,6 +229,11 @@ describe('LayerService', () => {
     await app.layers.addChild('group', { id: 'c', type: 'raster' });
     expect(published).toEqual(['a', 'b', 'c']);
     expect(handles.get('c')?.setVisible).toHaveBeenCalledWith(false);
+    expect(app.layers.get('c')).toMatchObject({ ownVisible: true, visible: false });
+    app.layers.setVisibility('group', true);
+    expect(app.layers.get('a')?.visible).toBe(true);
+    expect(app.layers.get('b')).toMatchObject({ ownVisible: false, visible: false });
+    expect(app.layers.get('c')?.visible).toBe(true);
     unsubscribe();
     await app.layers.remove('b');
     expect(app.layers.get('group')?.getMetadata().childIds).toEqual(['a', 'c']);
@@ -164,6 +243,103 @@ describe('LayerService', () => {
     expect(handles.get('b')?.dispose).toHaveBeenCalledOnce();
     expect(handles.get('c')?.dispose).toHaveBeenCalledOnce();
     await app.dispose();
+  });
+
+  it('preserves nested gates and publishes child intent while ancestors are hidden', async () => {
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() })
+    );
+    await app.init({
+      layers: [
+        {
+          id: 'root',
+          type: 'GROUP',
+          visible: false,
+          children: [
+            {
+              id: 'nested',
+              type: 'GROUP',
+              visible: false,
+              children: [{ id: 'seed', type: 'test' }],
+            },
+          ],
+        },
+      ],
+    });
+    try {
+      const nested = app.layers.get('nested')!;
+      await app.layers.remove('seed');
+      const child = await app.layers.addChild('nested', {
+        id: 'child',
+        type: 'test',
+        visible: false,
+      });
+      await child.update({ visible: true, title: 'Edited while hidden' });
+      expect(child).toMatchObject({ ownVisible: true, visible: false });
+      expect(app.context.state.snapshot().layers.find(({ id }) => id === 'child')).toMatchObject({
+        ownVisible: true,
+        visible: false,
+      });
+      await app.layers.update('root', { visible: true });
+      expect(nested).toMatchObject({ ownVisible: false, visible: false });
+      expect(child.visible).toBe(false);
+      nested.setVisibility(true);
+      expect(child.visible).toBe(true);
+      await app.layers.remove('child');
+      expect(nested).toMatchObject({ ownVisible: true, visible: true });
+      expect(nested.getMetadata().childIds).toEqual([]);
+    } finally {
+      await app.dispose();
+    }
+  });
+
+  it('restores already projected leaves if a group visibility setter throws', async () => {
+    const visible = new Map([
+      ['first', true],
+      ['second', true],
+    ]);
+    const failure = new Error('setter failed after changing the second leaf');
+    let failOnce = true;
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, {
+        test: createFakeLayerDefinition(({ id }) => ({
+          setVisible(next) {
+            visible.set(id, next);
+            if (id === 'second' && failOnce) {
+              failOnce = false;
+              throw failure;
+            }
+          },
+          setZIndex() {},
+          dispose() {},
+        })),
+      })
+    );
+    await app.init({
+      layers: [
+        {
+          id: 'group',
+          type: 'GROUP',
+          children: [
+            { id: 'first', type: 'test' },
+            { id: 'second', type: 'test' },
+          ],
+        },
+      ],
+    });
+    try {
+      const events = vi.fn();
+      app.layers.subscribe(events);
+      const before = app.context.state.snapshot().layers;
+      expect(() => app.layers.setVisibility('group', false)).toThrow(failure);
+      expect([...visible.values()]).toEqual([true, true]);
+      expect(app.context.state.snapshot().layers).toBe(before);
+      expect(events).not.toHaveBeenCalled();
+      app.layers.setVisibility('group', false);
+      expect([...visible.values()]).toEqual([false, false]);
+    } finally {
+      await app.dispose();
+    }
   });
 
   it('publishes a complete group tree once all children are ready and hides failed additions', async () => {

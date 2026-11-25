@@ -1,5 +1,5 @@
-import { GISRuntimeError } from './errors.js';
-import type { ResourceScope, Unsubscribe } from './types.js';
+import { GISRuntimeError } from '../errors.js';
+import type { ResourceScope, Unsubscribe } from '../types.js';
 
 export function assertResourceScopeActive(scope: ResourceScope): void {
   if (scope.disposed) {

@@ -147,6 +147,12 @@ it('moves tools into a working overflow menu when space is limited', async () =>
   const action = vi.fn(),
     app = createGISApp();
   app.use(createFakeMapPlugin());
+  app.use({
+    name: 'overflow-draw-tool',
+    install(runtime, _options, scope) {
+      runtime.registerTool('draw-line', { id: 'draw-line', activate() {} }, scope);
+    },
+  });
   app.use(
     createVueUI({ toolbarItems: [{ id: 'custom', title: 'Custom action', onClick: action }] })
   );
@@ -170,6 +176,18 @@ it('moves tools into a working overflow menu when space is limited', async () =>
     await nextTick();
     expect(action).toHaveBeenCalledOnce();
     expect(target.querySelector('[role="menu"]')).toBeNull();
+    more.click();
+    await nextTick();
+    const tool = Array.from(target.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(
+      (item) => item.textContent?.includes('绘制线')
+    )!;
+    tool.focus();
+    tool.click();
+    await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBe('draw-line'));
+    expect(document.activeElement).toBe(more);
+    more.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBeUndefined());
+    expect(document.activeElement).not.toBe(more);
   } finally {
     await app.dispose();
     target.remove();
@@ -177,3 +195,121 @@ it('moves tools into a working overflow menu when space is limited', async () =>
     rect.mockRestore();
   }
 });
+
+it.each([undefined, 2])(
+  'fits the vertical toolbar to the overlay height with a configured limit of %s',
+  async (toolbarMaxVisibleTools) => {
+    let height = 105;
+    let resizeToolbar: (() => void) | undefined;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private callback: ResizeObserverCallback) {}
+        observe(target: Element) {
+          if (target.classList.contains('gis-ui-overlay--toolbar')) {
+            resizeToolbar = () =>
+              this.callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
+          }
+        }
+        disconnect() {}
+      }
+    );
+    const clientHeight = vi
+      .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('gis-ui-overlay--toolbar') ? height : 50;
+      });
+    const box = (left: number, top: number, width: number, height: number) =>
+      ({ left, right: left + width, top, bottom: top + height, width, height }) as DOMRect;
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.classList.contains('gis-ui-toolbar-measure')) {
+          return box(0, 0, 48, 220);
+        }
+        if (this.classList.contains('gis-ui-toolbar-measure-item')) {
+          const entries = Array.from(
+            this.closest('.gis-ui-toolbar-measure')!.querySelectorAll(
+              '.gis-ui-toolbar-measure-item'
+            )
+          );
+          return box(6, [6, 45, 95, 134][entries.indexOf(this)]!, 36, 36);
+        }
+        if (this.parentElement?.classList.contains('gis-ui-toolbar-measure')) {
+          return box(6, 177, 36, 36);
+        }
+        if (this.classList.contains('gis-ui-toolbar-more')) {
+          return box(700, window.innerHeight - 54, 36, 36);
+        }
+        if (this.classList.contains('gis-ui-toolbar-menu')) {
+          return box(0, 0, 160, 180);
+        }
+        return box(0, 0, 0, 0);
+      });
+    const action = vi.fn();
+    const app = createGISApp()
+      .use(createFakeMapPlugin())
+      .use(
+        createVueUI({
+          toolbarMaxVisibleTools,
+          toolbarItems: [
+            { id: 'custom', title: 'Custom action', order: 100, onClick: action },
+            { id: 'readout', title: 'Scale', order: 101, display: () => '1:2000' },
+          ],
+        })
+      );
+    const target = document.createElement('div');
+    document.body.append(target);
+    try {
+      await app.init({ ui: { layout: 'overlay-dashboard' } });
+      await app.mount(target);
+      const slot = target.querySelector<HTMLElement>('.gis-ui-overlay--toolbar')!;
+      const direct = () =>
+        [...slot.querySelectorAll('.gis-ui-toolbar .gis-ui-toolbar-group [aria-label]')].map(
+          (item) => item.getAttribute('aria-label')
+        );
+      const getMenu = () => target.querySelector<HTMLElement>('.gis-ui-toolbar-menu')!;
+      await vi.waitFor(() => expect(direct()).toEqual(['放大']));
+      const more = slot.querySelector<HTMLButtonElement>('.gis-ui-toolbar-more')!;
+      expect(more.querySelector('.gis-ui-toolbar-more-label')).toBeNull();
+      more.click();
+      await vi.waitFor(() => {
+        expect(getMenu().style.left).toBe('536px');
+        expect(document.activeElement).toBe(getMenu().querySelector('button'));
+      });
+      expect(getMenu().style.top).toBe(`${window.innerHeight - 188}px`);
+      expect(
+        [...getMenu().querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)
+      ).toEqual(['缩小', 'Custom action', 'Scale1:2000']);
+      getMenu().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await nextTick();
+      expect(getMenu()).toBeNull();
+      expect(document.activeElement).toBe(more);
+
+      slot.style.setProperty('--gis-ui-toolbar-menu-side', 'right');
+      more.click();
+      await vi.waitFor(() => expect(getMenu().style.left).toBe('740px'));
+      getMenu().querySelectorAll('button')[1]!.click();
+      expect(action).toHaveBeenCalledOnce();
+      height = 64;
+      resizeToolbar!();
+      await nextTick();
+      expect(direct()).toEqual([]);
+      expect(more.isConnected).toBe(true);
+
+      height = 300;
+      resizeToolbar!();
+      await nextTick();
+      expect(direct()).toEqual(
+        toolbarMaxVisibleTools ? ['放大', '缩小'] : ['放大', '缩小', 'Custom action', 'Scale']
+      );
+      expect(more.isConnected).toBe(toolbarMaxVisibleTools !== undefined);
+    } finally {
+      await app.dispose();
+      target.remove();
+      rect.mockRestore();
+      clientHeight.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  }
+);

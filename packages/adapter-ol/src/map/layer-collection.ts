@@ -25,11 +25,11 @@ export class OLLayerCollection {
     if (!binding) {
       return;
     }
+    this.getMap().removeLayer(binding.layer);
     if (this.attached.get(binding.id) === binding) {
       this.attached.delete(binding.id);
     }
     this.bindings.delete(handle);
-    this.getMap().removeLayer(binding.layer);
   }
 
   setLayerOrder(handles: readonly MapLayerHandle[]): void {

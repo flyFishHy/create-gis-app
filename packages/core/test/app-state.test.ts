@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/gis-app.js';
+import { createGISApp } from '../src/index.js';
 import { createFakeLayerDefinition, createFakeMapPlugin } from './fake-map.js';
 import type { AppContext, AppStateSnapshot, DeepReadonly } from '../src/types.js';
 

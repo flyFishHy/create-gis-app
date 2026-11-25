@@ -624,7 +624,7 @@
     border-style: solid;
     border-radius: var(--gis-ui-panel-radius);
   }
-  .gis-ui-toolbar {
+  :is(.gis-ui-toolbar, .gis-ui-toolbar-measure) {
     flex-direction: column;
     flex-wrap: nowrap;
     justify-content: flex-start;
@@ -765,7 +765,8 @@
 .gis-ui-overlay--toolbar {
   grid-column: 3;
   grid-row: 1 / -1;
-  align-self: center;
+  align-self: stretch;
+  align-items: center;
   justify-self: end;
   max-height: 100%;
   display: flex;
@@ -900,6 +901,7 @@
     padding-right: 0;
   }
   .gis-ui-overlay--toolbar {
+    --gis-ui-toolbar-menu-side: right;
     grid-column: 1;
     grid-row: 2;
     justify-self: start;

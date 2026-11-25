@@ -100,6 +100,9 @@ export interface MapLayerHandle {
   setLegendFilter?(ruleId: string | undefined): void;
   setVisible(visible: boolean): void;
   setZIndex(zIndex: number): void;
+  /** Synchronously applies the entire patch, restoring previous engine state on failure. */
+  commitUpdate?(patch: LayerUpdate): undefined;
+  /** Legacy update hook. Core still applies the common visibility and order setters. */
   update?(patch: LayerUpdate): void | Promise<void>;
   dispose(): void | Promise<void>;
   getMetadata?(): Readonly<Record<string, unknown>>;
@@ -140,6 +143,8 @@ export interface LayerInstance {
   readonly title?: string;
   readonly status: 'created' | 'loading' | 'ready' | 'error' | 'disposed';
   readonly visible: boolean;
+  /** This layer's visibility setting before applying ancestor group gates. */
+  readonly ownVisible: boolean;
   setVisibility(visible: boolean): void;
   getTimeDimensions(): readonly LayerTimeDimension[];
   getTimeFilter(): LayerTimeFilter | undefined;

@@ -2,9 +2,14 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import Draw from 'ol/interaction/Draw.js';
+import Modify from 'ol/interaction/Modify.js';
 import Feature from 'ol/Feature.js';
 import LineString from 'ol/geom/LineString.js';
+import Point from 'ol/geom/Point.js';
+import Polygon from 'ol/geom/Polygon.js';
 import VectorLayer from 'ol/layer/Vector.js';
+import CircleStyle from 'ol/style/Circle.js';
+import type { StyleFunction } from 'ol/style/Style.js';
 import { createGISApp } from '@joinmap/gis-core';
 import { createOLAdapter, useOLMap, useOLTools } from '../../adapter-ol/src/index.js';
 import { createVueUI } from '../../ui-vue/src/vue-ui.js';
@@ -80,12 +85,16 @@ it('provides tools, properties, pointer status and scale with only the two defau
     await nextTick();
     expect(pointerListeners()).toBe(originalListeners + 1);
     expect(coordinates().textContent).toBe('-10.00000,-20.00000');
-    target.querySelector<HTMLButtonElement>('button[aria-label="测量距离"]')!.click();
+    const measureButton = target.querySelector<HTMLButtonElement>('button[aria-label="测量距离"]')!;
+    measureButton.focus();
+    measureButton.click();
     await flushPromises();
-    const draw = map
-      .getInteractions()
-      .getArray()
-      .find((item) => item instanceof Draw) as Draw;
+    const getDraw = () =>
+      map
+        .getInteractions()
+        .getArray()
+        .find((item) => item instanceof Draw);
+    const draw = getDraw()!;
     const undo = vi.spyOn(draw, 'removeLastPoint');
     const viewport = target.querySelector<HTMLElement>('.gis-ui-map-viewport')!;
     viewport.dispatchEvent(
@@ -93,7 +102,16 @@ it('provides tools, properties, pointer status and scale with only the two defau
     );
     expect(undo).toHaveBeenCalledTimes(1);
     expect(target.querySelector('.gis-ui-layer-manager')?.textContent).not.toContain('测量结果');
-    draw.dispatchEvent({
+    expect(app.interactions.getActiveTool()).toBe('measure-distance');
+    measureButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushPromises();
+    expect(app.interactions.getActiveTool()).toBeUndefined();
+    expect(getDraw()).toBeUndefined();
+    expect(useOLTools(app).list()).toHaveLength(0);
+
+    measureButton.click();
+    await flushPromises();
+    getDraw()!.dispatchEvent({
       type: 'drawend',
       feature: new Feature(
         new LineString([
@@ -103,9 +121,7 @@ it('provides tools, properties, pointer status and scale with only the two defau
       ),
     } as never);
     await vi.waitFor(() => expect(useOLTools(app).list()).toHaveLength(1));
-    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await flushPromises();
-    expect(app.interactions.getActiveTool()).toBeUndefined();
+    await vi.waitFor(() => expect(app.interactions.getActiveTool()).toBeUndefined());
     const result = useOLTools(app).list()[0]!;
     useOLTools(app).select(result.id);
     await nextTick();
@@ -188,7 +204,7 @@ it('respects tools:false and explicit properties/status configuration without UI
   }
 });
 
-it('applies the active Vue theme to existing map measurements', async () => {
+it('themes drawing and measurement sketches, results, and edit handles', async () => {
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -221,29 +237,97 @@ it('applies the active Vue theme to existing map measurements', async () => {
     });
     await app.mount(target);
     const map = useOLMap(app);
-    await app.interactions.activateTool('measure-angle');
-    const draw = map
-      .getInteractions()
-      .getArray()
-      .find((interaction) => interaction instanceof Draw)!;
-    const feature = new Feature(
-      new LineString([
+    const line = new LineString([
+      [0, -1],
+      [0, 0],
+      [-1, 0],
+    ]);
+    const polygon = new Polygon([
+      [
         [0, -1],
         [0, 0],
         [-1, 0],
-      ])
-    );
-    draw.dispatchEvent({ type: 'drawend', feature } as never);
-    await vi.waitFor(() => expect(app.layers.has('ol-tools:measure-angle')).toBe(true));
-    const layer = map.getLayers().item(0) as VectorLayer;
-    const measured = layer.getSource()!.getFeatures()[0]!;
-    const measurementColor = () => {
-      const styles = measured.getStyleFunction()?.(measured, map.getView().getResolution()!);
-      return (Array.isArray(styles) ? styles[0] : styles)?.getStroke()?.getColor();
+        [0, -1],
+      ],
+    ]);
+    const point = new Point([0, 0]);
+    const cases = [
+      ['draw-point', point],
+      ['draw-line', line],
+      ['draw-polygon', polygon],
+      ['measure-distance', line],
+      ['measure-area', polygon],
+      ['measure-angle', line],
+    ] as const;
+    const expectColors = (
+      style: StyleFunction,
+      feature: Feature,
+      color: number[],
+      angle = false
+    ) => {
+      const styles = style(feature, map.getView().getResolution()!);
+      expect(Array.isArray(styles)).toBe(true);
+      const [shape, vertex, arc] = Array.isArray(styles) ? styles : [];
+      const geometry = feature.getGeometry();
+      const marker = (geometry instanceof Point ? shape : vertex)?.getImage() as CircleStyle;
+      expect(marker.getFill()?.getColor()).toEqual(color);
+      expect(marker.getStroke()?.getColor()).toEqual(color);
+      if (!(geometry instanceof Point)) {
+        expect(shape?.getStroke()?.getColor()).toEqual(color);
+      }
+      if (geometry instanceof Polygon) {
+        expect(shape?.getFill()?.getColor()).toEqual([...color.slice(0, 3), 0.16]);
+      }
+      if (angle) {
+        expect(arc?.getStroke()?.getColor()).toEqual(color);
+      }
     };
-    await vi.waitFor(() => expect(measurementColor()).toEqual([8, 135, 90, 1]));
+    const results: Feature[] = [];
+    for (const [toolId, geometry] of cases) {
+      await app.interactions.activateTool(toolId);
+      const draw = map
+        .getInteractions()
+        .getArray()
+        .find((item) => item instanceof Draw)!;
+      const feature = new Feature(geometry.clone());
+      expectColors(
+        draw.getOverlay().getStyleFunction()!,
+        feature,
+        [8, 135, 90, 1],
+        toolId === 'measure-angle'
+      );
+      draw.dispatchEvent({ type: 'drawend', feature } as never);
+      await vi.waitFor(() => {
+        expect(app.interactions.getActiveTool()).toBeUndefined();
+        expect(app.layers.has(`ol-tools:${toolId}`)).toBe(true);
+      });
+      const layer = map
+        .getLayers()
+        .getArray()
+        .find((item) => item.get('gisLayerId') === `ol-tools:${toolId}`) as VectorLayer;
+      const result = layer.getSource()!.getFeatures()[0]!;
+      expectColors(result.getStyleFunction()!, result, [8, 135, 90, 1], toolId === 'measure-angle');
+      results.push(result);
+    }
+    useOLTools(app).select(String(results[0]!.getId()));
+    await app.interactions.activateTool('modify-result');
+    const modify = map
+      .getInteractions()
+      .getArray()
+      .find((item) => item instanceof Modify)!;
+    const expectUpdatedColors = () => {
+      for (const result of results) {
+        expectColors(
+          result.getStyleFunction()!,
+          result,
+          [105, 68, 175, 1],
+          result.get('gisToolId') === 'measure-angle'
+        );
+      }
+      expectColors(modify.getOverlay().getStyleFunction()!, new Feature(point), [105, 68, 175, 1]);
+    };
     ui.theme.set({ tokens: { colorPrimary: '#6944af' } });
-    await vi.waitFor(() => expect(measurementColor()).toEqual([105, 68, 175, 1]));
+    await vi.waitFor(expectUpdatedColors);
   } finally {
     await app.dispose();
     target.remove();

@@ -138,7 +138,7 @@ const regionStyle = computed(() => ({
 }));
 const appTitle = computed(() => props.runtime.config?.title);
 
-function handleKeydown(event: KeyboardEvent) {
+async function handleKeydown(event: KeyboardEvent) {
   if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
     return;
   }
@@ -150,12 +150,23 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
   try {
+    const interactions = props.runtime.interactions;
     if (event.key === 'Escape') {
-      void props.runtime.interactions.deactivateTool().catch(reportToolError);
+      const activeTool = interactions.getActiveTool();
+      await interactions.deactivateTool();
+      if (
+        activeTool &&
+        !interactions.getActiveTool() &&
+        target instanceof HTMLButtonElement &&
+        target.closest('.gis-ui-toolbar') &&
+        target.ownerDocument.activeElement === target
+      ) {
+        target.blur();
+      }
     }
-    if (event.key === 'Backspace' && props.runtime.interactions.getActiveTool()) {
+    if (event.key === 'Backspace' && interactions.getActiveTool()) {
       event.preventDefault();
-      props.runtime.interactions.undoActiveTool();
+      interactions.undoActiveTool();
     }
   } catch (cause) {
     reportToolError(cause);

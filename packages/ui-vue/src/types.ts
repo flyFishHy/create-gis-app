@@ -177,6 +177,8 @@ export interface VueUIOptions {
   layouts?: Readonly<Record<string, Component>>;
   panelDefinitions?: readonly VuePanelDefinition[];
   toolbarItems?: readonly ToolbarItemDefinition[];
+  /** Maximum number of items shown directly in the built-in vertical toolbar. */
+  toolbarMaxVisibleTools?: number;
   extensions?: readonly VueUIPlugin[];
   appProps?: Record<string, unknown>;
   toolbarComponent?: Component;

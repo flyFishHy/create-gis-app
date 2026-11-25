@@ -5,7 +5,7 @@ import { createGISApp } from '@joinmap/gis-core';
 import { createFakeLayerDefinition, createFakeMapPlugin } from '../../core/test/fake-map.js';
 import { createVueUI } from '../src/vue-ui.js';
 
-it('filters nested layer names with ancestors, preserves order, and cascades group visibility', async () => {
+it('filters nested layer names and keeps child visibility settings under a closed group', async () => {
   const app = createGISApp();
   app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }));
   app.use(createVueUI());
@@ -87,28 +87,28 @@ it('filters nested layer names with ancestors, preserves order, and cascades gro
       expect(child.classList.contains('is-hidden')).toBe(true);
       const button = child.querySelector<HTMLButtonElement>('.gis-ui-layer-visibility')!;
       expect(button.disabled).toBe(false);
-      expect(button.getAttribute('aria-pressed')).toBe('false');
+      expect(button.getAttribute('aria-pressed')).toBe('true');
     }
     const station = group.querySelector<HTMLButtonElement>(
       'button[aria-label="切换图层显隐 Stations"]'
     )!;
     station.click();
     await nextTick();
-    expect(count()).toBe('2/2');
-    expect(eye.getAttribute('aria-pressed')).toBe('true');
+    expect(count()).toBe('1/2');
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
     expect(
       group.querySelector('button[aria-label="切换图层显隐 Places"]')!.getAttribute('aria-pressed')
     ).toBe('true');
-    expect(app.layers.get('stations')!.visible).toBe(true);
+    expect(station.getAttribute('aria-pressed')).toBe('false');
+    expect(app.layers.get('stations')!.visible).toBe(false);
     expect(app.layers.get('roads')!.visible).toBe(false);
-    station.click();
-    await nextTick();
-    expect(count()).toBe('1/2');
-    expect(eye.getAttribute('aria-pressed')).toBe('false');
     eye.click();
     await nextTick();
-    for (const id of ['group', 'roads', 'nested', 'stations'])
-      expect(app.layers.get(id)!.visible).toBe(true);
+    for (const id of ['group', 'roads', 'nested']) expect(app.layers.get(id)!.visible).toBe(true);
+    expect(app.layers.get('stations')!.visible).toBe(false);
+    station.click();
+    await nextTick();
+    expect(app.layers.get('stations')!.visible).toBe(true);
     await app.layers.remove('base');
     await nextTick();
     expect(count()).toBe('1/1');

@@ -864,6 +864,13 @@ it('unifies map picks, result selection, business selection and removal', async 
     expect(map.getOverlays().getLength()).toBe(0);
     app.layers.setVisibility('ol-tools:measure', true);
     expect(map.getOverlays().getLength()).toBe(2);
+    app.layers.setVisibility('ol-tools:measure-distance', false);
+    app.layers.setVisibility('ol-tools:measure', false);
+    app.layers.setVisibility('ol-tools:measure', true);
+    expect(distance.getVisible()).toBe(false);
+    expect(map.getOverlays().getLength()).toBe(0);
+    app.layers.setVisibility('ol-tools:measure-distance', true);
+    expect(map.getOverlays().getLength()).toBe(2);
     hits.mockImplementation((_pixel, callback) =>
       callback(drawing.getSource()!.getFeatureById('result')!, drawing, null as never)
     );
@@ -1005,7 +1012,7 @@ it('runs real drawing interactions through Core, preserves sketches on sorting, 
       expect(styles[0]!.getStroke()?.getColor()).toEqual(color);
       expect(styles[2]!.getStroke()?.getColor()).toEqual(color);
       const marker = styles[1]!.getImage() as CircleStyle;
-      expect(marker.getFill()?.getColor()).toBe('#fff');
+      expect(marker.getFill()?.getColor()).toEqual(color);
       expect(marker.getStroke()?.getColor()).toEqual(color);
     };
     checkArc([8, 135, 90, 1]);
