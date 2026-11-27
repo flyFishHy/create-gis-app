@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  shallowRef,
-  useId,
-  watch,
-  type CSSProperties,
-} from 'vue';
+import { computed, ref, shallowRef, useId, watch } from 'vue';
 import { ElConfigProvider } from 'element-plus';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import en from 'element-plus/es/locale/lang/en';
@@ -26,23 +17,24 @@ import {
   timeShortcuts,
   type TimeShortcut,
 } from './time-display.js';
-import {
-  isTimestamp,
-  isTimeZone,
-  normalizeTimeSelection,
-  startOfPeriod,
-  zonedTime,
-} from './time-period.js';
+import { isTimestamp, isTimeZone, normalizeTimeSelection, zonedTime } from './time-period.js';
 import {
   timeGranularities,
   timeSelectionModes,
   type TimeFilterPickerEmits,
   type TimeFilterPickerProps,
   type TimeGranularity,
-  type TimePickerDraft,
   type TimeSelection,
   type TimeSelectionMode,
 } from './types.js';
+import {
+  fromDraft,
+  sameTimeSelection,
+  switchDraft,
+  toDraft,
+  type TimeDraft,
+} from './time-draft.js';
+import { useTimePickerDialog } from './use-time-picker-dialog.js';
 
 dayjs.extend(isoWeek);
 const english = { ...en, name: 'en-gb' };
@@ -58,18 +50,22 @@ const props = withDefaults(defineProps<TimeFilterPickerProps>(), {
 });
 const emit = defineEmits<TimeFilterPickerEmits>();
 const id = useId();
-const trigger = ref<HTMLButtonElement>();
-const popup = ref<HTMLDialogElement>();
+const {
+  trigger,
+  popup,
+  open,
+  position,
+  nativeDialog,
+  show: showDialog,
+  close,
+  syncClosed,
+} = useTimePickerDialog();
 const startCalendar = ref<HTMLElement>();
 const endCalendar = ref<HTMLElement>();
-const open = ref(false);
-const position = shallowRef<CSSProperties>();
-const revision = ref(0);
+const endpointKey = ref(0);
 const attempted = ref(false);
-const draft = shallowRef<TimePickerDraft>({ mode: 'single', granularity: 'day', timeZone: 'UTC' });
-const nativeDialog =
-  typeof HTMLDialogElement !== 'undefined' &&
-  typeof HTMLDialogElement.prototype.showModal === 'function';
+const draft = shallowRef<TimeDraft>({ mode: 'single', granularity: 'day', timeZone: 'UTC' });
+const periodUnit = ref<TimeGranularity>('day');
 const labels = computed(() => timePickerMessages[props.locale]);
 const units = computed(() => props.granularities ?? timeGranularities);
 const granularityOptions = computed(() =>
@@ -78,10 +74,10 @@ const granularityOptions = computed(() =>
 const modeOptions = computed(() =>
   timeSelectionModes.map((value) => ({ value, label: labels.value[value] }))
 );
-const unit = computed(() =>
-  draft.value.mode === 'custom-range' ? 'custom' : draft.value.granularity
+const displayMode = computed(() =>
+  draft.value.granularity === 'datetime' ? 'custom-range' : draft.value.mode
 );
-const selection = computed(() => normalizeTimeSelection(draft.value));
+const selection = computed(() => fromDraft(draft.value));
 const allowed = computed(() => selection.value !== null && withinLimits(selection.value));
 const summary = computed(() => {
   if (!props.modelValue) {
@@ -106,8 +102,8 @@ const shortcuts = computed(() =>
     const [granularity, , range] = timeShortcuts[key];
     return (
       units.value.includes(granularity) &&
-      (props.showGranularitySwitch || draft.value.granularity === granularity) &&
-      (props.showModeSwitch || draft.value.mode === (range ? 'range' : 'single'))
+      (props.showGranularitySwitch || periodUnit.value === granularity) &&
+      (props.showModeSwitch || displayMode.value === (range ? 'range' : 'single'))
     );
   })
 );
@@ -142,129 +138,43 @@ function periodAllowed(time: number) {
   ) {
     return true;
   }
+  if (draft.value.granularity === 'datetime') {
+    return true;
+  }
   const value = normalizeTimeSelection({ ...draft.value, mode: 'single', start: time });
   return value !== null && withinLimits(value);
 }
 
-function fromSelection(value: TimeSelection | null | undefined): TimePickerDraft {
+function loadDraft(value: TimeSelection | null | undefined) {
   const fallback = units.value.includes(props.defaultGranularity)
     ? props.defaultGranularity
     : (units.value[0] ?? 'day');
-  const validMode = value && timeSelectionModes.includes(value.mode);
-  const base = {
-    mode: validMode ? value.mode : props.defaultMode,
-    granularity:
-      value && value.granularity !== 'custom' && units.value.includes(value.granularity)
-        ? value.granularity
-        : fallback,
-    timeZone:
-      value?.timeZone ??
-      props.defaultTimeZone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone ??
-      'UTC',
-  };
-  if (
-    !value ||
-    !isTimeZone(base.timeZone) ||
-    !isTimestamp(value.range?.start) ||
-    !isTimestamp(value.range?.endExclusive) ||
-    value.range.start >= value.range.endExclusive
-  ) {
-    return base;
-  }
-  if (base.mode === 'custom-range') {
-    return { ...base, start: value.range.start, end: value.range.endExclusive };
-  }
-  try {
-    return {
-      ...base,
-      start: startOfPeriod(value.range.start, base.granularity, base.timeZone),
-      end:
-        base.mode === 'range'
-          ? startOfPeriod(value.range.endExclusive - 1, base.granularity, base.timeZone)
-          : undefined,
-    };
-  } catch {
-    return base;
-  }
-}
-
-function place() {
-  if (!trigger.value) {
-    return;
-  }
-  const anchor = trigger.value.getBoundingClientRect();
-  const width = Math.min(410, window.innerWidth - 24);
-  const below = window.innerHeight - anchor.bottom - 20;
-  const above = anchor.top - 20;
-  const center = Math.max(above, below) < 325;
-  const upward = !center && below < 380 && above > below;
-  position.value = {
-    width: width + 'px',
-    left: Math.max(12, Math.min(anchor.left, window.innerWidth - width - 12)) + 'px',
-    top: upward ? 'auto' : (center ? 12 : anchor.bottom + 8) + 'px',
-    bottom: upward ? window.innerHeight - anchor.top + 8 + 'px' : 'auto',
-    maxHeight: (center ? window.innerHeight - 24 : upward ? above : below) + 'px',
-  };
-}
-
-function stopPositioning() {
-  window.removeEventListener('resize', place);
-  window.removeEventListener('scroll', place, true);
+  const mode = value && timeSelectionModes.includes(value.mode) ? value.mode : props.defaultMode;
+  const granularity =
+    value && value.granularity !== 'custom' && units.value.includes(value.granularity)
+      ? value.granularity
+      : fallback;
+  const timeZone =
+    value?.timeZone ??
+    props.defaultTimeZone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone ??
+    'UTC';
+  periodUnit.value = granularity;
+  draft.value = toDraft(value, mode, granularity, timeZone);
 }
 
 function show() {
-  const dialog = popup.value;
-  if (props.disabled || !dialog || (nativeDialog ? dialog.open : open.value)) {
+  if (props.disabled || !showDialog()) {
     return;
   }
-  draft.value = fromSelection(props.modelValue);
+  loadDraft(props.modelValue);
   attempted.value = false;
-  revision.value++;
-  place();
-  if (nativeDialog) {
-    dialog.showModal();
-  }
-  open.value = true;
-  window.addEventListener('resize', place);
-  window.addEventListener('scroll', place, true);
-  void nextTick(() => {
-    if (open.value) {
-      popup.value?.querySelector<HTMLElement>('header strong')?.focus();
-    }
-  });
-}
-
-function close() {
-  if (nativeDialog && popup.value?.open) {
-    popup.value.close();
-  }
-  syncClosed();
-}
-
-function syncClosed() {
-  // A queued native close event can arrive after the dialog has already reopened.
-  if (!open.value || (nativeDialog && popup.value?.open)) {
-    return;
-  }
-  open.value = false;
-  stopPositioning();
-  trigger.value?.focus();
+  endpointKey.value++;
 }
 
 function cancel() {
   close();
   emit('cancel');
-}
-
-function sameValue(left: TimeSelection, right: TimeSelection | null | undefined) {
-  return (
-    right?.mode === left.mode &&
-    right.granularity === left.granularity &&
-    right.timeZone === left.timeZone &&
-    right.range?.start === left.range.start &&
-    right.range.endExclusive === left.range.endExclusive
-  );
 }
 
 function apply() {
@@ -274,7 +184,7 @@ function apply() {
     return;
   }
   close();
-  if (sameValue(value, props.modelValue)) {
+  if (sameTimeSelection(value, props.modelValue)) {
     return;
   }
   emit('update:modelValue', value);
@@ -300,15 +210,10 @@ function updateEndpoint(name: 'start' | 'end', value: number | undefined) {
 }
 
 function changeMode(mode: TimeSelectionMode, granularity: TimeGranularity) {
-  const old = selection.value;
-  const start = old?.range.start ?? draft.value.start;
-  const end =
-    mode === 'single' || !old ? undefined : old.range.endExclusive - (mode === 'range' ? 1 : 0);
-  const next = { ...draft.value, mode, granularity, start, end };
-  const aligned = normalizeTimeSelection(next);
-  draft.value = aligned ? { ...fromSelection(aligned), granularity } : next;
-  attempted.value = Boolean(aligned);
-  revision.value++;
+  periodUnit.value = granularity;
+  draft.value = switchDraft(draft.value, mode, granularity);
+  attempted.value = selection.value !== null;
+  endpointKey.value++;
   if (!props.confirmable && allowed.value) {
     apply();
   }
@@ -319,9 +224,9 @@ function shortcut(key: TimeShortcut) {
   if (!value || !withinLimits(value)) {
     return;
   }
-  draft.value = fromSelection(value);
+  loadDraft(value);
   attempted.value = false;
-  revision.value++;
+  endpointKey.value++;
   if (!props.confirmable) {
     apply();
   }
@@ -346,7 +251,6 @@ watch(
     }
   }
 );
-onBeforeUnmount(stopPositioning);
 </script>
 
 <template>
@@ -376,6 +280,7 @@ onBeforeUnmount(stopPositioning);
       @close="syncClosed"
       @cancel.prevent="cancel"
       @click.self="cancel"
+      @keydown.esc.stop="!nativeDialog && cancel()"
       @keydown.stop
     >
       <div ref="startCalendar" class="gis-ui-time-picker-calendar-host"></div>
@@ -387,13 +292,13 @@ onBeforeUnmount(stopPositioning);
         </header>
         <GisSwitch
           v-if="showModeSwitch"
-          :model-value="draft.mode"
+          :model-value="displayMode"
           :group-label="labels.mode"
           :options="modeOptions"
-          @update:model-value="changeMode($event as TimeSelectionMode, draft.granularity)"
+          @update:model-value="changeMode($event as TimeSelectionMode, periodUnit)"
         />
         <GisSwitch
-          v-if="showGranularitySwitch && unit !== 'custom' && units.length > 1"
+          v-if="showGranularitySwitch && draft.granularity !== 'datetime' && units.length > 1"
           :model-value="draft.granularity"
           :group-label="labels.granularity"
           :options="granularityOptions"
@@ -404,11 +309,11 @@ onBeforeUnmount(stopPositioning);
             v-for="name in draft.mode === 'single'
               ? (['start'] as const)
               : (['start', 'end'] as const)"
-            :key="name + '-' + revision"
+            :key="name + '-' + endpointKey"
             :model-value="draft[name]"
-            :unit="unit"
+            :unit="draft.granularity"
             :time-zone="draft.timeZone"
-            :label="draft.mode === 'single' ? labels[unit as TimeGranularity] : labels[name]"
+            :label="draft.mode === 'single' ? labels[draft.granularity] : labels[name]"
             :hour-label="labels.hour"
             :clock-label="labels.clock"
             :offset-label="labels.offset"

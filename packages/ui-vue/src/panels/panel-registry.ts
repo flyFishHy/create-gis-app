@@ -1,11 +1,15 @@
-import { shallowRef } from 'vue';
+import { computed, shallowRef } from 'vue';
 import type { PanelConfig, PanelPosition } from '@joinmap/gis-core';
 import type { PanelService, PanelState, VuePanelDefinition } from '../types.js';
+
+const compareOrder = (left: PanelState, right: PanelState) =>
+  left.order - right.order || left.id.localeCompare(right.id);
 
 export class PanelRegistry implements PanelService {
   private readonly definitions = new Map<string, VuePanelDefinition>();
   private readonly configured = new Map<string, PanelConfig>();
-  readonly states = shallowRef<readonly PanelState[]>([]);
+  private readonly current = shallowRef<readonly PanelState[]>(Object.freeze([]));
+  readonly states = computed(() => this.current.value);
 
   constructor(configuredPanels: readonly PanelConfig[] = []) {
     for (const config of configuredPanels) {
@@ -21,28 +25,40 @@ export class PanelRegistry implements PanelService {
       throw new Error(`Panel "${definition.id}" is already registered.`);
     }
 
-    const stableDefinition = Object.freeze({ ...definition });
-    this.definitions.set(definition.id, stableDefinition);
-    const config = this.configured.get(definition.id);
+    const { id, allowedPositions, header } = definition;
+    const stableDefinition = Object.freeze({
+      ...definition,
+      ...(allowedPositions && { allowedPositions: Object.freeze([...allowedPositions]) }),
+      ...(header && { header: Object.freeze({ ...header }) }),
+    });
+    const config = this.configured.get(id);
+    const firstAllowed = allowedPositions?.[0];
+    const preferred = definition.position ?? firstAllowed ?? 'left';
+    let position = config?.position ?? preferred;
+    if (allowedPositions && firstAllowed && !allowedPositions.includes(position)) {
+      position = allowedPositions.includes(preferred) ? preferred : firstAllowed;
+      console.warn(
+        `[gis-ui-vue] ${id} does not support position "${config?.position ?? preferred}"; using "${position}".`
+      );
+    }
     const state: PanelState = Object.freeze({
-      id: definition.id,
+      id,
       visible: config?.visible ?? definition.defaultVisible ?? false,
       collapsed: config?.collapsed ?? definition.defaultCollapsed ?? false,
-      position: config?.position ?? definition.position ?? 'left',
-      order: config?.order ?? definition.order ?? this.states.value.length,
+      position,
+      order: config?.order ?? definition.order ?? this.current.value.length,
       width: config?.width ?? definition.width,
       height: config?.height ?? definition.height,
     });
-    this.states.value = [...this.states.value, state];
+    this.definitions.set(id, stableDefinition);
+    this.current.value = Object.freeze([...this.current.value, state]);
 
-    let registered = true;
     return () => {
-      if (!registered) {
+      if (this.definitions.get(id) !== stableDefinition) {
         return;
       }
-      registered = false;
-      this.definitions.delete(definition.id);
-      this.states.value = this.states.value.filter((entry) => entry.id !== definition.id);
+      this.definitions.delete(id);
+      this.current.value = Object.freeze(this.current.value.filter((entry) => entry.id !== id));
     };
   }
 
@@ -57,21 +73,17 @@ export class PanelRegistry implements PanelService {
   clear(): void {
     this.definitions.clear();
     this.configured.clear();
-    this.states.value = [];
+    this.current.value = Object.freeze([]);
   }
 
   get(id: string): VuePanelDefinition | undefined {
-    return this.definitions.get(id);
+    return this.getState(id) && this.definitions.get(id);
   }
 
   list(position?: PanelPosition): VuePanelDefinition[] {
     return this.states.value
       .filter((state) => position === undefined || state.position === position)
-      .slice()
-      .sort(
-        (leftPanel, rightPanel) =>
-          leftPanel.order - rightPanel.order || leftPanel.id.localeCompare(rightPanel.id)
-      )
+      .sort(compareOrder)
       .map((state) => this.definitions.get(state.id))
       .filter((definition): definition is VuePanelDefinition => definition !== undefined);
   }
@@ -105,11 +117,25 @@ export class PanelRegistry implements PanelService {
       }
       seen.add(id);
     }
-    const updates = new Map(ids.map((id, index) => [id, index]));
-    this.states.value = this.states.value.map((state) => {
-      const order = updates.get(state.id);
-      return order === undefined ? state : Object.freeze({ ...state, order });
-    });
+    if (!ids.length) {
+      return;
+    }
+    const remaining = this.current.value
+      .filter(
+        (state) => (position === undefined || state.position === position) && !seen.has(state.id)
+      )
+      .sort(compareOrder);
+    const updates = new Map(
+      [...ids, ...remaining.map((state) => state.id)].map((id, index) => [id, index])
+    );
+    this.current.value = Object.freeze(
+      this.current.value.map((state) => {
+        const order = updates.get(state.id);
+        return order === undefined || order === state.order
+          ? state
+          : Object.freeze({ ...state, order });
+      })
+    );
   }
 
   getState(id: string): PanelState | undefined {
@@ -118,8 +144,10 @@ export class PanelRegistry implements PanelService {
 
   private updateState(id: string, patch: Partial<PanelState>): void {
     this.requireState(id);
-    this.states.value = this.states.value.map((state) =>
-      state.id === id ? Object.freeze({ ...state, ...patch }) : state
+    this.current.value = Object.freeze(
+      this.current.value.map((state) =>
+        state.id === id ? Object.freeze({ ...state, ...patch }) : state
+      )
     );
   }
 

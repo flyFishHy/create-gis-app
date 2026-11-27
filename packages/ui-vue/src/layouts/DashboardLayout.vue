@@ -13,6 +13,7 @@ withDefaults(
 const actions = ref<HTMLElement>();
 const left = ref<HTMLElement>();
 const top = ref<HTMLElement>();
+const map = ref<HTMLElement>();
 const actionHeight = ref('48px');
 watch(
   actions,
@@ -55,8 +56,7 @@ watch(
         <div ref="top" class="gis-ui-top-region" />
         <div class="gis-ui-toolbar-host" aria-label="Map tools"><slot name="toolbar" /></div>
       </div>
-      <section class="gis-ui-map-region">
-        <slot name="map" />
+      <section ref="map" class="gis-ui-map-region">
         <div class="gis-ui-overlay gis-ui-overlay--floating"><slot name="floating" /></div>
       </section>
       <aside
@@ -68,8 +68,7 @@ watch(
       </aside>
       <footer class="gis-ui-map-status"><slot name="bottom" /></footer>
     </div>
-    <section v-else class="gis-ui-map-region">
-      <slot name="map" />
+    <section v-else ref="map" class="gis-ui-map-region">
       <div class="gis-ui-overlay-controls" :class="{ 'has-drawer': drawerVisible }">
         <div ref="top" class="gis-ui-overlay--top" />
         <div class="gis-ui-overlay--toolbar" aria-label="Map tools"><slot name="toolbar" /></div>
@@ -83,5 +82,6 @@ watch(
     <!-- Move the panels between layouts so their live controls and drafts survive. -->
     <Teleport :to="left" :disabled="!left"><slot name="left" /></Teleport>
     <Teleport :to="top" :disabled="!top"><slot name="top" /></Teleport>
+    <Teleport :to="map" :disabled="!map"><slot name="map" /></Teleport>
   </main>
 </template>

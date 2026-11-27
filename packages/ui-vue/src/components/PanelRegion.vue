@@ -2,19 +2,25 @@
 import { computed } from 'vue';
 import type { PanelPosition } from '@joinmap/gis-core';
 import { useGISUI } from '../use-gis-ui.js';
+import { panelSlot } from '../layouts/layout-regions.js';
 import PanelHost from './PanelHost.vue';
 
-const props = defineProps<{ position: PanelPosition; exclude?: readonly string[] }>();
+const props = defineProps<{
+  position: PanelPosition;
+  exclude?: readonly string[];
+  panelIds?: readonly string[];
+}>();
 const ui = useGISUI();
-const panelIds = computed(() =>
-  ui.panels
-    .list(props.position)
-    .filter(
-      (panel) =>
-        panel.id !== 'toolbar' && panel.id !== 'status' && !props.exclude?.includes(panel.id)
-    )
-    .map((panel) => panel.id)
-);
+const ids = computed(() => {
+  const position = props.position;
+  const panels =
+    props.panelIds ??
+    ui.panels
+      .list(position)
+      .filter((panel) => panelSlot(panel, position) === position)
+      .map((panel) => panel.id);
+  return panels.filter((id) => !props.exclude?.includes(id));
+});
 </script>
 
 <template>
@@ -23,6 +29,6 @@ const panelIds = computed(() =>
     :class="`gis-ui-panel-region--${position}`"
     :aria-label="`${position} panels`"
   >
-    <PanelHost v-for="id in panelIds" :key="id" :id="id" />
+    <PanelHost v-for="id in ids" :key="id" :id="id" />
   </section>
 </template>

@@ -5,6 +5,7 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   zh: {
     'app.workspace': 'GIS 工作台',
     'action.expand': '展开',
+    'action.refresh': '刷新',
     'action.collapse': '折叠',
     'action.closePanel': '关闭面板',
     'action.clearSelection': '清除选择',
@@ -204,6 +205,7 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   en: {
     'app.workspace': 'GIS Workspace',
     'action.expand': 'Expand',
+    'action.refresh': 'Refresh',
     'action.collapse': 'Collapse',
     'action.closePanel': 'Close panel',
     'action.clearSelection': 'Clear selected feature',

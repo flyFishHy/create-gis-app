@@ -3,6 +3,7 @@ import { defineComponent, h, inject, provide, nextTick } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createGISApp } from '@joinmap/gis-core';
 import { createFakeMapPlugin, FakeMapAdapter } from '../../core/test/fake-map.js';
+import { getVueUIAdapter } from '../src/adapter/vue-ui-adapter.js';
 import { createVueUI } from '../src/vue-ui.js';
 import GISWorkspace from '../src/GISWorkspace.vue';
 import type { GISUIContext } from '../src/types.js';
@@ -29,6 +30,72 @@ it('rolls back initialized UI extensions and pre-init search registrations after
   expect(app.search.listProviders()).toEqual([]);
   await app.dispose();
   expect(cleanup).toHaveBeenCalledTimes(1);
+});
+
+it('continues rollback in reverse order when an extension cleanup throws', async () => {
+  const app = createGISApp();
+  const order: string[] = [];
+  let context: GISUIContext | undefined;
+  app.use(
+    createVueUI({
+      extensions: [
+        {
+          name: 'first',
+          install(ui) {
+            context = ui;
+            const unregister = ui.panels.register({ id: 'custom', component: {} });
+            return () => {
+              order.push('first');
+              unregister();
+            };
+          },
+        },
+        {
+          name: 'second',
+          install: () => () => {
+            order.push('second');
+            throw new Error('Cleanup failed');
+          },
+        },
+        {
+          name: 'failing',
+          install() {
+            throw new Error('Install failed');
+          },
+        },
+      ],
+    })
+  );
+  await expect(app.init({})).rejects.toMatchObject({
+    cause: expect.objectContaining({ message: 'Install failed' }),
+    cleanupErrors: [expect.any(Error)],
+  });
+  expect(() => getVueUIAdapter(app)).toThrow(/Initialize createVueUI/);
+  expect(context?.panels.list()).toEqual([]);
+  expect(context?.toolbar.list()).toEqual([]);
+  await app.dispose();
+  expect(order).toEqual(['second', 'first']);
+});
+
+it('rejects competing hosts and retries mount with the owning host after a target error', async () => {
+  const app = createGISApp().use(createVueUI());
+  await app.init({});
+  const adapter = getVueUIAdapter(app);
+  const target = document.createElement('div');
+  const render = vi.fn();
+  const release = adapter.bindHost(render, () => target);
+  try {
+    expect(() => adapter.bindHost(vi.fn(), () => target)).toThrow(/already owns/);
+    await expect(app.mount(document.createElement('div'))).rejects.toThrow(/host target/);
+    expect(render).not.toHaveBeenCalled();
+    await app.mount(target);
+    expect(render).toHaveBeenCalledExactlyOnceWith(true);
+    await app.unmount();
+    expect(render.mock.calls).toEqual([[true], [false]]);
+  } finally {
+    await app.dispose();
+    release();
+  }
 });
 
 it('releases ownership when the host disappears before its queued mount starts', async () => {

@@ -70,6 +70,7 @@ it('switches built-in layouts in place and retains settings, map view and select
     await app.init({ map: { center: [1, 2], zoom: 4 }, ui: { layout: 'overlay-dashboard' } });
     await app.mount(target);
     const map = useOLMap(app);
+    const viewport = map.getTargetElement();
     const tools = useOLTools(app);
     await tools.importResults([
       {
@@ -92,6 +93,7 @@ it('switches built-in layouts in place and retains settings, map view and select
     expect(header.querySelector('.gis-ui-appearance')).toBe(popover);
     expect(gear.getAttribute('aria-expanded')).toBe('true');
     expect(map.getTargetElement()).toBe(target.querySelector('.gis-ui-map-viewport'));
+    expect(map.getTargetElement()).toBe(viewport);
     expect(map.getView().getCenter()).toEqual([1, 2]);
     expect(map.getView().getZoom()).toBe(4);
     expect(tools.list()).toHaveLength(1);
@@ -106,6 +108,7 @@ it('switches built-in layouts in place and retains settings, map view and select
     popover.querySelector<HTMLButtonElement>('button[aria-label="浮动"]')!.click();
     await nextTick();
     expect(target.querySelector('.gis-ui-layout--overlay .gis-ui-title')).toBe(header);
+    expect(map.getTargetElement()).toBe(viewport);
     expect(
       target.querySelector('.gis-ui-overlay--drawer .gis-ui-panel-host--properties')
     ).not.toBeNull();

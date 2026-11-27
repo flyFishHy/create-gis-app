@@ -1,19 +1,22 @@
-import type { JsonValue, LayerConfig, LayerUpdate, MapLayerHandle } from '@joinmap/gis-core';
+import type {
+  EngineLayerPatch,
+  JsonValue,
+  LayerCapabilities,
+  LayerConfig,
+  MapLayerHandle,
+} from '@joinmap/gis-core';
 import type BaseLayer from 'ol/layer/Base.js';
-import VectorLayer from 'ol/layer/Vector.js';
-import { createLayerStyling } from './style-controller.js';
-import { findVectorFeature } from '../../interactions/feature-reference.js';
+import {
+  defaultVectorStyle,
+  resolveSingleSymbolLegend,
+  validateLegendColors,
+} from './layer-legend.js';
 import { runCleanups } from '../../lifecycle/run-cleanups.js';
 
 function commitLayerUpdate(
   layer: BaseLayer,
-  patch: LayerUpdate,
-  style:
-    | {
-        apply(): void;
-        rollback(): void;
-      }
-    | undefined
+  patch: EngineLayerPatch,
+  style: PreparedLayerUpdate | undefined
 ): void {
   const rollbacks: (() => void)[] = [];
   const apply = <Value>(
@@ -74,65 +77,83 @@ function commitLayerUpdate(
   }
 }
 
+export function validateOLOptions(options: Readonly<Record<string, JsonValue>>): void {
+  for (const key of Object.keys(options)) {
+    if (key !== 'opacity') {
+      throw new Error(`Unsupported OL layer option "${key}". Put style at layer.style.`);
+    }
+  }
+  if (
+    options.opacity !== undefined &&
+    (typeof options.opacity !== 'number' ||
+      !Number.isFinite(options.opacity) ||
+      options.opacity < 0 ||
+      options.opacity > 1)
+  ) {
+    throw new Error('opacity must be a number between 0 and 1.');
+  }
+}
+
+export interface PreparedLayerUpdate {
+  apply(): void;
+  rollback(): void;
+}
+
+export interface OLLayerHandleOptions {
+  readonly dispose?: MapLayerHandle['dispose'];
+  readonly capabilities?: Readonly<Partial<LayerCapabilities>>;
+  readonly prepareUpdate?: (patch: EngineLayerPatch) => PreparedLayerUpdate | undefined;
+  readonly validateOptions?: (options: Readonly<Record<string, JsonValue>>) => void;
+}
+
+export function validateStaticLegend(patch: Pick<EngineLayerPatch, 'legend' | 'style'>): undefined {
+  if (patch.style) {
+    throw new Error('style requires a vector layer.');
+  }
+  if (patch.legend?.field) {
+    throw new Error('Field-based legend rules require a vector layer.');
+  }
+  validateLegendColors(patch.legend);
+  return undefined;
+}
+
 export function createLayerHandle(
   layer: BaseLayer,
   config: LayerConfig,
-  dispose: MapLayerHandle['dispose'] = () => undefined
-) {
-  const styling = createLayerStyling(layer, config);
-  const validateOptions = (options: Readonly<Record<string, JsonValue>>) => {
-    for (const key of Object.keys(options)) {
-      if (key !== 'opacity') {
-        throw new Error(`Unsupported OL layer option "${key}". Put style at layer.style.`);
-      }
-    }
-    if (
-      options.opacity !== undefined &&
-      (typeof options.opacity !== 'number' ||
-        !Number.isFinite(options.opacity) ||
-        options.opacity < 0 ||
-        options.opacity > 1)
-    ) {
-      throw new Error('opacity must be a number between 0 and 1.');
-    }
-  };
+  options: OLLayerHandleOptions = {}
+): MapLayerHandle {
+  const prepareUpdate = options.prepareUpdate ?? validateStaticLegend;
+  const validateOptions = options.validateOptions ?? validateOLOptions;
+  if (!options.prepareUpdate) {
+    validateStaticLegend(config);
+  }
   if (config.options) {
     validateOptions(config.options);
     if (typeof config.options.opacity === 'number') {
       layer.setOpacity(config.options.opacity);
     }
   }
-  styling.apply();
   layer.set('gisLayerId', config.id);
-  const commitUpdate = (patch: LayerUpdate): undefined => {
+  const commitUpdate = (patch: EngineLayerPatch): undefined => {
     if (patch.options) {
       validateOptions(patch.options);
     }
-    commitLayerUpdate(layer, patch, styling.prepareUpdate(patch));
+    commitLayerUpdate(layer, patch, prepareUpdate(patch));
   };
-  const handle: MapLayerHandle = {
-    ...styling.methods,
+  return {
+    capabilities: {
+      legend: { resolveLegend: (legend) => resolveSingleSymbolLegend(legend, defaultVectorStyle) },
+      ...options.capabilities,
+    },
     setVisible: (visible) => layer.setVisible(visible),
     setZIndex: (zIndex) => layer.setZIndex(zIndex),
     commitUpdate,
     update: commitUpdate,
-    dispose,
+    dispose: options.dispose ?? (() => undefined),
     getMetadata: () => ({
       olLayerType: layer.constructor.name,
       opacity: layer.getOpacity(),
       zIndex: layer.getZIndex() ?? 0,
     }),
-  };
-  if (layer instanceof VectorLayer) {
-    handle.canSelectFeature = (reference) => {
-      const feature = findVectorFeature(layer.getSource(), reference);
-      return feature ? styling.matchesFeature(feature) : reference.featureKey === undefined;
-    };
-  }
-
-  return {
-    handle,
-    matchesFeature: styling.matchesFeature,
-    setTimePredicate: styling.setTimePredicate,
   };
 }

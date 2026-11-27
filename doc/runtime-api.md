@@ -69,6 +69,10 @@ Core validates serializability/shape without importing Vue. UI chooses registere
 layouts/components and resolves its defaults; current user presentation state
 continues to belong to the UI adapter.
 
+Core exposes the five `PanelPosition` values in serializable configuration.
+Vue UI resolves allowed positions from panel definitions and routes panels to
+workspace hosts. Header controls and mount policy live in Vue definitions.
+
 ## Search
 
 ```ts
@@ -151,9 +155,9 @@ OL applies useLayerStyle only for an explicitly opted-in, single category item.
 Groups track child identity, not just reused IDs. Order updates synchronize list
 and adapter order. `setOrder(ids)` accepts all registered IDs in back-to-front order
 and normalizes leaf zIndex to 0..N-1, overriding earlier per-layer zIndex values.
-If a reorder fails partway through engine writes, Core retains its last committed
-list order. Once the engine can accept writes again, reapply the full committed
-order through `setOrder` to reconcile the engine collection and leaf zIndex values.
+If a reorder fails during engine writes, Core keeps its last committed order and
+attempts to restore the engine collection and affected leaf zIndex values.
+The rejection includes `cause` and `cleanupErrors` when restoration also fails.
 Temporary sketch and highlight layers are outside this order. The default UI displays front-to-back,
 moves sibling layers or entire group blocks, and never reparents a child.
 Domain observer failures report app:error without undoing commits.
@@ -169,6 +173,7 @@ rejection retains the original failure in `cause` and lists rollback errors in
 Initial and dynamic additions share validation for common layer fields.
 `add()` and `addChild()` capture a frozen JSON configuration tree before an
 asynchronous factory runs, including nested children and inline source values.
+Runtime reserves every ID in the branch before invoking its first factory.
 Adapter-specific source fields are interpreted by the layer factory.
 For GROUP, an explicit initial/update zIndex places its current leaf descendants
 in a contiguous interval [zIndex, zIndex+1), preserving their relative order.
@@ -182,9 +187,13 @@ when every child is disabled. Visibility event payloads report effective visibil
 publishes it with its final parent. New children keep their configured setting,
 inherit their parent's effective gate, and are disposed with their parent.
 
-Without an explicit group zIndex, child zIndex values are retained. Group metadata
-reports the highest current leaf zIndex. Root drag ordering normalizes all leaves
-through setOrder; Core does not store a second UI tree or drag state.
+Without an explicit group zIndex, child zIndex values are retained. Group zIndex
+reports the highest current leaf zIndex. Instances and state snapshots expose
+`parentId`, `childIds`, and `zIndex`. `layers.getTree()` returns an immutable
+back-to-front tree ordered by rendering zIndex, using list order to break ties.
+`getChildren(id)` returns direct children in membership order. `getLeaves(id)`
+returns descendant leaves in membership order, or the layer itself for a leaf ID.
+Unknown IDs return an empty array for both queries.
 
 `layers.getDataLocation(id)` reads current coverage through the optional
 `MapLayerHandle.getDataLocation`, returning a cloned MapLocation or undefined for
@@ -210,15 +219,43 @@ await app.layers.update(layer.id, { expectedVersion, legend: nextLegend })
 LayerInstance.version and snapshot.layers[].version increment on committed updates
 and layer operations such as visibility/time filtering. Optional LayerUpdate.expectedVersion is checked inside
 the serialized queue before engine changes; stale edits reject APP_INVALID_STATE.
+Runtime captures a frozen JSON patch when submitted.
+An edit session can call `layer.update(patch)` on the instance it opened with
+`expectedVersion`. An instance that has been removed cannot edit a replacement
+registered with the same ID.
 Omission preserves normal unconditional updates. The precondition is not forwarded
 to the adapter. Handles can implement synchronous `commitUpdate(patch)` to apply
 the entire patch, including visibility and zIndex, and restore the previous
 engine state if it throws. Core commits its metadata and version after that hook
 succeeds. Handles using the legacy async `update` hook still receive the patch
-and Core applies the common visibility and zIndex setters afterward.
+and Core applies the common visibility and zIndex setters afterward. While that
+hook is running, synchronous operations that would write to the same engine
+layer fail with `APP_INVALID_STATE` and `detail.reason: 'busy'`. This includes
+group visibility and ordering when they affect that layer.
 A style/legend editor submits both in one update and retains its
 draft on failure. Applications explicitly persist/export edits; init config is not
 mutated or written to disk.
+
+Adapter handles can supply `capabilities` grouped by `feature`, `attributes`,
+`location`, `legend`, `temporal`, or `styling`. A supplied group takes
+precedence over the corresponding legacy flat methods. Runtime keeps the public
+instance methods for these operations, including lifecycle and version checks
+for filter writes. `EngineLayerPatch` is the patch type used by adapter hooks.
+
+`defineLayerType({ normalize, create })` binds a pure synchronous normalizer to
+a factory accepting the normalized type. Runtime validates the full initial
+layer configuration after plugin initialization. Dynamic `add` and `addChild`
+preflight the entire incoming branch before running any of its factories. The
+normalizer may return frozen-compatible JSON fields and must preserve the
+layer's ID, type, and topology. Invalid adapter fields report `CONFIG_INVALID`
+with a layer ID and path. A definition with just `create` continues to receive
+the common layer configuration.
+
+OpenLayers exports `OLLayerConfig` and individual XYZ, WMS, WMTS, and GeoJSON
+types for use with `satisfies`. `app.layers.add` accepts the open Core
+`LayerConfig` across adapters. `createOLLayerHandle` accepts optional
+capabilities, option validation, and a synchronous preparation hook returning
+`apply` and `rollback` functions for engine-specific updates.
 
 ### Layer date/time capability
 

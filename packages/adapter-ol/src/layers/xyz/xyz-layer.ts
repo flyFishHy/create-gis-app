@@ -1,9 +1,9 @@
-import type { LayerConfig } from '@joinmap/gis-core';
+import type { XYZLayerConfig } from '../ol-layer-config.js';
 import XYZ from 'ol/source/XYZ.js';
 import type { LayerBinding } from '../common/layer-binding.js';
-import { createTileLayerBinding, requireTileSource } from '../common/tile-layer.js';
+import { createTileLayerBinding } from '../common/tile-layer.js';
 
-export function createXYZLayer(config: LayerConfig): LayerBinding {
-  const { url } = requireTileSource(config);
+export function createXYZLayer(config: XYZLayerConfig): LayerBinding {
+  const { url } = config.source;
   return createTileLayerBinding(config, new XYZ({ url }));
 }

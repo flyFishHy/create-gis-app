@@ -1,4 +1,4 @@
-import type { LayerInstance, LayerService } from '@joinmap/gis-core';
+import type { LayerInstance, LayerService, LayerTreeItem } from '@joinmap/gis-core';
 
 export interface LayerNode {
   layer: LayerInstance;
@@ -21,48 +21,13 @@ export function filterLayerTree(nodes: readonly LayerNode[], keyword: string): L
 }
 
 /** UI order is front-to-back; Runtime setOrder receives back-to-front IDs. */
-export function layerTree(layers: readonly LayerInstance[]): LayerNode[] {
-  const byId = new Map(layers.map((layer) => [layer.id, layer]));
-  const rank = new Map(layers.map((layer, index) => [layer, index]));
-  const childIds = new Set<string>();
-  function children(layer: LayerInstance): LayerInstance[] {
-    const ids = layer.getMetadata().childIds;
-    return layer.type === 'GROUP' && Array.isArray(ids)
-      ? ids.flatMap((id) => {
-          const child = byId.get(String(id));
-          return child ? [child] : [];
-        })
-      : [];
-  }
-  for (const layer of layers) {
-    for (const child of children(layer)) {
-      childIds.add(child.id);
-    }
-  }
-  function score(node: LayerNode): number {
-    if (node.children.length) {
-      return Math.max(...node.children.map(score));
-    }
-    const value = node.layer.getMetadata().zIndex;
-    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  }
-  function build(items: readonly LayerInstance[], seen: Set<string>): LayerNode[] {
-    return items
-      .filter((layer) => !seen.has(layer.id))
-      .map((layer) => ({
-        layer,
-        children: build(children(layer), new Set([...seen, layer.id])),
-      }))
-      .sort(
-        (leftNode, rightNode) =>
-          score(rightNode) - score(leftNode) ||
-          rank.get(rightNode.layer)! - rank.get(leftNode.layer)!
-      );
-  }
-  return build(
-    layers.filter((layer) => !childIds.has(layer.id)),
-    new Set()
-  );
+export function layerTree(service: LayerService): LayerNode[] {
+  const build = (items: readonly LayerTreeItem[]): LayerNode[] =>
+    [...items].reverse().map((item) => ({
+      layer: service.get(item.id)!,
+      children: build(item.children),
+    }));
+  return build(service.getTree());
 }
 
 export function layerSiblings(nodes: LayerNode[], layer: LayerInstance): LayerNode[] | undefined {
@@ -78,7 +43,7 @@ export function layerSiblings(nodes: LayerNode[], layer: LayerInstance): LayerNo
 }
 
 export function moveLayer(service: LayerService, layer: LayerInstance, direction: -1 | 1): void {
-  const nodes = layerTree(service.list());
+  const nodes = layerTree(service);
   const siblings = layerSiblings(nodes, layer);
   const index = siblings?.findIndex((node) => node.layer === layer) ?? -1;
   if (!siblings || index < 0 || !siblings[index + direction]) {
@@ -94,7 +59,7 @@ export function reorderRootLayers(
   target: LayerInstance,
   after: boolean
 ): void {
-  const nodes = layerTree(service.list());
+  const nodes = layerTree(service);
   const from = nodes.findIndex((node) => node.layer === source);
   if (from < 0 || source === target || !nodes.some((node) => node.layer === target)) {
     return;

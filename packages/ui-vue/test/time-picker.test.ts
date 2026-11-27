@@ -283,6 +283,72 @@ describe('standalone picker', () => {
     }
   });
 
+  it('remembers the calendar granularity when switching through an exact range', async () => {
+    const value = normalizeTimeSelection({
+      mode: 'range',
+      granularity: 'month',
+      timeZone: zone,
+      start: shanghai('2026-10-12T00:00:00'),
+      end: shanghai('2026-11-19T00:00:00'),
+    })!;
+    const picker = mount(TimePicker, {
+      props: { modelValue: value, granularities: ['week', 'month'] },
+      global,
+    });
+    try {
+      await picker.get('.gis-ui-time-picker-trigger').trigger('click');
+      await picker.get('button[aria-label="精确范围"]').trigger('click');
+      expect(picker.findAll('input[type="time"]')).toHaveLength(2);
+      await picker.get('button[aria-label="周期范围"]').trigger('click');
+      expect(picker.get('button[aria-label="月"]').attributes('aria-pressed')).toBe('true');
+      await picker.get('form').trigger('submit');
+      expect(picker.emitted('update:modelValue')).toBeUndefined();
+    } finally {
+      picker.unmount();
+    }
+  });
+
+  it('emits the legacy exact selection and clear events in their public order', async () => {
+    const calls: string[] = [];
+    const picker = mount(TimePicker, {
+      props: {
+        defaultMode: 'custom-range',
+        defaultTimeZone: 'UTC',
+        minTime: Date.UTC(2026, 0, 1),
+        maxTime: Date.UTC(2026, 0, 1, 2),
+        maxRangeDurationMs: 7_200_000,
+        'onUpdate:modelValue': () => calls.push('update'),
+        onChange: () => calls.push('change'),
+        onApply: () => calls.push('apply'),
+        onClear: () => calls.push('clear'),
+      },
+      global,
+    });
+    try {
+      const trigger = picker.get('.gis-ui-time-picker-trigger');
+      await trigger.trigger('click');
+      for (const [index, clock] of ['00:00:00', '02:00:00'].entries()) {
+        await picker.findAll('input:not([type="time"])')[index]!.setValue('2026-01-01');
+        await picker.findAll('input[type="time"]')[index]!.setValue(clock);
+      }
+      await picker.get('form').trigger('submit');
+      expect(calls).toEqual(['update', 'change', 'apply']);
+      const selection = picker.emitted<[TimeSelection]>('apply')?.[0]?.[0];
+      expect(selection).toEqual({
+        mode: 'custom-range',
+        granularity: 'custom',
+        timeZone: 'UTC',
+        range: { start: Date.UTC(2026, 0, 1), endExclusive: Date.UTC(2026, 0, 1, 2) },
+      });
+      await picker.setProps({ modelValue: selection });
+      await trigger.trigger('click');
+      await picker.get('.gis-ui-time-picker-clear').trigger('click');
+      expect(calls).toEqual(['update', 'change', 'apply', 'update', 'change', 'clear']);
+    } finally {
+      picker.unmount();
+    }
+  });
+
   it('reopens a submitted exact range and gives each calendar its own popper target', async () => {
     const picker = mount(TimePicker, { attachTo: document.body, props: { defaultTimeZone: zone } });
     try {

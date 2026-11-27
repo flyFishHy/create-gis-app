@@ -3,12 +3,16 @@ import {
   timeGranularities,
   timeSelectionModes,
   type TimeGranularity,
-  type TimePickerDraft,
+  type TimeSelectionMode,
   type TimeSelection,
 } from './types.js';
 
-type TimeInput = Pick<TimePickerDraft, 'mode' | 'timeZone' | 'start' | 'end'> & {
+type TimeInput = {
+  mode: TimeSelectionMode;
   granularity: TimeGranularity | 'custom';
+  timeZone: string;
+  start?: number;
+  end?: number;
 };
 
 export function isTimeZone(timeZone: string) {

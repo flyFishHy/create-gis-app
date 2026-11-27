@@ -118,6 +118,50 @@ it('filters nested layer names and keeps child visibility settings under a close
   }
 });
 
+it('requires reload after a layer version changes and invalidates a draft on same-ID replacement', async () => {
+  const config = {
+    id: 'one',
+    type: 'test',
+    title: 'Original',
+    legend: { type: 'category', items: [{ id: 'item', label: 'Old label', color: '#123456' }] },
+  } as const;
+  const app = createGISApp()
+    .use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }))
+    .use(createVueUI());
+  const target = document.createElement('div');
+  document.body.append(target);
+  try {
+    await app.init({ layers: [config] });
+    await app.mount(target);
+    const panel = target.querySelector('.gis-ui-panel-host--legend')!;
+    panel.querySelector<HTMLButtonElement>('.gis-ui-legend-edit')!.click();
+    await nextTick();
+    await app.layers.update('one', { title: 'Changed elsewhere' });
+    await nextTick();
+    expect(panel.querySelector('.gis-ui-editor-conflict')).not.toBeNull();
+    expect(panel.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+    panel.querySelector<HTMLButtonElement>('.gis-ui-editor-conflict button')!.click();
+    await nextTick();
+    expect(panel.querySelector('.gis-ui-editor-conflict')).toBeNull();
+    expect(panel.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
+    await app.layers.remove('one');
+    await app.layers.add({ ...config, title: 'Replacement' });
+    await nextTick();
+    expect(panel.querySelector('.gis-ui-layer-editor [role="alert"]')?.textContent).toContain(
+      '图层已移除'
+    );
+    expect(panel.querySelector('.gis-ui-legend-edit')).not.toBeNull();
+    expect(panel.querySelector('form')).toBeNull();
+    panel.querySelector<HTMLButtonElement>('.gis-ui-legend-edit')!.click();
+    await nextTick();
+    expect(panel.querySelector('.gis-ui-layer-editor [role="alert"]')).toBeNull();
+    expect(panel.querySelector('form')).not.toBeNull();
+  } finally {
+    await app.dispose();
+    target.remove();
+  }
+});
+
 it('removes overflow on group collapse without animating the following rows', async () => {
   const app = createGISApp();
   app.use(createFakeMapPlugin(undefined, { test: createFakeLayerDefinition() }));

@@ -23,6 +23,12 @@
 浏览器时区，可通过 `defaultTimeZone` 设置业务时区。夏令时重复小时附带 UTC 偏移。
 精确范围遇到重复时间时须选择偏移，遇到不存在的时间时提示重新选择。
 
+内部草稿只区分单周期与范围，精确范围以 `range + datetime` 表示。公开配置、
+事件和快照继续支持 `custom-range`，精确范围的输出粒度仍为 `custom`。
+从周期范围切换到精确范围时保留区间端点，切回时恢复之前选用的日历粒度。
+确认变更依次触发 `update:modelValue`、`change`、`apply`。已选值被清空时
+依次触发 `update:modelValue`、`change`、`clear`。
+
 示例应用 `examples/basic-vue` 将选择器挂载到查询栏并使用 `Asia/Shanghai`。
 API 示例见 [Vue UI API](vue-ui-api.md)。
 

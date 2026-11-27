@@ -377,6 +377,11 @@ resize 导致大量同步更新。
 
 ### 5.3 自定义 Layout
 
+现行插槽包括 `title`、`map`、`top`、`toolbar`、`left`、`right`、
+`drawer`、`bottom` 和 `floating`。自定义布局的 `bottom` 包含普通底部面板与
+状态栏，右侧属性面板进入 `right`。内置 Overlay 使用独立属性抽屉，两个内置布局
+切换时复用地图视口。属性自动开合跟随选择事件，布局切换保留当前显隐。
+
 允许传入自定义 Vue 组件：
 
 ``` ts
@@ -444,12 +449,19 @@ export interface VuePanelDefinition extends PanelDescriptor {
   resizable?: boolean
   collapsible?: boolean
   closable?: boolean
-  keepAlive?: boolean
+  allowedPositions?: readonly PanelPosition[]
+  keepMounted?: boolean
+  header?: { badgeLabel?: string; refreshLabel?: string }
   props?: Record<string, unknown>
 }
 ```
 
 注意：`component` 只存在于 Vue UI 层，绝不进入 JSON 配置。
+
+面板可在 setup 中调用 `usePanelHeader` 提供实时计数和刷新回调。配置的位置超出
+`allowedPositions` 时给出提示，再使用允许的默认位置或列表第一项。普通面板隐藏时
+卸载，带外框的面板折叠时释放内容。设置 `keepMounted` 可在同一宿主中保留实例。
+`setOrder` 将给定 ID 排在所属排序范围前面，其余面板以原顺序追加。
 
 ### 6.3 注册方式
 
@@ -659,6 +671,13 @@ interface SearchPanelProps {
 
 ### 7.2 LegendPanel
 
+编辑会话绑定具体图层实例及打开时的版本，外部提交后需重新加载草稿。图层移除或
+被同 ID 实例替换后，旧会话失效。重置基准沿用已挂载面板首次看到的图例和样式。
+
+工作区导出使用配置中仍存活的图层实例、父子关系和图层自身显隐设置。运行时新增
+和替换的图层留在当前会话。浏览器自动保存等待最后一次可恢复变更后 250 毫秒，
+在工作区卸载或 Runtime 销毁时写入待保存配置。
+
 职责：
 
 -   展示图层对应的图例。
@@ -697,6 +716,8 @@ await layers.remove(id)
 await layers.update(id, patch)
 ```
 
+面板通过 `getTree()` 读取分组及顺序，通过 `getLeaves()` 查找分组透明度作用的图层。
+自定义适配器执行旧版异步更新期间，受影响的图层同步写入可返回 busy 错误。
 拖拽排序调用 `setOrder()`，必须保证传入 ID
 集合和分组约束有效。不要通过直接移动 DOM 改变地图图层顺序。
 

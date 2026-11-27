@@ -6,6 +6,7 @@ defineProps<{
   collapsed: boolean;
   collapsible: boolean;
   closable: boolean;
+  keepMounted?: boolean;
   labels?: { expand: string; collapse: string; close: string };
 }>();
 
@@ -44,7 +45,13 @@ const emit = defineEmits<{
         </button>
       </div>
     </header>
-    <ScrollArea v-if="!collapsed" class="gis-ui-panel-body" :label="title"><slot /></ScrollArea>
+    <ScrollArea
+      v-if="!collapsed || keepMounted"
+      v-show="!collapsed"
+      class="gis-ui-panel-body"
+      :label="title"
+      ><slot
+    /></ScrollArea>
     <footer v-if="$slots.footer && !collapsed" class="gis-ui-panel-footer">
       <slot name="footer" />
     </footer>

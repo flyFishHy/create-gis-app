@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createGISApp } from '../src/index.js';
+import { createGISApp, defineLayerType } from '../src/index.js';
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js';
 
 function deferred() {
@@ -9,6 +9,104 @@ function deferred() {
   });
   return { promise, resolve };
 }
+
+it('commits and reads grouped capabilities on a third-party handle', async () => {
+  const temporal = {
+    filter: undefined as import('../src/types.js').LayerTimeFilter | undefined,
+    getTimeFilter() {
+      return this.filter;
+    },
+    setTimeFilter(filter: typeof this.filter) {
+      this.filter = filter;
+    },
+  };
+  const app = createGISApp().use(
+    createFakeMapPlugin(undefined, {
+      test: defineLayerType({
+        normalize(config) {
+          return { ...config, source: { value: Number(config.source) } };
+        },
+        create(_context, config) {
+          return {
+            setVisible() {},
+            setZIndex() {},
+            dispose() {},
+            capabilities: {
+              temporal,
+              attributes: { getFieldValues: () => [config.source.value] },
+            },
+          };
+        },
+      }),
+    })
+  );
+  await app.init({ layers: [{ id: 'custom', type: 'test', source: '3' }] });
+  try {
+    const layer = app.layers.get('custom')!;
+    expect(layer.getFieldValues('value')).toEqual([3]);
+    const filter = { field: 'time', start: 0, end: 1 };
+    layer.setTimeFilter(filter);
+    expect(layer.getTimeFilter()).toEqual(filter);
+    expect(layer.version).toBe(1);
+    await layer.dispose();
+    expect(layer.getTimeFilter()).toBeUndefined();
+    expect(() => layer.setTimeFilter(filter)).toThrow(
+      expect.objectContaining({ code: 'APP_DISPOSED' })
+    );
+  } finally {
+    await app.dispose();
+  }
+});
+
+it('restores both zIndex and visibility when a combined group update fails', async () => {
+  const writes = new Map<string, { visible: boolean; zIndex: number }>();
+  const failure = new Error('injected visibility failure');
+  let fail = false;
+  const app = createGISApp().use(
+    createFakeMapPlugin(undefined, {
+      test: createFakeLayerDefinition(({ id }) => {
+        const state = { visible: true, zIndex: 0 };
+        writes.set(id, state);
+        return {
+          setVisible(visible) {
+            state.visible = visible;
+            if (fail && id === 'second' && !visible) throw failure;
+          },
+          setZIndex(zIndex) {
+            state.zIndex = zIndex;
+          },
+          dispose() {},
+        };
+      }),
+    })
+  );
+  await app.init({
+    layers: [
+      {
+        id: 'group',
+        type: 'GROUP',
+        children: [
+          { id: 'first', type: 'test', zIndex: 3 },
+          { id: 'second', type: 'test', zIndex: 5 },
+        ],
+      },
+    ],
+  });
+  try {
+    fail = true;
+    const events = vi.fn();
+    app.layers.subscribe(events);
+    const group = app.layers.get('group')!;
+    const snapshot = app.context.state.snapshot();
+    await expect(group.update({ visible: false, zIndex: 10 })).rejects.toBe(failure);
+    expect(writes.get('first')).toEqual({ visible: true, zIndex: 3 });
+    expect(writes.get('second')).toEqual({ visible: true, zIndex: 5 });
+    expect(app.context.state.snapshot()).toBe(snapshot);
+    expect(events).not.toHaveBeenCalled();
+  } finally {
+    await app.dispose();
+  }
+});
 
 it.each(['service', 'instance'] as const)(
   'publishes committed state and equivalent events through the %s entry point',
@@ -179,7 +277,7 @@ it.each(['remove', 'dispose'] as const)(
   }
 );
 
-it('applies visibility after a pending legacy update without publishing stale state', async () => {
+it('rejects synchronous visibility during a legacy update and allows it after commit', async () => {
   const gate = deferred();
   const started = deferred();
   const setVisible = vi.fn();
@@ -201,12 +299,16 @@ it('applies visibility after a pending legacy update without publishing stale st
     const layer = app.layers.get('one')!;
     const pending = layer.update({ visible: false });
     await started.promise;
-    layer.setVisibility(true);
+    expect(() => layer.setVisibility(true)).toThrow(
+      expect.objectContaining({ detail: { layerId: 'one', reason: 'busy' } })
+    );
     expect(layer.visible).toBe(true);
     gate.resolve();
     await pending;
-    expect(setVisible.mock.calls).toEqual([[true], [false]]);
+    expect(setVisible.mock.calls).toEqual([[false]]);
     expect(layer.visible).toBe(false);
+    layer.setVisibility(true);
+    expect(setVisible.mock.calls).toEqual([[false], [true]]);
     expect(layer.version).toBe(2);
   } finally {
     gate.resolve();
@@ -261,6 +363,48 @@ it('serializes updates, recovers after failure and rejects unsupported options b
     ).rejects.toMatchObject({ code: 'CONFIG_INVALID' });
     expect(app.layers.get('basic')!.title).toBe('Before');
   } finally {
+    await app.dispose();
+  }
+});
+
+it('captures a queued update and its nested options when the caller submits it', async () => {
+  const gate = deferred();
+  const started = deferred();
+  const apply = vi.fn(async (patch: import('../src/types.js').LayerUpdate) => {
+    if (patch.title === 'First') {
+      started.resolve();
+      await gate.promise;
+    }
+  });
+  const app = createGISApp().use(
+    createFakeMapPlugin(undefined, {
+      test: createFakeLayerDefinition(() => ({
+        setVisible() {},
+        setZIndex() {},
+        dispose() {},
+        update: apply,
+      })),
+    })
+  );
+  await app.init({ layers: [{ id: 'one', type: 'test' }] });
+  try {
+    const layer = app.layers.get('one')!;
+    const first = layer.update({ title: 'First' });
+    await started.promise;
+    const patch = { title: 'Queued', options: { custom: { value: 0.5 } }, expectedVersion: 1 };
+    const queued = layer.update(patch);
+    patch.title = 'Changed';
+    patch.options.custom.value = 1;
+    patch.expectedVersion = 0;
+    gate.resolve();
+    await Promise.all([first, queued]);
+    expect(apply).toHaveBeenLastCalledWith({
+      title: 'Queued',
+      options: { custom: { value: 0.5 } },
+    });
+    expect(layer.title).toBe('Queued');
+  } finally {
+    gate.resolve();
     await app.dispose();
   }
 });

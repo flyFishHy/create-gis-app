@@ -22,6 +22,9 @@ export interface LayerStateSnapshot {
   readonly title: string | null;
   readonly visible: boolean;
   readonly ownVisible: boolean;
+  readonly parentId: string | null;
+  readonly childIds: readonly string[];
+  readonly zIndex: number;
   readonly status: LayerInstance['status'];
   readonly metadata: Readonly<Record<string, JsonValue>>;
   readonly legend: LegendDefinition | null;

@@ -366,7 +366,7 @@
   max-height: 120px;
   overflow: auto;
 }
-.gis-ui-bottom-content > .gis-ui-panel-region:empty {
+.gis-ui-bottom-content > .gis-ui-panel-region:not(:has(> .gis-ui-panel-host:not(.is-hidden))) {
   display: none;
 }
 .gis-ui-status-content {
@@ -681,6 +681,8 @@
   }
   .gis-ui-status-content {
     width: 100%;
+    max-width: 560px;
+    margin-inline: auto;
     padding: 8px 12px;
   }
 }
@@ -721,10 +723,10 @@
   row-gap: 12px;
   pointer-events: none;
   min-height: 0;
-  &:has(.gis-ui-overlay--left .gis-ui-panel-host) {
+  &:has(.gis-ui-overlay--left .gis-ui-panel-host:not(.is-hidden)) {
     --gis-ui-overlay-left-track: calc(var(--gis-ui-overlay-left-width) + 12px);
   }
-  &:has(.gis-ui-overlay--right .gis-ui-panel-host) {
+  &:has(.gis-ui-overlay--right .gis-ui-panel-host:not(.is-hidden)) {
     --gis-ui-overlay-rail-track: calc(var(--gis-ui-overlay-right-width) + 12px);
   }
   &.has-drawer {
@@ -803,8 +805,8 @@
   grid-row: 1 / -1;
   padding-left: 12px;
 }
-.gis-ui-overlay--left:not(:has(.gis-ui-panel-host)),
-.gis-ui-overlay--right:not(:has(.gis-ui-panel-host)) {
+.gis-ui-overlay--left:not(:has(.gis-ui-panel-host:not(.is-hidden))),
+.gis-ui-overlay--right:not(:has(.gis-ui-panel-host:not(.is-hidden))) {
   display: none;
 }
 .gis-ui-overlay--drawer {
@@ -827,7 +829,9 @@
   align-self: end;
   justify-self: center;
   width: calc(100% - 24px);
-  max-width: 560px;
+  .gis-ui-panel-region {
+    max-height: min(120px, 25vh);
+  }
 }
 .gis-ui-overlay {
   position: absolute;
@@ -842,7 +846,7 @@
   inset: 15% 20%;
   pointer-events: auto;
 }
-.gis-ui-overlay--floating > .gis-ui-panel-region:empty {
+.gis-ui-overlay--floating > .gis-ui-panel-region:not(:has(> .gis-ui-panel-host:not(.is-hidden))) {
   display: none;
 }
 .gis-ui-overlay--floating > .gis-ui-feature-popup {

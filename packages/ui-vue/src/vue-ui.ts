@@ -1,440 +1,56 @@
-import {
-  createApp,
-  nextTick,
-  shallowRef,
-  watch,
-  type App as VueApp,
-  type Component,
-  type ShallowRef,
-} from 'vue';
-import type {
-  GISApp,
-  GISPlugin,
-  ResourceScope,
-  UIAdapter,
-  JsonValue,
-  PanelConfig,
-} from '@joinmap/gis-core';
-import GISUIRoot from './GISUIRoot.vue';
+import type { GISPlugin } from '@joinmap/gis-core';
 import './styles.scss';
-import type {
-  BuiltinLayoutName,
-  GISUIContext,
-  ThemeOptions,
-  VueUIOptions,
-  VueUIPlugin,
-} from './types.js';
-import { resolveUIConfig } from './config.js';
-import { PanelRegistry } from './panels/panel-registry.js';
-import { ToolbarServiceImpl } from './services/toolbar-service.js';
-import { ThemeServiceImpl } from './services/theme-service.js';
-import { LocaleServiceImpl } from './services/locale-service.js';
-import { FeatureRendererServiceImpl } from './services/feature-renderer-service.js';
-import SearchPanel from './panels/SearchPanel.vue';
-import LegendPanel from './panels/LegendPanel.vue';
-import LayerManagerPanel from './panels/LayerManagerPanel.vue';
-import Toolbar from './panels/Toolbar.vue';
-import TimePickerPanel from './panels/TimePickerPanel.vue';
-import type { TimeSelection } from './components/time-picker/types.js';
-import MapStatusPanel from './panels/MapStatusPanel.vue';
-import PropertiesPanel from './panels/PropertiesPanel.vue';
-import { registerBuiltinToolbar } from './builtin-toolbar.js';
-import { captureWorkspaceConfig } from './workspace-config.js';
-import { GISRuntimeError } from '@joinmap/gis-core';
-
-const adapters = new WeakMap<GISApp, VueUIAdapter>();
-export function getVueUIAdapter(app: GISApp): VueUIAdapter {
-  const adapter = adapters.get(app);
-  if (!adapter) {
-    throw new Error('Initialize createVueUI() before rendering GISWorkspace.');
-  }
-  return adapter;
-}
-
-class VueUIAdapter implements UIAdapter {
-  private vueApp?: VueApp;
-  private disposed = false;
-  private mounted = false;
-  private host?: { render: (visible: boolean) => void; target: () => Element | undefined };
-  private readonly panels: PanelRegistry;
-  private readonly toolbar = new ToolbarServiceImpl();
-  private readonly theme: ThemeServiceImpl;
-  private readonly locale: LocaleServiceImpl;
-  private readonly featureRenderers = new FeatureRendererServiceImpl();
-  private readonly extensionCleanups: Array<() => void> = [];
-  readonly context: GISUIContext;
-  private readonly activeLayout: ShallowRef<string>;
-  private readonly timeSelection = shallowRef<TimeSelection | null>(null);
-  private readonly customLayout?: Component;
-  private readonly changeLayout?: (layout: BuiltinLayoutName) => void;
-  constructor(
-    private readonly runtime: GISApp,
-    private readonly options: VueUIOptions
-  ) {
-    const maxVisibleTools = options.toolbarMaxVisibleTools;
-    if (
-      maxVisibleTools !== undefined &&
-      (!Number.isInteger(maxVisibleTools) || maxVisibleTools < 0)
-    ) {
-      throw new Error('toolbarMaxVisibleTools must be a non-negative integer.');
-    }
-    const config = resolveUIConfig(options.config, runtime.config?.ui);
-    this.theme = new ThemeServiceImpl(config.theme as ThemeOptions);
-    this.locale = new LocaleServiceImpl(config.locale);
-    const layout = config.layout!;
-    this.activeLayout = shallowRef(layout);
-    this.customLayout = options.layouts?.[layout];
-    if (!this.customLayout && layout !== 'docked-dashboard' && layout !== 'overlay-dashboard') {
-      throw new Error(`Unknown UI layout "${layout}". Register its component in layouts.`);
-    }
-    if (
-      !this.customLayout &&
-      !options.layouts?.['docked-dashboard'] &&
-      !options.layouts?.['overlay-dashboard']
-    ) {
-      this.changeLayout = (value) => {
-        this.activeLayout.value = value;
-      };
-    }
-    const panels = (config.panels ?? [])
-      .filter((panel) => panel.id !== 'popup')
-      .map<PanelConfig>((panel) => {
-        const supported =
-          panel.id === 'toolbar' || panel.id === 'time'
-            ? 'top'
-            : panel.id === 'status'
-              ? 'bottom'
-              : undefined;
-        if (supported && panel.position && panel.position !== supported) {
-          console.warn(
-            `[gis-ui-vue] ${panel.id} only supports position "${supported}"; using that position.`
-          );
-          return { ...panel, position: supported };
-        }
-        return panel;
-      });
-    this.panels = new PanelRegistry(panels);
-    registerBuiltinToolbar(runtime, this.toolbar, config.tools);
-    for (const item of options.toolbarItems ?? []) {
-      this.toolbar.register(item);
-    }
-    this.context = Object.freeze({
-      app: runtime,
-      panels: this.panels,
-      search: runtime.search,
-      toolbar: this.toolbar,
-      theme: this.theme,
-      locale: this.locale,
-      featureRenderers: this.featureRenderers,
-      toolbarComponent: options.toolbarComponent,
-      statusComponent: options.statusComponent,
-    });
-    this.registerDefaultPanels(config.timePicker);
-    for (const panel of options.panelDefinitions ?? []) {
-      this.panels.register(panel);
-    }
-    const applicationProperties = runtime.config?.ui?.panels?.find(
-      (panel) => panel.id === 'properties'
-    );
-    const defaultProperties = options.config?.panels?.find((panel) => panel.id === 'properties');
-    const autoOpen = (applicationProperties?.visible ?? defaultProperties?.visible) !== false;
-    const syncProperties = () => {
-      if (runtime.interactions.getSelection()) {
-        if (autoOpen) {
-          this.panels.show('properties');
-        }
-      } else if (this.activeLayout.value !== 'docked-dashboard') {
-        this.panels.hide('properties');
-      }
-    };
-    // Initial rendering and subsequent selections use the same policy; closing preserves selection.
-    if (runtime.interactions.getSelection()) {
-      syncProperties();
-    }
-    this.extensionCleanups.push(runtime.interactions.onSelect(syncProperties));
-  }
-  get rootProps() {
-    return {
-      runtime: this.runtime,
-      ui: this.context,
-      activeLayout: this.activeLayout,
-      customLayout: this.customLayout,
-      changeLayout: this.changeLayout,
-      appProps: this.options.appProps ?? {},
-      workspaceStorageKey: this.options.workspaceStorageKey,
-    };
-  }
-  bindHost(render: (visible: boolean) => void, target: () => Element | undefined): () => void {
-    if (this.disposed || this.host || this.mounted) {
-      throw new Error('A workspace already owns this Runtime UI.');
-    }
-    const host = { render, target };
-    this.host = host;
-    return () => {
-      if (this.host === host) {
-        this.host = undefined;
-      }
-    };
-  }
-  installExtensions(extensions: readonly VueUIPlugin[]): void {
-    const names = new Set<string>();
-    for (const extension of extensions) {
-      if (!extension.name.trim() || names.has(extension.name)) {
-        throw new Error(`Invalid or duplicate UI extension "${extension.name}".`);
-      }
-      names.add(extension.name);
-      const cleanup = extension.install(this.context);
-      if (cleanup) {
-        this.extensionCleanups.push(cleanup);
-      }
-    }
-    this.panels.warnForUnknownConfiguredPanels();
-  }
-  registerState(resources: ResourceScope): void {
-    this.runtime.registerStateSlice(
-      'vue-ui',
-      {
-        snapshot: () =>
-          JSON.parse(
-            JSON.stringify({
-              panels: this.panels.states.value,
-              theme: this.theme.get(),
-              locale: this.locale.get(),
-              layout: this.activeLayout.value,
-              timeSelection: this.timeSelection.value,
-            })
-          ) as JsonValue,
-        subscribe: (listener) =>
-          watch(
-            [
-              () => this.panels.states.value,
-              () => this.theme.get(),
-              () => this.locale.get(),
-              this.activeLayout,
-              this.timeSelection,
-            ],
-            listener,
-            { flush: 'sync' }
-          ),
-      },
-      resources
-    );
-    const key = this.options.workspaceStorageKey;
-    if (key) {
-      let last = this.runtime.context.state.snapshot();
-      let serialized: string | undefined;
-      resources.add(
-        this.runtime.context.state.subscribe((next) => {
-          const previous = last;
-          last = next;
-          if (
-            previous.status === 'initializing' ||
-            (next.status !== 'ready' && next.status !== 'mounted' && next.status !== 'unmounted')
-          ) {
-            return;
-          }
-          if (
-            next.layers === previous.layers &&
-            next.extensions['vue-ui'] === previous.extensions['vue-ui']
-          ) {
-            return;
-          }
-          try {
-            const value = JSON.stringify(captureWorkspaceConfig(this.runtime));
-            if (value === serialized) {
-              return;
-            }
-            localStorage.setItem(key, value);
-            serialized = value;
-          } catch (cause) {
-            this.runtime.events.emit('app:error', {
-              error: new GISRuntimeError({
-                code: 'APP_INVALID_STATE',
-                message: 'Workspace settings could not be saved.',
-                cause,
-              }),
-            });
-          }
-        })
-      );
-    }
-  }
-  async mount(target: Element | string): Promise<void> {
-    if (this.disposed || this.mounted) {
-      throw new Error('Vue UI is disposed or already mounted.');
-    }
-    const element = resolveTarget(target);
-    if (this.host && this.host.target() !== element) {
-      throw new Error('This Runtime is bound to a GISWorkspace host target.');
-    }
-    this.mounted = true;
-    try {
-      if (this.host) {
-        this.host.render(true);
-        await nextTick();
-        return;
-      }
-      this.vueApp = createApp(GISUIRoot, this.rootProps);
-      this.vueApp.mount(element);
-    } catch (cause) {
-      await this.unmount();
-      throw cause;
-    }
-  }
-  async unmount(): Promise<void> {
-    if (!this.mounted) {
-      return;
-    }
-    this.mounted = false;
-    const vueApp = this.vueApp;
-    this.vueApp = undefined;
-    if (vueApp) {
-      vueApp.unmount();
-    }
-    if (this.host) {
-      this.host.render(false);
-      await nextTick();
-    }
-    if (this.runtime.map.isReady) {
-      this.runtime.map.setTarget(undefined);
-    }
-  }
-  async dispose(): Promise<void> {
-    if (this.disposed) {
-      return;
-    }
-    this.disposed = true;
-    const errors: unknown[] = [];
-    try {
-      await this.unmount();
-    } catch (error) {
-      errors.push(error);
-    }
-    for (const cleanup of this.extensionCleanups.splice(0).reverse()) {
-      try {
-        cleanup();
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    this.host = undefined;
-    this.panels.clear();
-    this.toolbar.clear();
-    this.theme.clear();
-    this.locale.clear();
-    this.featureRenderers.clear();
-    adapters.delete(this.runtime);
-    if (errors.length) {
-      throw new AggregateError(errors, 'Vue UI disposal failed.');
-    }
-  }
-  private registerDefaultPanels(
-    timePicker: import('@joinmap/gis-core').UITimePickerConfig | undefined
-  ): void {
-    this.panels.register({
-      id: 'search',
-      title: 'panel.search',
-      component: SearchPanel,
-      position: 'top',
-      defaultVisible: true,
-      collapsible: false,
-      closable: false,
-      unframed: true,
-      props: { dropdown: true },
-    });
-    this.panels.register({
-      id: 'time',
-      component: TimePickerPanel,
-      position: 'top',
-      unframed: true,
-      props: {
-        options: timePicker,
-        selection: this.timeSelection,
-        setSelection: (selection: TimeSelection | null) => {
-          this.timeSelection.value = selection;
-        },
-      },
-    });
-    this.panels.register({
-      id: 'layer-manager',
-      title: 'panel.layers',
-      component: LayerManagerPanel,
-      position: 'left',
-      defaultVisible: true,
-      collapsible: false,
-      closable: false,
-    });
-    this.panels.register({
-      id: 'legend',
-      title: 'panel.legend',
-      component: LegendPanel,
-      position: 'left',
-      defaultVisible: true,
-      collapsible: false,
-      closable: false,
-    });
-    const layout = this.activeLayout;
-    const customLayout = this.customLayout;
-    this.panels.register({
-      id: 'toolbar',
-      component: this.options.toolbarComponent ?? Toolbar,
-      position: 'top',
-      unframed: true,
-      props: {
-        ...(this.options.toolbarComponent
-          ? {}
-          : { maxVisibleTools: this.options.toolbarMaxVisibleTools }),
-        get tooltipPlacement() {
-          return !customLayout && layout.value === 'overlay-dashboard' ? 'left' : 'bottom';
-        },
-      },
-    });
-    if (!this.options.panelDefinitions?.some((panel) => panel.id === 'properties')) {
-      this.panels.register({
-        id: 'properties',
-        title: 'panel.properties',
-        component: PropertiesPanel,
-        position: 'right',
-        defaultVisible: false,
-        collapsible: false,
-        closable: true,
-      });
-    }
-    this.panels.register({
-      id: 'status',
-      component: this.options.statusComponent ?? MapStatusPanel,
-      position: 'bottom',
-      unframed: true,
-    });
-  }
-}
+import { installBuiltinFeatures } from './adapter/builtin-features.js';
+import { createUIContext } from './adapter/create-ui-context.js';
+import { VueUIAdapter, trackVueUIAdapter } from './adapter/vue-ui-adapter.js';
+import type { VueUIOptions } from './types.js';
+import { registerUIState } from './workspace/ui-state-contributor.js';
+import { registerWorkspacePersistence } from './workspace/workspace-persistence.js';
 
 export function createVueUI(options: VueUIOptions = {}): GISPlugin<VueUIOptions> {
   return {
     name: 'gis-vue-ui',
     install(runtime, pluginOptions, resources) {
-      const resolvedOptions = pluginOptions ?? options;
-      const adapter = new VueUIAdapter(runtime, resolvedOptions);
+      const resolved = pluginOptions ?? options;
+      const { context, config, activeLayout, customLayout, changeLayout } = createUIContext(
+        runtime,
+        resolved,
+        resources
+      );
+      const adapter = new VueUIAdapter({
+        runtime,
+        ui: context,
+        activeLayout,
+        customLayout,
+        changeLayout,
+        appProps: resolved.appProps ?? {},
+        workspaceStorageKey: resolved.workspaceStorageKey,
+      });
       runtime.registerUIAdapter(adapter, resources);
-      adapters.set(runtime, adapter);
-      adapter.installExtensions(resolvedOptions.extensions ?? []);
-      adapter.registerState(resources);
+      trackVueUIAdapter(runtime, adapter, resources);
+
+      const getTimeSelection = installBuiltinFeatures(
+        context,
+        config,
+        resolved,
+        activeLayout,
+        customLayout,
+        resources
+      );
+      const names = new Set<string>();
+      for (const extension of resolved.extensions ?? []) {
+        if (!extension.name.trim() || names.has(extension.name)) {
+          throw new Error(`Invalid or duplicate UI extension "${extension.name}".`);
+        }
+        names.add(extension.name);
+        const cleanup = extension.install(context);
+        if (cleanup) {
+          resources.add(cleanup);
+        }
+      }
+      context.panels.warnForUnknownConfiguredPanels();
+      registerUIState(runtime, context, activeLayout, getTimeSelection, resources);
+      registerWorkspacePersistence(runtime, resolved.workspaceStorageKey, resources);
     },
   };
-}
-function resolveTarget(target: Element | string): Element {
-  if (typeof target !== 'string') {
-    if (!target || target.nodeType !== 1) {
-      throw new Error('Vue UI mount target must be a DOM Element.');
-    }
-    return target;
-  }
-  if (typeof document === 'undefined') {
-    throw new Error('Vue UI can only mount in a browser environment.');
-  }
-  const element = document.querySelector(target);
-  if (!element) {
-    throw new Error(`Vue UI mount target "${target}" was not found.`);
-  }
-  return element;
 }

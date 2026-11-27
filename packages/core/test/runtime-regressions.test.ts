@@ -71,7 +71,7 @@ it('updates group metadata after child removal and cleans parent idempotently', 
   await app.dispose();
 });
 
-it('can reapply the committed order after an engine setter interrupts reordering', async () => {
+it('restores the committed engine order when a setter interrupts reordering', async () => {
   const adapter = new FakeMapAdapter();
   const writes = new Map<string, number>();
   const failure = new Error('injected zIndex setter failure');
@@ -102,10 +102,10 @@ it('can reapply the committed order after an engine setter interrupts reordering
     expect(() => app.layers.setOrder([...previous].reverse())).toThrow(failure);
     expect(app.layers.list().map(({ id }) => id)).toEqual(previous);
     expect(events).not.toHaveBeenCalled();
-    expect(adapter.handles).toEqual([...handles].reverse());
-    app.layers.setOrder(previous);
     expect(adapter.handles).toEqual(handles);
     expect(previous.map((id) => writes.get(id))).toEqual([0, 1, 2]);
+    app.layers.setOrder([...previous].reverse());
+    expect(adapter.handles).toEqual([...handles].reverse());
     expect(events).toHaveBeenCalledExactlyOnceWith({ type: 'order' });
   } finally {
     await app.dispose();

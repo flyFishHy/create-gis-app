@@ -146,11 +146,7 @@ it('preserves the attach failure and collects cleanup errors from the handle and
     ).rejects.toMatchObject({
       code: 'LAYER_CREATE_FAILED',
       cause: failure,
-      cleanupErrors: [
-        detachFailure,
-        childCleanup,
-        { cleanupErrors: [{ cleanupErrors: [stagedCleanup] }] },
-      ],
+      cleanupErrors: [detachFailure, childCleanup, stagedCleanup],
     });
     expect(disposed.mock.calls).toEqual([['second'], ['first']]);
     expect(adapter.handles).toEqual([]);

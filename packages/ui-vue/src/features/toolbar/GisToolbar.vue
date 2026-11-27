@@ -1,22 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, inject, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useAppState } from '../use-app-state.js';
-import type { ToolbarItemDefinition } from '../types.js';
-import { useGISApp } from '../use-gis-app.js';
-import { useGISUI } from '../use-gis-ui.js';
-import SvgIcon from '../components/SvgIcon.vue';
-import Tooltip from '../components/Tooltip.vue';
-import { DockedPanelMotionKey } from '../ui-context.js';
+import { useToolbarActions } from './use-toolbar-actions.js';
+import type { ToolbarItemDefinition } from '../../types.js';
+import { useGISUI } from '../../use-gis-ui.js';
+import SvgIcon from '../../components/SvgIcon.vue';
+import Tooltip from '../../components/Tooltip.vue';
+import { DockedPanelMotionKey } from '../../ui-context.js';
 
 const props = withDefaults(
   defineProps<{ tooltipPlacement?: 'left' | 'right' | 'bottom'; maxVisibleTools?: number }>(),
   { tooltipPlacement: 'bottom' }
 );
-const app = useGISApp();
 const ui = useGISUI();
-const snapshot = useAppState();
-const activeTool = computed(() => snapshot.value.interactions.activeToolId);
-const error = ref<string>();
+const { activeTool, error, groups, isDisabled, run } = useToolbarActions();
 const docked = inject(
   DockedPanelMotionKey,
   computed(() => false)
@@ -40,7 +36,6 @@ function scheduleFit() {
     });
   }
 }
-const groups = computed(itemGroups);
 const items = computed(() => groups.value.flatMap(([, entries]) => entries));
 const shownGroups = computed(() => {
   const shown = new Set(items.value.slice(0, limit.value));
@@ -90,7 +85,9 @@ function fitHeight(
   }
   // The probe includes all groups, with the More button after the last group.
   const reserve = moreBounds.bottom - last.bottom + paddingEnd + border;
-  const firstOverflow = bounds.findIndex(({ bottom }) => bottom - top + reserve > available);
+  const firstOverflow = bounds.findIndex(
+    (itemBounds) => itemBounds.bottom - top + reserve > available
+  );
   return Math.min(cap, firstOverflow === -1 ? bounds.length : firstOverflow);
 }
 function fit() {
@@ -223,40 +220,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', scheduleFit);
   cancelAnimationFrame(frame);
 });
-function itemGroups() {
-  const groups = new Map<string, ToolbarItemDefinition[]>();
-  for (const item of ui.toolbar.list()) {
-    if (item.toolId && !app.interactions.hasTool(item.toolId)) {
-      continue;
-    }
-    const key = item.group ?? '';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return [...groups.entries()];
-}
-
-function isDisabled(item: ToolbarItemDefinition) {
-  // Predicates may read public Runtime services without accessing Vue refs themselves.
-  void snapshot.value.revision;
-  return typeof item.disabled === 'function' ? item.disabled() : (item.disabled ?? false);
-}
-
-async function activate(item: ToolbarItemDefinition) {
+function activate(item: ToolbarItemDefinition) {
   menuOpen.value = false;
-  error.value = undefined;
-  try {
-    if (item.toolId) {
-      if (activeTool.value === item.toolId) {
-        await app.interactions.deactivateTool();
-      } else {
-        await app.interactions.activateTool(item.toolId);
-      }
-      return;
-    }
-    await item.onClick?.();
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause);
-  }
+  return run(item);
 }
 
 function activateFromMenu(item: ToolbarItemDefinition) {

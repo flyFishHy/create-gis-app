@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { GISApp } from '@joinmap/gis-core';
-import { getVueUIAdapter } from './vue-ui.js';
+import { getVueUIAdapter } from './adapter/vue-ui-adapter.js';
 import GISUIRoot from './GISUIRoot.vue';
 
 const props = defineProps<{ app: GISApp }>();
 const emit = defineEmits<{ ready: []; error: [cause: unknown] }>();
-const adapter = getVueUIAdapter(props.app);
+const app = props.app;
+const adapter = getVueUIAdapter(app);
 const visible = ref(false);
 const target = ref<HTMLElement>();
 const release = adapter.bindHost(
@@ -19,7 +20,7 @@ let stopped = false;
 let mounting: Promise<void> | undefined;
 onMounted(async () => {
   try {
-    mounting = props.app.mount(target.value!);
+    mounting = app.mount(target.value!);
     await mounting;
     if (!stopped) {
       emit('ready');
@@ -36,8 +37,8 @@ onBeforeUnmount(() => {
   void (async () => {
     try {
       await mounting?.catch(() => {});
-      if (props.app.status === 'mounted') {
-        await props.app.unmount();
+      if (app.status === 'mounted') {
+        await app.unmount();
       }
     } finally {
       release();

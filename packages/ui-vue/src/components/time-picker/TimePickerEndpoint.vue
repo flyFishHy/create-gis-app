@@ -14,7 +14,7 @@ import type { TimeGranularity } from './types.js';
 
 const props = defineProps<{
   modelValue?: number;
-  unit: TimeGranularity | 'custom';
+  unit: TimeGranularity | 'datetime';
   timeZone: string;
   label: string;
   hourLabel: string;
@@ -56,7 +56,7 @@ const hours = computed(() => {
   }).flat();
 });
 const exact = computed(() =>
-  props.unit === 'custom' && date.value && clock.value
+  props.unit === 'datetime' && date.value && clock.value
     ? wallTimeCandidates(date.value, clock.value, props.timeZone)
     : []
 );
@@ -82,7 +82,7 @@ const decoded = computed(() => {
       ? Number(instant.value)
       : undefined;
   }
-  if (props.unit === 'custom') {
+  if (props.unit === 'datetime') {
     const candidate = exact.value.find(
       (value) => String(value.epochMilliseconds) === instant.value
     );
@@ -163,7 +163,7 @@ function disabledDate(value: Date) {
   const timestamp = calendarDate(day, props.timeZone);
   return (
     timestamp === undefined ||
-    (props.unit !== 'hour' && props.unit !== 'custom' && !props.periodAllowed(timestamp))
+    (props.unit !== 'hour' && props.unit !== 'datetime' && !props.periodAllowed(timestamp))
   );
 }
 </script>
@@ -199,7 +199,7 @@ function disabledDate(value: Date) {
         @update:model-value="chooseInstant"
       />
       <input
-        v-if="unit === 'custom'"
+        v-if="unit === 'datetime'"
         type="time"
         :aria-label="clockLabel"
         :value="clock"
@@ -219,7 +219,7 @@ function disabledDate(value: Date) {
     </div>
     <p
       v-if="
-        (date && clock && unit === 'custom' && !exact.length) ||
+        (date && clock && unit === 'datetime' && !exact.length) ||
         (date && unit === 'hour' && !hours.length)
       "
       role="status"

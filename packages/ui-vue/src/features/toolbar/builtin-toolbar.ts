@@ -1,5 +1,5 @@
 import type { GISApp } from '@joinmap/gis-core';
-import type { ToolbarService } from './types.js';
+import type { ToolbarService } from '../../types.js';
 
 /** Presentation of known basics, rather than a second tool registry. */
 export function registerBuiltinToolbar(

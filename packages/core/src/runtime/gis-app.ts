@@ -204,6 +204,10 @@ class GISAppImpl implements GISApp {
           await record.plugin.onInit?.(this, record.options);
         }
 
+        stage = 'initial-layer-create';
+        const initialLayers = this.layers.prepareInitial(
+          (this.config?.layers ?? []) as readonly LayerConfig[]
+        );
         const configuredData = this.config?.data;
         if (
           configuredData &&
@@ -216,7 +220,6 @@ class GISAppImpl implements GISApp {
           }
         }
         const mapConfig = this.config?.map as MapConfig | undefined;
-        const initialLayers = (this.config?.layers ?? []) as readonly LayerConfig[];
         if (mapConfig || initialLayers.length > 0 || this.hasMapAdapter()) {
           stage = 'map-create';
           await this.map.create(mapConfig ?? {});
@@ -224,7 +227,7 @@ class GISAppImpl implements GISApp {
           this.mapResources.add(() => this.layers.clear());
           stage = 'initial-layer-create';
           for (const layer of initialLayers) {
-            await this.layers.add(layer);
+            await this.layers.addPrepared(layer);
           }
         }
 

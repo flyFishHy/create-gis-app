@@ -24,6 +24,9 @@ export interface VuePanelDefinition extends PanelDescriptor {
   readonly maxHeight?: number | string;
   readonly collapsible?: boolean;
   readonly closable?: boolean;
+  readonly allowedPositions?: readonly PanelPosition[];
+  readonly keepMounted?: boolean;
+  readonly header?: { readonly badgeLabel?: string; readonly refreshLabel?: string };
   /** Render content directly, without a panel header, border or actions. */
   readonly unframed?: boolean;
   readonly props?: Readonly<Record<string, unknown>>;

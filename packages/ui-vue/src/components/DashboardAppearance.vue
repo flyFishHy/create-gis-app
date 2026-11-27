@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, shallowRef, useId, useTemplateRef, watch } from 'vue';
 import type { CSSProperties } from 'vue';
-import { parseGISAppConfig } from '@joinmap/gis-core';
 import type { BuiltinLayoutName, GisSwitchOption, ThemeTokens } from '../types.js';
 import { useGISUI } from '../use-gis-ui.js';
 import GisSwitch from './GisSwitch.vue';
 import SvgIcon from './SvgIcon.vue';
-import { captureWorkspaceConfig } from '../workspace-config.js';
+import { useWorkspaceTransfer } from '../workspace/use-workspace-transfer.js';
 
 const props = defineProps<{
   panelStyle: NonNullable<ThemeTokens['panelStyle']>;
@@ -20,8 +19,11 @@ const popoverId = `gis-ui-appearance-${encodeURIComponent(app.id)}-${useId()}`;
 const titleId = `${popoverId}-title`;
 const position = shallowRef<CSSProperties>();
 const open = shallowRef(false);
-const workspaceError = shallowRef('');
-const importInput = useTemplateRef<HTMLInputElement>('workspaceImport');
+const { workspaceError, importInput, exportWorkspace, importWorkspace } = useWorkspaceTransfer(
+  app,
+  locale,
+  () => props.workspaceStorageKey
+);
 const tokens = computed(() => theme.get().tokens);
 const systemTheme =
   typeof window === 'undefined' ? undefined : window.matchMedia?.('(prefers-color-scheme: dark)');
@@ -155,41 +157,6 @@ function updateRange({ key, unit }: SettingRange, event: Event) {
 
 function setColor(color: string) {
   theme.set({ tokens: { colorPrimary: color } });
-}
-
-function exportWorkspace() {
-  workspaceError.value = '';
-  try {
-    const config = captureWorkspaceConfig(app);
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
-    );
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'gis-workspace.json';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  } catch {
-    workspaceError.value = locale.t('workspace.exportFailed');
-  }
-}
-
-async function importWorkspace() {
-  const input = importInput.value;
-  const file = input?.files?.[0];
-  const key = props.workspaceStorageKey;
-  if (!file || !input || !key) {
-    return;
-  }
-  input.value = '';
-  workspaceError.value = '';
-  try {
-    const config = parseGISAppConfig(JSON.parse(await file.text()));
-    localStorage.setItem(key, JSON.stringify(config));
-    window.location.reload();
-  } catch {
-    workspaceError.value = locale.t('workspace.importFailed');
-  }
 }
 
 function placePopover(event?: Event) {

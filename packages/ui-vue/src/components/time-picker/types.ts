@@ -30,11 +30,3 @@ export interface TimeFilterPickerEmits {
   clear: [];
   cancel: [];
 }
-
-export interface TimePickerDraft {
-  mode: TimeSelectionMode;
-  granularity: TimeGranularity;
-  timeZone: string;
-  start?: number;
-  end?: number;
-}

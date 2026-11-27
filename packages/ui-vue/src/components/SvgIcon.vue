@@ -13,7 +13,9 @@ const svg = computed(() => icons[`../assets/svg/${props.name}.svg`]);
 </script>
 
 <template>
+  <slot v-if="!svg && $slots.default" />
   <span
+    v-else
     class="gis-ui-svg-icon"
     :style="{ width: `${size}px`, height: `${size}px` }"
     :role="title ? 'img' : undefined"

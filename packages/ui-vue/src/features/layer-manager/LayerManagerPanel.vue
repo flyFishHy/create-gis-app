@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import PanelEmpty from '../components/PanelEmpty.vue';
+import PanelEmpty from '../../components/PanelEmpty.vue';
 import { computed, onBeforeUnmount, shallowRef, useId, watch } from 'vue';
 import type { LayerInstance } from '@joinmap/gis-core';
-import { useGISApp } from '../use-gis-app.js';
-import { useGISUI } from '../use-gis-ui.js';
-import SvgIcon from '../components/SvgIcon.vue';
-import Tooltip from '../components/Tooltip.vue';
+import { useGISApp } from '../../use-gis-app.js';
+import { useGISUI } from '../../use-gis-ui.js';
+import SvgIcon from '../../components/SvgIcon.vue';
+import Tooltip from '../../components/Tooltip.vue';
 import { filterLayerTree, layerTree, moveLayer, reorderRootLayers } from './layer-tree.js';
-import { usePanelHeader } from '../use-panel-header.js';
+import { usePanelHeader } from '../../use-panel-header.js';
 import LayerChildren from './LayerChildren.vue';
-import { useAppState } from '../use-app-state.js';
+import { useAppState } from '../../use-app-state.js';
+import { useLayerOpacity } from './use-layer-opacity.js';
 
 const app = useGISApp();
 const ui = useGISUI();
@@ -21,48 +22,29 @@ const dropAfter = shallowRef(false);
 const revision = shallowRef(0);
 const keyword = shallowRef('');
 const expanded = shallowRef(new Set<string>());
-const drafts = shallowRef<Record<string, number>>({});
 const error = shallowRef<string>();
 const detailsId = useId();
-const queued = new Map<string, number>();
-const running = new Set<string>();
-let stopped = false;
 let pointerDrag: { layer: LayerInstance; id: number; x: number; y: number } | undefined;
-const stop = app.layers.subscribe((event) => {
-  revision.value++;
-  if (event.type === 'remove' && event.id) {
-    queued.delete(event.id);
-    const next = new Set(expanded.value);
-    next.delete(event.id);
+watch(snapshot, () => {
+  const next = new Set([...expanded.value].filter((id) => app.layers.has(id)));
+  if (next.size !== expanded.value.size) {
     expanded.value = next;
   }
 });
-onBeforeUnmount(() => {
-  stopped = true;
-  queued.clear();
-  stop();
-  stopPointerDrag();
-});
-
-function children(layer: LayerInstance): LayerInstance[] {
-  const ids = layer.getMetadata().childIds;
-  return Array.isArray(ids)
-    ? ids.flatMap((id) =>
-        typeof id === 'string' && app.layers.get(id) ? [app.layers.get(id)!] : []
-      )
-    : [];
-}
-function leaves(layer: LayerInstance, seen = new Set<string>()): LayerInstance[] {
-  if (seen.has(layer.id)) {
-    return [];
+onBeforeUnmount(stopPointerDrag);
+const { opacity, changeOpacity, supportsOpacity } = useLayerOpacity(
+  app.layers,
+  snapshot,
+  (cause) => {
+    error.value =
+      cause === undefined ? undefined : cause instanceof Error ? cause.message : String(cause);
   }
-  seen.add(layer.id);
-  return layer.type === 'GROUP' ? children(layer).flatMap((child) => leaves(child, seen)) : [layer];
-}
+);
+
 const tree = computed(() => {
   void revision.value;
   void snapshot.value;
-  return layerTree(app.layers.list());
+  return layerTree(app.layers);
 });
 const filteredTree = computed(() => filterLayerTree(tree.value, keyword.value));
 const animateReorder = shallowRef(false);
@@ -97,73 +79,6 @@ function toggleSettings(id: string) {
     next.add(id);
   }
   expanded.value = next;
-}
-function opacity(layer: LayerInstance) {
-  void revision.value;
-  if (drafts.value[layer.id] !== undefined) {
-    return drafts.value[layer.id]!;
-  }
-  const values = leaves(layer).map((item) => item.getMetadata().opacity);
-  return values.length &&
-    values.every((value) => typeof value === 'number' && Number.isFinite(value))
-    ? values.every((value) => value === values[0])
-      ? Math.round((values[0] as number) * 100)
-      : null
-    : undefined;
-}
-function supportsOpacity(layer: LayerInstance) {
-  return opacity(layer) !== undefined;
-}
-function clearDraft(id: string) {
-  const next = { ...drafts.value };
-  delete next[id];
-  drafts.value = next;
-}
-function changeOpacity(layer: LayerInstance, event: Event) {
-  const value = Math.max(0, Math.min(100, Number((event.target as HTMLInputElement).value)));
-  if (!Number.isFinite(value) || !supportsOpacity(layer)) {
-    return;
-  }
-  drafts.value = { ...drafts.value, [layer.id]: value };
-  queued.set(layer.id, value);
-  void flushOpacity(layer);
-}
-async function flushOpacity(layer: LayerInstance) {
-  if (running.has(layer.id)) {
-    return;
-  }
-  running.add(layer.id);
-  error.value = undefined;
-  try {
-    while (!stopped && queued.has(layer.id) && app.layers.get(layer.id) === layer) {
-      const value = queued.get(layer.id)!;
-      queued.delete(layer.id);
-      const targets = leaves(layer);
-      const results = await Promise.allSettled(
-        targets.map((target) =>
-          app.layers.get(target.id) === target
-            ? app.layers.update(target.id, { options: { opacity: value / 100 } })
-            : Promise.resolve()
-        )
-      );
-      const failure = results.find(
-        (result): result is PromiseRejectedResult => result.status === 'rejected'
-      );
-      if (failure) {
-        throw failure.reason;
-      }
-    }
-  } catch (cause) {
-    if (!stopped) {
-      error.value = cause instanceof Error ? cause.message : String(cause);
-    }
-    queued.delete(layer.id);
-  } finally {
-    running.delete(layer.id);
-    if (!stopped) {
-      clearDraft(layer.id);
-    }
-  }
 }
 function toggleVisibility(layer: LayerInstance) {
   try {

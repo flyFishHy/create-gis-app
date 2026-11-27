@@ -1,21 +1,23 @@
 <script setup lang="ts">
-import PanelEmpty from '../components/PanelEmpty.vue';
-import { computed, ref, shallowRef } from 'vue';
-import type { LayerInstance, LayerLegend, LayerStyle } from '@joinmap/gis-core';
-import { useAppState } from '../use-app-state.js';
-import { useGISUI } from '../use-gis-ui.js';
-import Legend from '../components/Legend.vue';
-import LegendAction from '../components/LegendAction.vue';
+import PanelEmpty from '../../components/PanelEmpty.vue';
+import { computed, ref, shallowRef, watch } from 'vue';
+import type { LayerInstance, LayerUpdate } from '@joinmap/gis-core';
+import { useAppState } from '../../use-app-state.js';
+import { useGISUI } from '../../use-gis-ui.js';
+import Legend from '../../components/Legend.vue';
+import LegendAction from '../../components/LegendAction.vue';
 import LayerEditor from './LayerEditor.vue';
-import { useGISApp } from '../use-gis-app.js';
-import { usePanelHeader } from '../use-panel-header.js';
+import { useGISApp } from '../../use-gis-app.js';
+import { usePanelHeader } from '../../use-panel-header.js';
+import { layerSymbol } from './layer-symbol.js';
 const snapshot = useAppState((state) => state.layers);
 const ui = useGISUI();
 const app = useGISApp();
-const editing = shallowRef<LayerInstance>();
+const editing = shallowRef<{ layer: LayerInstance; key: number }>();
+let editorKey = 0;
 const revision = ref(0);
 const error = ref('');
-const originals = new WeakMap<LayerInstance, { legend: LayerLegend | null; style?: LayerStyle }>();
+const originals = new WeakMap<LayerInstance, Pick<LayerUpdate, 'legend' | 'style'>>();
 const layers = computed(() => {
   void revision.value;
   return snapshot.value
@@ -25,15 +27,31 @@ const layers = computed(() => {
       if (!instance || (!state.legend && !instance.getFields().length)) {
         return [];
       }
-      if (!originals.has(instance)) {
-        originals.set(
-          instance,
-          JSON.parse(JSON.stringify({ legend: instance.legend ?? null, style: instance.style }))
-        );
-      }
       return [{ state, instance }];
     });
 });
+watch(
+  layers,
+  (rows) => {
+    // Until Core exposes creation-time styles, reset restores the first state seen by this panel.
+    for (const { state, instance } of rows) {
+      if (!originals.has(instance)) {
+        const { layerId: _layerId, type, ...legend } = state.legend ?? { type: undefined };
+        originals.set(instance, {
+          legend: type ? { ...legend, type } : null,
+          style: state.style ?? undefined,
+        });
+      }
+    }
+  },
+  { immediate: true, flush: 'sync' }
+);
+const editInList = computed(() =>
+  layers.value.some(({ instance }) => instance === editing.value?.layer)
+);
+function edit(layer: LayerInstance) {
+  editing.value = { layer, key: ++editorKey };
+}
 usePanelHeader(
   computed(() => String(layers.value.filter(({ state }) => state.legend).length)),
   () => {
@@ -49,18 +67,14 @@ const types = computed(() =>
     ])
   )
 );
-function symbol(layer: LayerInstance) {
-  const type = String(layer.getMetadata().geometryType);
-  return /LineString$/.test(type) ? 'line' : /Point$/.test(type) ? 'circle' : 'fill';
-}
 async function reset(layer: LayerInstance) {
   const initial = originals.get(layer);
-  if (!initial) {
+  if (!initial || app.layers.get(layer.id) !== layer) {
     return;
   }
   try {
     error.value = '';
-    await app.layers.update(layer.id, { expectedVersion: layer.version, ...initial });
+    await layer.update({ expectedVersion: layer.version, ...initial });
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
   }
@@ -84,17 +98,22 @@ function filter(layer: LayerInstance, id: string) {
       :description="ui.locale.t('legend.emptyDescription')"
     />
     <template v-for="{ state, instance } in layers" :key="state.id">
-      <LayerEditor v-if="editing?.id === state.id" :layer="editing" @close="editing = undefined" />
+      <LayerEditor
+        v-if="editing?.layer === instance"
+        :key="editing.key"
+        :layer="editing.layer"
+        @close="editing = undefined"
+      />
       <Legend
         v-else-if="state.legend"
         class="gis-ui-legend-card"
         :definitions="[state.legend]"
         :titles="{ [state.id]: state.title ?? state.id }"
-        :styles="instance.style ? { [state.id]: instance.style } : {}"
+        :styles="state.style ? { [state.id]: state.style } : {}"
         :filterable="instance.supportsLegendFilter()"
         :active-rule="instance.getLegendFilter()"
         @filter="filter(instance, $event)"
-        :symbols="{ [state.id]: symbol(instance) }"
+        :symbols="{ [state.id]: layerSymbol(state.metadata.geometryType) }"
         :type-labels="types"
         :default-text="ui.locale.t('editor.default')"
         :layer-color-text="ui.locale.t('editor.layerColor')"
@@ -105,7 +124,7 @@ function filter(layer: LayerInstance, id: string) {
               class="gis-ui-legend-edit"
               icon="edit"
               :label="ui.locale.t('layer.editStyle') + ' ' + state.title"
-              @click="editing = instance"
+              @click="edit(instance)"
             />
             <LegendAction
               icon="reset"
@@ -121,13 +140,14 @@ function filter(layer: LayerInstance, id: string) {
           class="gis-ui-legend-edit"
           icon="plus"
           :label="ui.locale.t('editor.create') + ' ' + (state.title ?? state.id)"
-          @click="editing = instance"
+          @click="edit(instance)"
         />
       </section>
     </template>
     <LayerEditor
-      v-if="editing && !layers.some((item) => item.state.id === editing!.id)"
-      :layer="editing"
+      v-if="editing && !editInList"
+      :key="editing.key"
+      :layer="editing.layer"
       @close="editing = undefined"
     />
   </div>

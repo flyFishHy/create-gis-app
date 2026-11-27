@@ -4,6 +4,128 @@ import type { LayerConfig, MapLayerHandle } from '../src/types.js';
 import { createFakeLayerDefinition, createFakeMapPlugin, FakeMapAdapter } from './fake-map.js';
 
 describe('LayerService', () => {
+  it('reserves later descendants before the first factory starts', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, {
+        test: {
+          async create(_context, { id }) {
+            if (id === 'first') {
+              await gate;
+            }
+            return { setVisible() {}, setZIndex() {}, dispose() {} };
+          },
+        },
+      })
+    );
+    await app.init({});
+    try {
+      const pending = app.layers.add({
+        id: 'group',
+        type: 'GROUP',
+        children: [
+          { id: 'first', type: 'test' },
+          { id: 'later', type: 'test' },
+        ],
+      });
+      try {
+        await expect(app.layers.add({ id: 'later', type: 'test' })).rejects.toMatchObject({
+          code: 'LAYER_DUPLICATE',
+        });
+        expect(app.layers.getTree()).toEqual([]);
+      } finally {
+        release();
+        await pending;
+      }
+      expect(app.layers.getChildren('group').map(({ id }) => id)).toEqual(['first', 'later']);
+    } finally {
+      await app.dispose();
+    }
+  });
+
+  it('exposes immutable topology independently of adapter metadata and reused IDs', async () => {
+    const app = createGISApp().use(
+      createFakeMapPlugin(undefined, {
+        test: createFakeLayerDefinition(() => ({
+          setVisible() {},
+          setZIndex() {},
+          dispose() {},
+          getMetadata: () => ({ id: 'fake', childIds: ['group'], parentId: 'fake' }),
+        })),
+      })
+    );
+    await app.init({
+      layers: [{ id: 'group', type: 'GROUP', children: [{ id: 'child', type: 'test' }] }],
+    });
+    try {
+      const [group] = app.layers.getTree();
+      expect(group).toEqual({
+        id: 'group',
+        kind: 'group',
+        parentId: null,
+        children: [{ id: 'child', kind: 'leaf', parentId: 'group', children: [] }],
+      });
+      expect(Object.isFrozen(group?.children)).toBe(true);
+      expect(app.layers.getLeaves('group').map(({ id }) => id)).toEqual(['child']);
+      expect(app.layers.get('child')?.getMetadata().id).toBe('child');
+      expect(app.context.state.snapshot().layers.find(({ id }) => id === 'child')).toMatchObject({
+        parentId: 'group',
+        childIds: [],
+      });
+      await app.layers.remove('child');
+      await app.layers.add({ id: 'child', type: 'test' });
+      expect(app.layers.getLeaves('group')).toEqual([]);
+      expect(app.layers.get('child')?.parentId).toBeNull();
+    } finally {
+      await app.dispose();
+    }
+  });
+
+  it('releases a pending child without attaching it after its parent ID is reused', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const adapter = new FakeMapAdapter();
+    const disposed = vi.fn();
+    const app = createGISApp().use(
+      createFakeMapPlugin(adapter, {
+        test: {
+          async create(_context, { id }) {
+            if (id === 'pending') {
+              await gate;
+            }
+            return { setVisible() {}, setZIndex() {}, dispose: () => disposed(id) };
+          },
+        },
+      })
+    );
+    const group = {
+      id: 'group',
+      type: 'GROUP',
+      children: [{ id: 'existing', type: 'test' }],
+    };
+    await app.init({ layers: [group] });
+    try {
+      const attach = vi.spyOn(adapter, 'addLayer');
+      const pending = app.layers.addChild('group', { id: 'pending', type: 'test' });
+      const rejected = expect(pending).rejects.toMatchObject({ code: 'LAYER_NOT_FOUND' });
+      await app.layers.remove('group');
+      await app.layers.add(group);
+      release();
+      await rejected;
+      expect(attach).toHaveBeenCalledOnce();
+      expect(disposed.mock.calls).toEqual([['existing'], ['pending']]);
+      expect(app.layers.getChildren('group').map(({ id }) => id)).toEqual(['existing']);
+    } finally {
+      release();
+      await app.dispose();
+    }
+  });
+
   it('passes a frozen configuration tree to asynchronous factories', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
@@ -352,10 +474,16 @@ describe('LayerService', () => {
       waiting = resolve;
     });
     const disposed = vi.fn();
+    const created = vi.fn();
+    const factoryFailure = new Error('injected factory failure');
     const app = createGISApp().use(
       createFakeMapPlugin(new FakeMapAdapter(), {
         staged: {
           async create(_context, config) {
+            created(config.id);
+            if (config.id === 'broken') {
+              throw factoryFailure;
+            }
             if (config.id === 'slow') {
               waiting();
               await gate;
@@ -403,6 +531,19 @@ describe('LayerService', () => {
           ],
         })
       ).rejects.toMatchObject({ code: 'LAYER_TYPE_NOT_FOUND' });
+      expect(events).toHaveLength(3);
+      expect(created).not.toHaveBeenCalledWith('temporary');
+      expect(disposed).not.toHaveBeenCalledWith('temporary');
+      await expect(
+        app.layers.add({
+          id: 'failed',
+          type: 'GROUP',
+          children: [
+            { id: 'temporary', type: 'staged' },
+            { id: 'broken', type: 'staged' },
+          ],
+        })
+      ).rejects.toBe(factoryFailure);
       expect(events).toHaveLength(3);
       expect(disposed).toHaveBeenCalledWith('temporary');
       await app.layers.add({ id: 'temporary', type: 'staged' });

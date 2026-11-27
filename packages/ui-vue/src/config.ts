@@ -1,15 +1,6 @@
 import { normalizeUIConfig } from '@joinmap/gis-core';
 import type { PanelConfig, UIConfig, UIThemeConfig } from '@joinmap/gis-core';
 
-export const builtinPanels: readonly PanelConfig[] = [
-  { id: 'search', visible: true, position: 'top', order: 0 },
-  { id: 'time', visible: true, position: 'top', order: 1 },
-  { id: 'layer-manager', visible: true, position: 'left', order: 1 },
-  { id: 'legend', visible: true, position: 'left', order: 2 },
-  { id: 'toolbar', visible: true },
-  { id: 'properties', visible: false, position: 'right', order: 2 },
-  { id: 'status', visible: true, position: 'bottom' },
-];
 function theme(value: UIConfig['theme']): UIThemeConfig {
   return typeof value === 'string' ? { mode: value } : (value ?? {});
 }
@@ -17,11 +8,8 @@ export function resolveUIConfig(defaults: UIConfig = {}, app: UIConfig = {}): Re
   normalizeUIConfig(defaults);
   normalizeUIConfig(app);
   const layout = app.layout ?? defaults.layout ?? 'docked-dashboard';
-  const preset = builtinPanels.map((panel) =>
-    panel.id === 'properties' ? { ...panel, visible: layout === 'docked-dashboard' } : panel
-  );
   const panels = new Map<string, PanelConfig>();
-  for (const config of [preset, defaults.panels ?? [], app.panels ?? []]) {
+  for (const config of [defaults.panels ?? [], app.panels ?? []]) {
     for (const panel of config) {
       panels.set(panel.id, { ...panels.get(panel.id), ...panel });
     }

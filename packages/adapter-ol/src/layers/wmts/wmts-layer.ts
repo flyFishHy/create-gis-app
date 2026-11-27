@@ -1,22 +1,17 @@
 import { GISRuntimeError, ResourceScopeImpl } from '@joinmap/gis-core';
-import type { DataService, LayerConfig } from '@joinmap/gis-core';
+import type { DataService } from '@joinmap/gis-core';
+import type { WMTSLayerConfig } from '../ol-layer-config.js';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities.js';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS.js';
 import type { LayerBinding } from '../common/layer-binding.js';
 import { loadOwnedDataSet } from '../common/layer-data.js';
-import { createTileLayerBinding, requireTileSource } from '../common/tile-layer.js';
+import { createTileLayerBinding } from '../common/tile-layer.js';
 
 export async function createWMTSLayer(
   data: DataService,
-  config: LayerConfig
+  config: WMTSLayerConfig
 ): Promise<LayerBinding> {
-  const { url, layer, matrixSet } = requireTileSource(config);
-  if (typeof layer !== 'string' || !layer.trim()) {
-    throw new Error(`Layer "${config.id}" requires source.layer.`);
-  }
-  if (typeof matrixSet !== 'string' || !matrixSet.trim()) {
-    throw new Error(`Layer "${config.id}" requires source.matrixSet.`);
-  }
+  const { url, layer, matrixSet } = config.source;
 
   const resources = new ResourceScopeImpl();
   let xml: string | undefined;

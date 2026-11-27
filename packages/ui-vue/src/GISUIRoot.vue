@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, provide, shallowRef } from 'vue';
-import type { Component, CSSProperties, ShallowRef } from 'vue';
-import { GISRuntimeError, type GISApp } from '@joinmap/gis-core';
+import { computed, provide } from 'vue';
+import type { Component, ShallowRef } from 'vue';
+import type { GISApp } from '@joinmap/gis-core';
 import type { GISUIContext } from './types.js';
-import { regionWidth, cssSize } from './panels/panel-size.js';
+import { regionWidth } from './panels/panel-size.js';
 import { GISAppKey } from './injection.js';
 import { GISUIContextKey, DockedPanelMotionKey } from './ui-context.js';
 import MapViewport from './components/MapViewport.vue';
 import FeaturePicker from './components/FeaturePicker.vue';
-import ToolHint from './components/ToolHint.vue';
+import WorkspaceBottom from './workspace/WorkspaceBottom.vue';
 import PanelRegion from './components/PanelRegion.vue';
 import DashboardAppearance from './components/DashboardAppearance.vue';
 import PanelHost from './components/PanelHost.vue';
 import DashboardLayout from './layouts/DashboardLayout.vue';
-import type { BuiltinLayoutName, ThemeOptions, ThemeTokens } from './types.js';
+import type { BuiltinLayoutName } from './types.js';
+import { routePanels } from './layouts/layout-regions.js';
+import { useWorkspaceTheme } from './workspace/use-workspace-theme.js';
+import { useWorkspaceShortcuts } from './workspace/use-workspace-shortcuts.js';
 
 const props = defineProps<{
   runtime: GISApp;
@@ -32,155 +35,35 @@ provide(
   DockedPanelMotionKey,
   computed(() => layout.value === 'docked-dashboard')
 );
-const hasRightPanels = computed(() =>
-  props.ui.panels.list('right').some((panel) => props.ui.panels.getState(panel.id)?.visible)
-);
-const drawerVisible = computed(() =>
-  props.ui.panels
-    .list('right')
-    .some((panel) => panel.id === 'properties' && props.ui.panels.getState(panel.id)?.visible)
-);
+const panels = computed(() => routePanels(props.ui.panels, layout.value));
+const panelIds = computed(() => ({
+  top: panels.value.top.map(({ id }) => id),
+  left: panels.value.left.map(({ id }) => id),
+  right: panels.value.right.map(({ id }) => id),
+  bottom: panels.value.bottom.map(({ id }) => id),
+  floating: panels.value.floating.map(({ id }) => id),
+}));
 const layoutProps = computed(() => ({
   ...props.appProps,
   ...(layout.value === 'docked-dashboard'
-    ? { layout: layout.value, rightVisible: hasRightPanels.value }
+    ? { layout: layout.value, rightVisible: panels.value.right.some(({ visible }) => visible) }
     : layout.value === 'overlay-dashboard'
-      ? { layout: layout.value, drawerVisible: drawerVisible.value }
+      ? { layout: layout.value, drawerVisible: panels.value.drawer.some(({ visible }) => visible) }
       : {}),
 }));
 
-const theme = shallowRef<Readonly<ThemeOptions>>(props.ui.theme.get());
-const unsubscribeTheme = props.ui.theme.subscribe((next) => {
-  theme.value = next;
-});
-onBeforeUnmount(unsubscribeTheme);
-
-const themeClasses = computed(() => [
-  `gis-ui-theme-${theme.value.mode ?? 'light'}`,
-  theme.value.className,
-]);
-const mapStyle = computed(() => ({
-  '--gis-map-measurement-color': theme.value.tokens?.colorPrimary ?? 'var(--gis-ui-primary)',
-}));
-const panelStyle = computed(() => {
-  const style = theme.value.tokens?.panelStyle;
-  if (style === 'frosted' || style === 'liquid' || style === 'solid') {
-    return style;
-  }
-  return layout.value === 'docked-dashboard' ? 'solid' : 'frosted';
-});
-
-function primaryForeground(color: string | undefined) {
-  const hex = color?.match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1];
-  if (!hex) {
-    return undefined;
-  }
-  const size = hex.length / 3;
-  const channels = [0, size, size * 2].map((index) => {
-    const part = hex.slice(index, index + size);
-    const value = Number.parseInt(size === 1 ? part.repeat(2) : part, 16) / 255;
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance = channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
-  return luminance > 0.179 ? '#000' : '#fff';
-}
-
-const themeStyle = computed<CSSProperties>(() => {
-  const variables: Partial<Record<keyof ThemeTokens, string>> = {
-    colorBackground: '--gis-ui-background',
-    colorSurface: '--gis-ui-surface',
-    colorSurfaceElevated: '--gis-ui-surface-elevated',
-    colorText: '--gis-ui-text',
-    colorTextMuted: '--gis-ui-text-muted',
-    colorBorder: '--gis-ui-border',
-    colorPrimary: '--gis-ui-primary',
-    colorHover: '--gis-ui-hover',
-    colorSuccess: '--gis-ui-success',
-    colorDanger: '--gis-ui-danger',
-    panelRadius: '--gis-ui-panel-radius',
-    panelShadow: '--gis-ui-panel-shadow',
-    panelOpacity: '--gis-ui-glass-opacity',
-    panelBlur: '--gis-ui-glass-blur',
-    panelSpecular: '--gis-ui-liquid-specular',
-    panelWidth: '--gis-ui-panel-width',
-    leftPanelWidth: '--gis-ui-left-width',
-    rightPanelWidth: '--gis-ui-right-width',
-    overlayPanelWidth: '--gis-ui-overlay-panel-width',
-    toolbarHeight: '--gis-ui-toolbar-height',
-    spacingUnit: '--gis-ui-gap',
-    fontFamily: '--gis-ui-font-family',
-    fontSize: '--gis-ui-font-size',
-  };
-  const tokens = theme.value.tokens ?? {};
-  const style = Object.fromEntries(
-    Object.entries(tokens)
-      .filter(([key, value]) => Object.hasOwn(variables, key) && typeof value === 'string')
-      .map(([key, value]) => [variables[key as keyof ThemeTokens], value])
-  ) as CSSProperties;
-  if (tokens.colorBackground) {
-    style['--gis-ui-map-background'] = tokens.colorBackground;
-  }
-  const foreground = primaryForeground(tokens.colorPrimary);
-  if (foreground) {
-    style['--gis-ui-on-primary'] = foreground;
-    style['--gis-ui-primary-hover-tint'] = foreground === '#fff' ? '#000' : '#fff';
-  }
-  return style;
-});
+const { themeClasses, mapStyle, panelStyle, themeStyle } = useWorkspaceTheme(
+  props.ui.theme,
+  layout
+);
 const regionStyle = computed(() => ({
-  '--gis-ui-configured-left-width': regionWidth(props.ui.panels, 'left'),
-  '--gis-ui-configured-right-width': regionWidth(
-    props.ui.panels,
-    'right',
-    layout.value === 'overlay-dashboard' ? ['properties'] : []
-  ),
-  '--gis-ui-configured-drawer-width': cssSize(props.ui.panels.getState('properties')?.width),
+  '--gis-ui-configured-left-width': regionWidth(panels.value.left),
+  '--gis-ui-configured-right-width': regionWidth(panels.value.right),
+  '--gis-ui-configured-drawer-width': regionWidth(panels.value.drawer, true),
 }));
 const appTitle = computed(() => props.runtime.config?.title);
 
-async function handleKeydown(event: KeyboardEvent) {
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
-    return;
-  }
-  const target = event.target;
-  if (
-    target instanceof HTMLElement &&
-    (target.matches('input,textarea,select') || target.isContentEditable)
-  ) {
-    return;
-  }
-  try {
-    const interactions = props.runtime.interactions;
-    if (event.key === 'Escape') {
-      const activeTool = interactions.getActiveTool();
-      await interactions.deactivateTool();
-      if (
-        activeTool &&
-        !interactions.getActiveTool() &&
-        target instanceof HTMLButtonElement &&
-        target.closest('.gis-ui-toolbar') &&
-        target.ownerDocument.activeElement === target
-      ) {
-        target.blur();
-      }
-    }
-    if (event.key === 'Backspace' && interactions.getActiveTool()) {
-      event.preventDefault();
-      interactions.undoActiveTool();
-    }
-  } catch (cause) {
-    reportToolError(cause);
-  }
-}
-function reportToolError(cause: unknown) {
-  props.runtime.events.emit('app:error', {
-    error: new GISRuntimeError({
-      code: 'APP_INVALID_STATE',
-      message: 'Tool shortcut failed.',
-      cause,
-    }),
-  });
-}
+const handleKeydown = useWorkspaceShortcuts(props.runtime);
 </script>
 
 <template>
@@ -213,37 +96,22 @@ function reportToolError(cause: unknown) {
     <template #map><MapViewport :style="mapStyle" /><FeaturePicker /></template>
     <template #top>
       <div class="gis-ui-query-controls">
-        <PanelRegion position="top" />
+        <PanelRegion position="top" :panel-ids="panelIds.top" />
       </div>
     </template>
     <template #toolbar>
-      <PanelHost id="toolbar" />
+      <PanelHost v-for="{ id } in panels.toolbar" :key="id" :id="id" />
     </template>
-    <template #left><PanelRegion position="left" /></template>
-    <template #right
-      ><PanelRegion
-        position="right"
-        :exclude="layout === 'overlay-dashboard' ? ['properties'] : undefined"
-    /></template>
-    <template #drawer
-      ><PanelHost
-        v-if="
-          layout === 'overlay-dashboard' && ui.panels.getState('properties')?.position === 'right'
-        "
-        id="properties"
-        animate
-    /></template>
+    <template #left><PanelRegion position="left" :panel-ids="panelIds.left" /></template>
+    <template #right><PanelRegion position="right" :panel-ids="panelIds.right" /></template>
+    <template #drawer>
+      <PanelHost v-for="{ id } in panels.drawer" :key="id" :id="id" animate />
+    </template>
     <template #bottom>
-      <div class="gis-ui-bottom-content">
-        <PanelRegion position="bottom" />
-        <ToolHint />
-        <div v-if="ui.panels.getState('status')?.visible" class="gis-ui-status-content">
-          <PanelHost id="status" />
-        </div>
-      </div>
+      <WorkspaceBottom :panel-ids="panelIds.bottom" :status-panels="panels.status" />
     </template>
     <template #floating>
-      <PanelRegion position="floating" />
+      <PanelRegion position="floating" :panel-ids="panelIds.floating" />
     </template>
   </component>
 </template>

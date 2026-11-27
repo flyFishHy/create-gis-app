@@ -188,6 +188,26 @@ Definitions contain components; PanelConfig contains only serializable fields.
 PanelHost handles shells and dimensions. Numeric dimensions become px.
 See [theme tokens](vue-ui-theme-tokens.md) for width precedence and responsive caps.
 
+A framed panel can set `icon` to an SVG icon name or a text glyph. In the panel's
+setup, call `usePanelHeader(computed(() => String(count.value)), refresh)` to
+contribute a live badge and refresh action. Optional `header.badgeLabel` and
+`header.refreshLabel` accept locale keys or literal labels. A hidden or collapsed
+framed panel normally releases its body. Set `keepMounted: true` to retain the
+instance in the same host until unregistration or workspace unmount.
+
+`allowedPositions` can constrain a definition's placement. An unsupported
+position warns and falls back to the supported default or the first allowed
+position. `setOrder(ids, position?)` puts the requested IDs first and appends
+omitted panels in their previous order. With a position, the operation affects
+only that region. Without one, it orders all registered panels.
+
+Regular bottom panels share a row above the compact status bar. Custom layouts
+keep the existing `title`, `map`, `top`, `toolbar`, `left`, `right`, `drawer`,
+`bottom`, and `floating` slots. The `bottom` slot carries both the bottom
+region and status, and right-positioned Properties uses `right` in custom layouts.
+Layout switches preserve panel visibility. Properties reevaluates automatic
+opening or hiding on a selection event.
+
 Read Core state with useAppState(), which returns a readonly Vue computed ref and
 unsubscribes on component removal. Panels/theme/locale contribute the existing
 extensions['vue-ui'] JSON slice. State is a read model, not a writable second store.
@@ -224,7 +244,7 @@ The header settings icon opens a non-modal popover below the header. Appearance
 contains theme mode, panel material, theme color and built-in layout selection.
 Display language has its own group. Changes apply immediately. Built-in layout
 switching keeps the header, open popover, query controls, and left panels mounted.
-It reattaches the existing map and retains the Runtime view, selection, time
+It keeps the same mounted map viewport and retains the Runtime view, selection, time
 filter, and legend drafts and reset baseline. `ui.layout`
 sets the initial layout, and `extensions['vue-ui'].layout` reports the current one.
 Custom layouts keep the component registered in code.
@@ -264,15 +284,23 @@ const range = ref<TimeSelection | null>(null)
 and `custom-range`. The value includes the mode, granularity, IANA zone and
 `range: { start, endExclusive }` in Unix milliseconds. The period range includes
 the whole last selected unit. An exact range uses the literal end instant.
+Exact ranges continue to use `mode: 'custom-range'` and `granularity: 'custom'`
+in props, events, and the dashboard snapshot. Calendar ranges and exact ranges
+both use an exclusive end. `maxTime` permits `endExclusive === maxTime`.
 See [the time picker design and public API](timepicker.md).
 
 Set `createVueUI({ workspaceStorageKey })` and pass
 `loadWorkspaceConfig(workspaceStorageKey, defaults)` to `app.init()` to enable
 browser-local saving. Settings adds JSON export and import. Import validates the
 configuration and reloads the workspace. `captureWorkspaceConfig(app)` captures
-theme, language, layout and the current title, visibility, opacity, order, legend
-and style of layers declared in the initial configuration. The restored
-configuration becomes the baseline for the new session.
+theme, language, layout and the current title, own visibility, opacity, order,
+legend and style of surviving configured layers. A child keeps its own visibility
+setting even under a hidden group. With `createVueUI`, replacing a layer at runtime
+with the same ID does not make the replacement part of the export. Runtime-only
+layers, time selection and panel visibility are outside the saved configuration.
+Auto-save waits 250 ms after the latest recoverable change and writes pending
+changes on Runtime unmount or disposal. Explicit export captures immediately.
+The restored configuration becomes the baseline for the new session.
 
 Toolbar includes zoom plus known drawing/measurement/delete/clear buttons. It uses
 InteractionService.hasTool/canActivateTool, not OL imports or OL state slices.
@@ -348,6 +376,11 @@ root reorders whole subtrees, without reparenting children. Up/Down on a focused
 handle provides keyboard ordering. Group zIndex positions its leaf block while
 preserving relative child order; larger zIndex values appear higher in the list.
 An explicit move uses the existing Runtime setOrder and normalizes leaf zIndex.
+LayerManager displays Runtime's `layers.getTree()` in front-to-back order and
+uses `layers.getLeaves()` to apply group opacity. Workspace export saves each
+configured layer's own visibility setting.
+Synchronous layer actions can report a busy layer while a custom adapter's
+legacy update is in progress.
 Keyed root rows use a TransitionGroup for 240ms position transitions after sorting;
 drag opacity and insertion highlights transition separately without changing row
 height. The system reduced-motion preference disables these movements.
@@ -384,7 +417,10 @@ Edit switches that card in place; other cards remain visible.
 The form edits metric, grouped category values/labels or explicit interval boundaries.
 Colors use native color pickers; rows can be added/deleted. Save validates and submits
 top-level style and legend together. Close cancels the draft. Viewing mode offers
-Reset to restore the card's first loaded definition.
+Reset to restore the first definition seen by the mounted LegendPanel. Switching
+built-in layouts preserves that baseline. A new panel mount captures a new
+baseline. A changed layer version requires reloading the draft before saving.
+Removing or replacing the edited layer invalidates the draft.
 
 LegendEditor accepts optional fields/symbol/getFieldValues props. The latter is a
 lazy synchronous callback, provided by LayerEditor from the public layer capability;

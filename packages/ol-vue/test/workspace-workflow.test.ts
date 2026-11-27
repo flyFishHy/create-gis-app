@@ -119,15 +119,17 @@ it('preserves range, legend drafts and reset baseline while switching layouts an
     expect(target.querySelector('.gis-ui-time-picker-trigger')).toBe(picker);
     expect(draft.value).toBe('Unsaved label');
     expect(layer.getTimeFilter()).toBeUndefined();
-    expect(loadWorkspaceConfig(workspaceKey, config)).toMatchObject({
-      ui: { layout: 'docked-dashboard' },
-      layers: [
-        {
-          legend: { items: [{ label: 'Changed' }] },
-          options: { opacity: 0.55 },
-        },
-      ],
-    });
+    await vi.waitFor(() =>
+      expect(loadWorkspaceConfig(workspaceKey, config)).toMatchObject({
+        ui: { layout: 'docked-dashboard' },
+        layers: [
+          {
+            legend: { items: [{ label: 'Changed' }] },
+            options: { opacity: 0.55 },
+          },
+        ],
+      })
+    );
     target
       .querySelector<HTMLButtonElement>('.gis-ui-layer-editor button[aria-label="关闭"]')!
       .click();

@@ -1,4 +1,5 @@
 export { createGISApp } from './runtime/gis-app.js';
+export { defineLayerType } from './layers/define-layer-type.js';
 export { normalizeUIConfig } from './config/app-config.js';
 export { normalizeConfig as parseGISAppConfig } from './config/app-config.js';
 export { ResourceScopeImpl } from './runtime/resource-scope.js';
@@ -50,6 +51,7 @@ export type {
   LayerService,
   LayerTimeDimension,
   LayerTimeFilter,
+  LayerTreeItem,
   LayerTypeDefinition,
   LayerUpdate,
   LegendDefinition,
@@ -61,6 +63,8 @@ export type {
   MapConfig,
   MapFeaturePick,
   MapLayerHandle,
+  EngineLayerPatch,
+  LayerCapabilities,
   MapOverlayAnchor,
   MapService,
   MapViewService,

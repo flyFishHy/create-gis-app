@@ -1,9 +1,75 @@
 import { expect, it } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 import { createGISApp } from '@joinmap/gis-core';
-import { createFakeMapPlugin } from '../../core/test/fake-map.js';
+import { createFakeMapPlugin, FakeMapAdapter } from '../../core/test/fake-map.js';
 import { createVueUI } from '../src/vue-ui.js';
 import type { GISUIContext } from '../src/types.js';
+
+const BottomPanel = defineComponent({ render: () => h('p', 'Bottom content') });
+const Status = defineComponent({ render: () => h('span', { class: 'test-status' }) });
+const Tools = defineComponent({ render: () => h('span', { class: 'test-tools' }) });
+const Properties = defineComponent({ render: () => h('span', { class: 'test-properties' }) });
+
+it.each(['docked-dashboard', 'overlay-dashboard', 'custom'] as const)(
+  'routes a bottom panel and special hosts exactly once in %s',
+  async (layout) => {
+    const custom = defineComponent({
+      setup(_, { slots }) {
+        return () =>
+          h('main', [
+            h('div', { class: 'test-map-slot' }, slots.map?.()),
+            h('div', { class: 'test-toolbar-slot' }, slots.toolbar?.()),
+            h('div', { class: 'test-right-slot' }, slots.right?.()),
+            h('div', { class: 'test-bottom-slot' }, slots.bottom?.()),
+          ]);
+      },
+    });
+    const map = new FakeMapAdapter();
+    const app = createGISApp()
+      .use(createFakeMapPlugin(map))
+      .use(
+        createVueUI({
+          layouts: { custom },
+          toolbarComponent: Tools,
+          statusComponent: Status,
+          panelDefinitions: [
+            { id: 'analysis', position: 'bottom', component: BottomPanel, defaultVisible: true },
+            { id: 'properties', component: Properties },
+          ],
+        })
+      );
+    const target = document.createElement('div');
+    document.body.append(target);
+    try {
+      await app.init({
+        map: { center: [0, 0], zoom: 2 },
+        ui: { layout, panels: [{ id: 'properties', visible: true }] },
+      });
+      await app.mount(target);
+      const bottom = target.querySelector('.gis-ui-bottom-content')!;
+      expect(
+        bottom.querySelector(':scope > .gis-ui-panel-region--bottom .gis-ui-panel-host--analysis')
+          ?.textContent
+      ).toContain('Bottom content');
+      expect(bottom.querySelector(':scope > .gis-ui-status-content .test-status')).toBeTruthy();
+      expect(target.querySelectorAll('.test-tools')).toHaveLength(1);
+      expect(target.querySelectorAll('.test-status')).toHaveLength(1);
+      expect(target.querySelectorAll('.test-properties')).toHaveLength(1);
+      const propertiesHost =
+        layout === 'overlay-dashboard'
+          ? '.gis-ui-overlay--drawer'
+          : layout === 'docked-dashboard'
+            ? '.gis-ui-right-region'
+            : '.test-right-slot';
+      expect(target.querySelector(`${propertiesHost} .test-properties`)).toBeTruthy();
+      expect(map.target).toBe(target.querySelector('.gis-ui-map-viewport'));
+    } finally {
+      await app.dispose();
+      target.remove();
+    }
+    expect(map.target).toBeUndefined();
+  }
+);
 
 it('reserves configured side widths, normalizes numeric heights and responds to visibility/theme changes', async () => {
   const app = createGISApp();

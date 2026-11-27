@@ -711,6 +711,10 @@ const olMap = useOLMap(app)
 -   向 UI 提供稳定的图层描述和变更事件。
 
 LayerService 不负责绘制图例，也不负责实现图层树 UI。
+内部 LayerTree 维护图层身份与父子关系，Group 无引擎句柄。
+`getTree()` 提供不可变的绘制顺序视图，`getChildren()` 与 `getLeaves()`
+提供分组查询。创建事务在第一个工厂执行前预留整个分支的 ID。
+显式排序先提交引擎，失败时尝试恢复旧顺序和受影响叶子的 zIndex。
 
 ### 10.2 公共接口
 
@@ -742,11 +746,18 @@ Promise 表示"实例已创建并加入运行时"，数据是否全部加载完�
 释放 Handle，回滚错误通过 `cleanupErrors` 返回，原始错误保留在 `cause`。
 
 Handle 可实现同步 `commitUpdate`，一次写入 patch 中的引擎属性，失败时恢复旧值。
+实例入口将写操作交给 LayerOperations。分组更新先计划显隐与排序，再执行引擎写入，
+失败时按逆序补偿。旧异步 update 执行期间，同一引擎层的同步写入返回 busy。
+句柄通过类型化 capability 组提供可选能力，Core 在边界兼容旧式平铺方法。
+插件可通过 `defineLayerType` 绑定同步配置预检与图层工厂，创建前校验完整输入分支。
 Core 在其成功返回后才提交元数据和版本。旧的异步 `update` 钩子仍可用，
 该路径由 Core 在钩子完成后调用显隐和 zIndex setter。
 
 实例和 LayerService 的显隐、更新入口共享提交后的通知。含 `visible` 的 patch
 发布显隐事件，分组级联完成后才发布其中各节点的事件。
+
+Vue 图例编辑绑定打开时的 LayerInstance，通过实例的 `update` 提交
+`expectedVersion`。图层移除会使旧实例失效，同 ID 的新实例需重新打开编辑。
 
 初始图层和动态新增复用公共字段校验。动态新增在调用异步工厂前冻结 JSON 配置
 快照，包含子层、样式及内联数据。图层工厂负责解释各自的数据源字段。
@@ -1082,6 +1093,9 @@ Core 只知道 UI Adapter 的接口，不 import Vue。Adapter 的插件 `instal
 生命周期适配器，因此 `UIAdapter` 本身没有重复的 `install(context)` 方法。
 
 ### 14.2 面板元数据契约
+
+Core 的 `PanelPosition` 保留五种配置区域。Vue UI 根据面板定义校验允许的位置，
+并在布局内分配工具栏、状态栏和抽屉宿主。标题栏交互与组件保活由 Vue UI 定义。
 
 Core 只定义跨 UI 实现的面板元数据，不定义组件、组件 props、注册表、渲染或布局
 实现。面板组件注册、Panel Registry、面板状态和布局均由 Vue UI 包负责。
